@@ -1,4 +1,10 @@
 import mongoose from 'mongoose';
+import dns from 'dns';
+
+// Node's resolver can fall back to an unreachable 127.0.0.1 on machines with
+// misconfigured/virtual network adapters (VPN, Hyper-V, WSL), breaking the
+// SRV lookups mongodb+srv:// URIs need. Force known-good public DNS servers.
+dns.setServers(['8.8.8.8', '1.1.1.1']);
 
 const connectDB = async () => {
   try {
