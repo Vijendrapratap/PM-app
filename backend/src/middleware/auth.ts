@@ -1,25 +1,17 @@
-import { Request, Response, NextFunction } from 'express';
-import jwt from 'jsonwebtoken';
+import { NextFunction, Request, Response } from 'express';
+import { verifyToken } from '../utils/jwt';
 
-export interface AuthRequest extends Request {
-  user?: any;
-}
-
-export const protect = async (req: AuthRequest, res: Response, next: NextFunction) => {
-  let token;
-
-  if (req.headers.authorization && req.headers.authorization.startsWith('Bearer')) {
-    try {
-      token = req.headers.authorization.split(' ')[1];
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret');
-      req.user = decoded;
-      next();
-    } catch (error) {
-      res.status(401).json({ message: 'Not authorized, token failed' });
-    }
+export const protect = (req: Request, res: Response, next: NextFunction): void => {
+  const header = req.headers.authorization;
+  if (!header || !header.startsWith('Bearer ')) {
+    res.status(401).json({ message: 'Not authorized, no token' });
+    return;
   }
 
-  if (!token) {
-    res.status(401).json({ message: 'Not authorized, no token' });
+  try {
+    req.user = verifyToken(header.split(' ')[1]);
+    next();
+  } catch {
+    res.status(401).json({ message: 'Not authorized, token failed' });
   }
 };

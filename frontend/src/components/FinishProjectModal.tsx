@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { X, AlertTriangle, CheckCircle2, XCircle } from 'lucide-react';
-import api from '../api';
+import type { AxiosError } from 'axios';
+import { projectApi } from '../api/projectApi';
+import type { Project } from '../types';
 
 type Step = 1 | 2 | 3;
 
@@ -9,7 +11,7 @@ const FinishProjectModal = ({
   onClose,
   onSuccess,
 }: {
-  project: any;
+  project: Project;
   onClose: () => void;
   onSuccess: () => void;
 }) => {
@@ -22,16 +24,12 @@ const FinishProjectModal = ({
     setLoading(true);
     setErrors([]);
     try {
-      await api.post(`/projects/${project._id}/validate-completion`);
+      await projectApi.validateCompletion(project._id);
       setStep(3);
-    } catch (err: any) {
-      if (err.response?.data?.errors) {
-        setErrors(err.response.data.errors);
-        setStep(2);
-      } else {
-        setErrors(['An unexpected error occurred. Please try again.']);
-        setStep(2);
-      }
+    } catch (err) {
+      const responseErrors = (err as AxiosError<{ errors?: string[] }>).response?.data?.errors;
+      setErrors(responseErrors ?? ['An unexpected error occurred. Please try again.']);
+      setStep(2);
     } finally {
       setLoading(false);
     }
@@ -40,7 +38,7 @@ const FinishProjectModal = ({
   const handleFinish = async () => {
     setLoading(true);
     try {
-      await api.post(`/projects/${project._id}/finish`, finalData);
+      await projectApi.finish(project._id, finalData);
       onSuccess();
     } catch {
       alert('Failed to finish project. Please try again.');

@@ -1,6 +1,6 @@
 import { useState, useRef } from 'react';
 import { X, UploadCloud, Paperclip } from 'lucide-react';
-import api from '../api';
+import { projectApi } from '../api/projectApi';
 
 const ALLOWED = '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.rar,.png,.jpg,.jpeg,.svg,.txt';
 
@@ -29,9 +29,7 @@ const AddUpdateModal = ({ projectId, onClose, onSuccess }: { projectId: string; 
     Object.entries(form).forEach(([k, v]) => data.append(k, String(v)));
     files.forEach(f => data.append('documents', f));
     try {
-      await api.post(`/projects/${projectId}/updates`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await projectApi.addUpdate(projectId, data);
       onSuccess();
       onClose();
     } catch {

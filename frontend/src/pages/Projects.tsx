@@ -1,29 +1,15 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Plus, Search, FolderKanban, Calendar, Users } from 'lucide-react';
 import CreateProjectModal from '../components/CreateProjectModal';
-import api from '../api';
+import { useProjects } from '../hooks/useProjects';
 
 const Projects = () => {
-  const [projects, setProjects] = useState<any[]>([]);
+  const { projects: allProjects, loading, refetch } = useProjects();
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
 
-  useEffect(() => { fetchProjects(); }, []);
-
-  const fetchProjects = async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/projects');
-      const active = data.filter((p: any) => p.status !== 'Completed');
-      setProjects(active);
-    } catch (error) {
-      console.error('Failed to fetch projects', error);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const projects = allProjects.filter((p) => p.status !== 'Completed');
 
   const filtered = projects.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
@@ -118,7 +104,7 @@ const Projects = () => {
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-5">
-          {filtered.map((project: any) => (
+          {filtered.map((project) => (
             <Link to={`/projects/${project._id}`} key={project._id} className="project-card">
               {/* Priority stripe */}
               <div style={{
@@ -160,7 +146,7 @@ const Projects = () => {
                 {(project.estimatedCompletionDate || project.deadline) && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                     <Calendar size={13} />
-                    <span>{new Date(project.estimatedCompletionDate || project.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    <span>{new Date(project.estimatedCompletionDate || project.deadline || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                   </div>
                 )}
               </div>
@@ -172,7 +158,7 @@ const Projects = () => {
       {isModalOpen && (
         <CreateProjectModal
           onClose={() => setIsModalOpen(false)}
-          onSuccess={fetchProjects}
+          onSuccess={refetch}
         />
       )}
     </div>

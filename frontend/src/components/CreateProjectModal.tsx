@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, UploadCloud, Paperclip, Search, Users } from 'lucide-react';
-import api from '../api';
+import { userApi } from '../api/userApi';
+import { projectApi } from '../api/projectApi';
+import { getErrorMessage } from '../utils/errorMessage';
+import type { User } from '../types';
 
 const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) => {
   const [form, setForm] = useState({
@@ -14,7 +17,7 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
     budget: '',
     tags: '',
   });
-  const [teamMembers, setTeamMembers] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
   const [files, setFiles] = useState<File[]>([]);
@@ -26,8 +29,7 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
     const fetchMembers = async () => {
       try {
         setLoadingMembers(true);
-        const { data } = await api.get('/users');
-        setTeamMembers(data);
+        setTeamMembers(await userApi.list());
       } catch (error) {
         console.error('Failed to fetch members', error);
       } finally {
@@ -49,11 +51,11 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
     data.append('tags', JSON.stringify(tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []));
     files.forEach(f => data.append('documents', f));
     try {
-      await api.post('/projects', data, { headers: { 'Content-Type': 'multipart/form-data' } });
+      await projectApi.create(data);
       onSuccess();
       onClose();
-    } catch (err: any) {
-      alert(err.response?.data?.message ?? 'Failed to create project.');
+    } catch (err) {
+      alert(getErrorMessage(err, 'Failed to create project.'));
     } finally {
       setLoading(false);
     }

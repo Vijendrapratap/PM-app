@@ -1,37 +1,25 @@
 import multer from 'multer';
 import path from 'path';
 
-// Set storage engine
-const storage = multer.diskStorage({
-  destination: function (req, file, cb) {
-    cb(null, path.join(__dirname, '../../uploads/')); // Ensure this directory exists
-  },
-  filename: function (req, file, cb) {
-    cb(null, file.fieldname + '-' + Date.now() + path.extname(file.originalname));
-  }
-});
+// Vercel serverless functions have no writable shared disk, so files are buffered
+// in memory here and then pushed to Supabase Storage by the service layer.
+const storage = multer.memoryStorage();
 
-// Check File Type
-function checkFileType(file: Express.Multer.File, cb: multer.FileFilterCallback) {
-  // Allowed ext
-  const filetypes = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|jpg|jpeg|png|gif|txt/;
-  // Check ext
-  const extname = filetypes.test(path.extname(file.originalname).toLowerCase());
-  // Check mime
-  const mimetype = filetypes.test(file.mimetype);
+const ALLOWED_EXTENSIONS = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|jpg|jpeg|png|gif|txt/;
 
-  if (mimetype && extname) {
-    return cb(null, true);
+const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
+  const extname = ALLOWED_EXTENSIONS.test(path.extname(file.originalname).toLowerCase());
+  const mimetype = ALLOWED_EXTENSIONS.test(file.mimetype);
+
+  if (extname && mimetype) {
+    cb(null, true);
   } else {
-    cb(new Error('Error: Invalid file type!'));
+    cb(new Error('Invalid file type'));
   }
-}
+};
 
-// Init Upload
 export const upload = multer({
-  storage: storage,
-  limits: { fileSize: 10000000 }, // 10MB limit
-  fileFilter: function (req, file, cb) {
-    checkFileType(file, cb);
-  }
+  storage,
+  limits: { fileSize: 10 * 1024 * 1024 },
+  fileFilter,
 });

@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderKanban, CheckCircle2, Users, Layers,
   ArrowUpRight, TrendingUp, Clock, Zap
 } from 'lucide-react';
-import api from '../api';
+import { projectApi } from '../api/projectApi';
+import { userApi } from '../api/userApi';
+import type { Project } from '../types';
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -14,23 +16,19 @@ const Dashboard = () => {
     totalMembers: 0,
     draftProjects: 0,
   });
-  const [recentProjects, setRecentProjects] = useState<any[]>([]);
+  const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [projectsRes, usersRes] = await Promise.all([
-          api.get('/projects'),
-          api.get('/users'),
-        ]);
-        const projects = projectsRes.data;
+        const [projects, users] = await Promise.all([projectApi.list(), userApi.list()]);
         setStats({
           totalProjects: projects.length,
-          completedProjects: projects.filter((p: any) => p.status === 'Completed').length,
-          activeProjects: projects.filter((p: any) => p.status !== 'Completed' && p.status !== 'Draft').length,
-          draftProjects: projects.filter((p: any) => p.status === 'Draft').length,
-          totalMembers: usersRes.data.length,
+          completedProjects: projects.filter((p) => p.status === 'Completed').length,
+          activeProjects: projects.filter((p) => p.status !== 'Completed' && p.status !== 'Draft').length,
+          draftProjects: projects.filter((p) => p.status === 'Draft').length,
+          totalMembers: users.length,
         });
         setRecentProjects(projects.slice(0, 5));
       } catch (error) {
@@ -171,7 +169,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentProjects.map((project: any) => (
+                  {recentProjects.map((project) => (
                     <tr key={project._id} onClick={() => window.location.href = `/projects/${project._id}`}>
                       <td>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem' }}>{project.name}</div>
@@ -190,7 +188,7 @@ const Dashboard = () => {
                       </td>
                       <td>
                         <div style={{ display: 'flex', gap: '-4px' }}>
-                          {(project.assignedMembers || []).slice(0, 3).map((m: any, i: number) => (
+                          {(project.assignedMembers || []).slice(0, 3).map((m, i) => (
                             <div key={i} className="avatar" style={{ width: '26px', height: '26px', fontSize: '0.625rem', border: '2px solid var(--surface-1)', marginLeft: i > 0 ? '-8px' : 0 }}>
                               {m.name?.charAt(0) ?? '?'}
                             </div>

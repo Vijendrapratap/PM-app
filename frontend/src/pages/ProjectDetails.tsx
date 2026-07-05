@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Clock, Paperclip, CheckCircle2, Plus,
@@ -6,7 +6,9 @@ import {
 } from 'lucide-react';
 import AddUpdateModal from '../components/AddUpdateModal';
 import FinishProjectModal from '../components/FinishProjectModal';
-import api from '../api';
+import { useProjectDetails } from '../hooks/useProjectDetails';
+import { projectApi } from '../api/projectApi';
+import { getErrorMessage } from '../utils/errorMessage';
 
 const STATUSES = ['Planning', 'In Progress', 'Review', 'Testing', 'Blocked', 'On Hold'];
 
@@ -25,13 +27,9 @@ const getStatusBadge = (status: string) => {
 };
 
 const ProjectDetails = () => {
-  const backendOrigin = (import.meta.env.VITE_API_URL || 'http://localhost:5000/api').replace(/\/api\/?$/, '');
   const { id } = useParams();
   const navigate = useNavigate();
-  const [project, setProject] = useState<any>(null);
-  const [updates, setUpdates] = useState<any[]>([]);
-  const [dailyReports, setDailyReports] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { project, updates, dailyReports, loading, refetch } = useProjectDetails(id);
   const [isAddUpdateOpen, setIsAddUpdateOpen] = useState(false);
   const [isFinishOpen, setIsFinishOpen] = useState(false);
   const [reportDrafts, setReportDrafts] = useState<Record<string, { description: string; files: File[] }>>({});
@@ -45,33 +43,13 @@ const ProjectDetails = () => {
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const fetchData = async () => {
-    try {
-      const [pRes, uRes] = await Promise.all([
-        api.get(`/projects/${id}`),
-        api.get(`/projects/${id}/updates`),
-      ]);
-      setProject(pRes.data);
-      setUpdates(uRes.data);
-      setQuickStatus(pRes.data.status !== 'Completed' ? pRes.data.status : 'In Progress');
-      const dates = buildProjectDates(pRes.data);
-      setSelectedDate(prev => prev && dates.includes(prev) ? prev : dates[0] ?? '');
-
-      try {
-        const rRes = await api.get(`/projects/${id}/daily-reports`);
-        setDailyReports(rRes.data);
-      } catch (reportError) {
-        console.warn('Daily reports unavailable yet', reportError);
-        setDailyReports([]);
-      }
-    } catch (err) {
-      console.error(err);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { if (id) fetchData(); }, [id]);
+  useEffect(() => {
+    if (!project) return;
+    setQuickStatus(project.status !== 'Completed' ? project.status : 'In Progress');
+    const dates = buildProjectDates(project);
+    setSelectedDate(prev => (prev && dates.includes(prev) ? prev : dates[0] ?? ''));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [project]);
 
   const formatDateKey = (date: Date) => {
     const year = date.getFullYear();
@@ -104,7 +82,7 @@ const ProjectDetails = () => {
 
   const getProjectDates = () => buildProjectDates();
 
-  const groupedReports = dailyReports.reduce((acc: Record<string, any[]>, report: any) => {
+  const groupedReports = dailyReports.reduce((acc: Record<string, typeof dailyReports>, report) => {
     const key = formatDateKey(new Date(report.workDate || report.reportDate));
     if (!acc[key]) acc[key] = [];
     acc[key].push(report);
@@ -145,9 +123,7 @@ const ProjectDetails = () => {
         data.append('documents', draft.files[0]);
       }
 
-      await api.post(`/projects/${id}/daily-reports`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await projectApi.saveDailyReport(id, data);
 
       setReportDrafts(prev => {
         const next = { ...prev };
@@ -155,21 +131,16 @@ const ProjectDetails = () => {
         return next;
       });
 
-      fetchData();
+      refetch();
     } catch (err) {
       console.error('Failed to save daily report', err);
-      alert('Failed to save daily report. Please try again.');
+      alert(getErrorMessage(err, 'Failed to save daily report. Please try again.'));
     }
-  };
-
-  const normalizeDownloadUrl = (url: string) => {
-    const normalizedPath = url.replace(/\\/g, '/').replace(/^\/+/, '');
-    return `${backendOrigin}/${normalizedPath}`;
   };
 
   const handleQuickSave = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!quickReport.trim()) return;
+    if (!quickReport.trim() || !id) return;
     setSaving(true);
     try {
       const data = new FormData();
@@ -181,17 +152,15 @@ const ProjectDetails = () => {
       if (quickLink.trim()) {
         data.append('links', JSON.stringify([{ label: 'Reference', url: quickLink }]));
       }
-      await api.post(`/projects/${id}/updates`, data, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      await projectApi.addUpdate(id, data);
       setQuickReport('');
       setQuickLink('');
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-      fetchData();
+      refetch();
     } catch (err) {
       console.error('Failed to save update', err);
-      alert('Failed to save update. Please try again.');
+      alert(getErrorMessage(err, 'Failed to save update. Please try again.'));
     } finally {
       setSaving(false);
     }
@@ -374,7 +343,7 @@ const ProjectDetails = () => {
                       {getProjectDates().map(dateKey => {
                         const dateLabel = new Date(`${dateKey}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                         const reportsForDate = groupedReports[dateKey] ?? [];
-                        const completeCount = project.assignedMembers.filter((member: any) => reportsForDate.some((report: any) => report.teamMemberId === member._id || report.member?._id === member._id)).length;
+                        const completeCount = project.assignedMembers.filter((member) => reportsForDate.some((report) => report.teamMemberId === member._id || report.member?._id === member._id)).length;
                         const active = selectedDate === dateKey;
 
                         return (
@@ -417,9 +386,9 @@ const ProjectDetails = () => {
                     </div>
 
                     <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                      {selectedDate && project.assignedMembers.map((member: any) => {
+                      {selectedDate && project.assignedMembers.map((member) => {
                         const key = `${selectedDate}-${member._id}`;
-                        const existingReport = currentDateReports.find((report: any) => report.teamMemberId === member._id || report.member?._id === member._id);
+                        const existingReport = currentDateReports.find((report) => report.teamMemberId === member._id || report.member?._id === member._id);
                         const draft = reportDrafts[key] ?? {
                           description: existingReport?.description ?? '',
                           files: [],
@@ -463,18 +432,18 @@ const ProjectDetails = () => {
                             {existingReport?.documentUrl && (
                               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
                                 <Download size={13} />
-                                <a href={normalizeDownloadUrl(existingReport.documentUrl)} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>
+                                <a href={existingReport.documentUrl} target="_blank" rel="noreferrer" style={{ color: 'var(--accent-blue)', textDecoration: 'none' }}>
                                   Download attached document
                                 </a>
                               </div>
                             )}
 
-                            {existingReport?.documents?.length > 0 && !existingReport.documentUrl && (
+                            {existingReport && existingReport.documents?.length > 0 && !existingReport.documentUrl && (
                               <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', marginBottom: '0.75rem' }}>
-                                {existingReport.documents.map((doc: any, index: number) => (
+                                {existingReport.documents.map((doc, index) => (
                                   <a
                                     key={index}
-                                    href={normalizeDownloadUrl(doc.path)}
+                                    href={doc.url}
                                     target="_blank"
                                     rel="noreferrer"
                                     style={{ fontSize: '0.72rem', color: 'var(--accent-blue)', background: 'var(--surface-2)', borderRadius: 'var(--radius-full)', padding: '0.25rem 0.55rem', textDecoration: 'none' }}
@@ -523,7 +492,7 @@ const ProjectDetails = () => {
                 </div>
               ) : (
                 <div className="timeline">
-                  {[...updates].reverse().map((update: any, idx: number) => (
+                  {[...updates].reverse().map((update, idx) => (
                     <div key={update._id} className="timeline-item">
                       <div className={`timeline-dot ${idx === 0 ? '' : 'muted'}`}></div>
                       <div className="timeline-card">
@@ -541,7 +510,7 @@ const ProjectDetails = () => {
                         )}
                         {update.links?.length > 0 && (
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.75rem' }}>
-                            {update.links.map((link: any, i: number) => (
+                            {update.links.map((link, i) => (
                               <a
                                 key={i}
                                 href={link.url}
@@ -567,20 +536,27 @@ const ProjectDetails = () => {
                         )}
                         {update.documents?.length > 0 && (
                           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.625rem' }}>
-                            {update.documents.map((doc: any, i: number) => (
-                              <div key={i} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '0.25rem',
-                                fontSize: '0.75rem',
-                                color: 'var(--text-muted)',
-                                background: 'var(--surface-3)',
-                                padding: '0.25rem 0.625rem',
-                                borderRadius: 'var(--radius-full)',
-                              }}>
+                            {update.documents.map((doc, i) => (
+                              <a
+                                key={i}
+                                href={doc.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                style={{
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  gap: '0.25rem',
+                                  fontSize: '0.75rem',
+                                  color: 'var(--text-muted)',
+                                  background: 'var(--surface-3)',
+                                  padding: '0.25rem 0.625rem',
+                                  borderRadius: 'var(--radius-full)',
+                                  textDecoration: 'none',
+                                }}
+                              >
                                 <Paperclip size={11} />
                                 {doc.name}
-                              </div>
+                              </a>
                             ))}
                           </div>
                         )}
@@ -632,7 +608,7 @@ const ProjectDetails = () => {
               {[
                 { label: 'Current Status', value: project.status, color: project.status === 'Completed' ? 'var(--success)' : 'var(--accent-blue)' },
                 { label: 'Start Date', value: project.startDate ? new Date(project.startDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A', color: null },
-                { label: 'Expected Completion', value: project.estimatedCompletionDate || project.deadline ? new Date(project.estimatedCompletionDate || project.deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A', color: null },
+                { label: 'Expected Completion', value: project.estimatedCompletionDate || project.deadline ? new Date(project.estimatedCompletionDate || project.deadline || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'N/A', color: null },
                 { label: 'Priority', value: project.priority, color: project.priority === 'Critical' ? 'var(--danger)' : project.priority === 'High' ? 'var(--priority-high)' : project.priority === 'Medium' ? 'var(--warning)' : 'var(--success)' },
                 { label: 'Department', value: project.department || 'General', color: null },
                 { label: 'Category', value: project.category || 'Uncategorized', color: null },
@@ -686,7 +662,7 @@ const ProjectDetails = () => {
                 </p>
               ) : (
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                  {project.assignedMembers.map((m: any, i: number) => (
+                  {project.assignedMembers.map((m, i) => (
                     <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '0.625rem', padding: '0.5rem', borderRadius: 'var(--radius-sm)', transition: 'background 0.15s' }}>
                       <div className="avatar" style={{ width: '32px', height: '32px', fontSize: '0.75rem', flexShrink: 0 }}>
                         {m.name?.charAt(0) ?? '?'}
@@ -714,20 +690,27 @@ const ProjectDetails = () => {
                 </div>
               </div>
               <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-                {project.documents.map((doc: any, i: number) => (
-                  <div key={i} style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '0.5rem',
-                    padding: '0.5rem 0.625rem',
-                    background: 'var(--surface-2)',
-                    borderRadius: 'var(--radius-sm)',
-                    fontSize: '0.8125rem',
-                    color: 'var(--text-secondary)',
-                  }}>
+                {project.documents.map((doc, i) => (
+                  <a
+                    key={i}
+                    href={doc.url}
+                    target="_blank"
+                    rel="noreferrer"
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '0.5rem',
+                      padding: '0.5rem 0.625rem',
+                      background: 'var(--surface-2)',
+                      borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.8125rem',
+                      color: 'var(--text-secondary)',
+                      textDecoration: 'none',
+                    }}
+                  >
                     <Paperclip size={13} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
                     <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{doc.name}</span>
-                  </div>
+                  </a>
                 ))}
               </div>
             </div>
@@ -760,7 +743,7 @@ const ProjectDetails = () => {
         <AddUpdateModal
           projectId={project._id}
           onClose={() => setIsAddUpdateOpen(false)}
-          onSuccess={fetchData}
+          onSuccess={refetch}
         />
       )}
       {isFinishOpen && (

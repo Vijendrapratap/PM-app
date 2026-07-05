@@ -1,9 +1,14 @@
 import axios from 'axios';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
+const resolveApiUrl = (): string => {
+  const configured = import.meta.env.VITE_API_URL;
+  if (configured) return configured;
+  if (import.meta.env.DEV) return 'http://localhost:5000/api';
+  throw new Error('VITE_API_URL must be set in production builds');
+};
 
 const api = axios.create({
-  baseURL: API_URL,
+  baseURL: resolveApiUrl(),
 });
 
 // Intercept requests to add auth token

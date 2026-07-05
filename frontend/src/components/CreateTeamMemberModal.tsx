@@ -1,6 +1,9 @@
 import { useEffect, useState } from 'react';
 import { X, Shield } from 'lucide-react';
-import api from '../api';
+import { userApi } from '../api/userApi';
+import { authApi } from '../api/authApi';
+import { getErrorMessage } from '../utils/errorMessage';
+import type { User } from '../types';
 
 const ROLE_OPTIONS = [
   'Project Manager',
@@ -20,7 +23,7 @@ const CreateTeamMemberModal = ({
 }: {
   onClose: () => void;
   onSuccess: () => void;
-  member?: any;
+  member?: User | null;
 }) => {
   const isEdit = Boolean(member);
   const [form, setForm] = useState({
@@ -60,14 +63,14 @@ const CreateTeamMemberModal = ({
       };
 
       if (isEdit && member?._id) {
-        await api.put(`/users/${member._id}`, payload);
+        await userApi.update(member._id, payload);
       } else {
-        await api.post('/auth/register', payload);
+        await authApi.register(payload);
       }
       onSuccess();
       onClose();
-    } catch (err: any) {
-      alert(err.response?.data?.message ?? `Failed to ${isEdit ? 'update' : 'add'} team member.`);
+    } catch (err) {
+      alert(getErrorMessage(err, `Failed to ${isEdit ? 'update' : 'add'} team member.`));
     } finally {
       setLoading(false);
     }

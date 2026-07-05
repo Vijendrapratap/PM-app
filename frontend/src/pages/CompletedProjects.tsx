@@ -1,27 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { CheckCircle2, Calendar, Search, Clock, Users } from 'lucide-react';
-import api from '../api';
+import { useProjects } from '../hooks/useProjects';
 
 const CompletedProjects = () => {
-  const [projects, setProjects] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { projects: allProjects, loading } = useProjects();
   const [search, setSearch] = useState('');
 
-  useEffect(() => {
-    const fetchCompleted = async () => {
-      try {
-        const { data } = await api.get('/projects');
-        const completed = data.filter((p: any) => p.status === 'Completed');
-        setProjects(completed);
-      } catch (error) {
-        console.error('Failed to fetch completed projects', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchCompleted();
-  }, []);
+  const projects = allProjects.filter((p) => p.status === 'Completed');
 
   const filtered = projects.filter(p =>
     p.name.toLowerCase().includes(search.toLowerCase())
@@ -71,7 +57,7 @@ const CompletedProjects = () => {
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
-          {filtered.map((project: any) => (
+          {filtered.map((project) => (
             <Link
               to={`/projects/${project._id}`}
               key={project._id}

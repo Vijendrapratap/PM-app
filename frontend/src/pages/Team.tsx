@@ -1,7 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Search, Plus, Users, Pencil, UserX, Phone } from 'lucide-react';
 import CreateTeamMemberModal from '../components/CreateTeamMemberModal';
-import api from '../api';
+import { useTeam } from '../hooks/useTeam';
+import { userApi } from '../api/userApi';
+import type { User } from '../types';
 
 const getRoleColor = (role: string) => {
   const map: Record<string, string> = {
@@ -26,25 +28,10 @@ const AVATAR_COLORS = [
 ];
 
 const Team = () => {
-  const [members, setMembers] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { members, loading, refetch } = useTeam();
   const [search, setSearch] = useState('');
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [editingMember, setEditingMember] = useState<any | null>(null);
-
-  const fetchTeam = async () => {
-    try {
-      setLoading(true);
-      const { data } = await api.get('/users');
-      setMembers(data);
-    } catch {
-      console.error('Failed to fetch team');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => { fetchTeam(); }, []);
+  const [editingMember, setEditingMember] = useState<User | null>(null);
 
   const filtered = members.filter(m =>
     m.name?.toLowerCase().includes(search.toLowerCase()) ||
@@ -53,13 +40,13 @@ const Team = () => {
     m.phone?.toLowerCase().includes(search.toLowerCase())
   );
 
-  const handleDeactivate = async (member: any) => {
+  const handleDeactivate = async (member: User) => {
     const confirmed = window.confirm(`Deactivate ${member.name}?`);
     if (!confirmed) return;
 
     try {
-      await api.post(`/users/${member._id}/deactivate`);
-      fetchTeam();
+      await userApi.deactivate(member._id);
+      refetch();
     } catch (error) {
       console.error('Failed to deactivate member', error);
     }
@@ -112,7 +99,7 @@ const Team = () => {
         </div>
       ) : (
         <div className="grid grid-cols-3 gap-5">
-          {filtered.map((member: any, idx: number) => (
+          {filtered.map((member, idx) => (
             <div key={member._id} style={{
               background: 'var(--surface-1)',
               border: '1px solid var(--border-subtle)',
@@ -161,7 +148,7 @@ const Team = () => {
 
               {member.skills?.length > 0 && (
                 <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap', marginTop: '1rem', paddingTop: '1rem', borderTop: '1px solid var(--border-subtle)' }}>
-                  {member.skills.slice(0, 3).map((skill: string, i: number) => (
+                  {member.skills.slice(0, 3).map((skill, i) => (
                     <span key={i} style={{ fontSize: '0.7rem', fontWeight: 500, background: 'rgba(59,130,246,0.08)', color: 'var(--accent-blue)', borderRadius: 'var(--radius-full)', padding: '0.2rem 0.5rem' }}>
                       {skill}
                     </span>
@@ -189,8 +176,8 @@ const Team = () => {
 
       {isModalOpen && (
         <CreateTeamMemberModal
-          onClose={() => setIsModalOpen(false)}
-          onSuccess={fetchTeam}
+          onClose={() => { setIsModalOpen(false); setEditingMember(null); }}
+          onSuccess={refetch}
           member={editingMember}
         />
       )}
