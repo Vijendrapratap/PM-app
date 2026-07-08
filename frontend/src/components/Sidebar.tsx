@@ -1,5 +1,5 @@
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Zap, Settings } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Zap } from 'lucide-react';
 
 const Sidebar = () => {
   return (
@@ -41,12 +41,6 @@ const Sidebar = () => {
           <span>Team Members</span>
         </NavLink>
 
-        <div className="sidebar-section-label">Manage</div>
-
-        <NavLink to="/manage" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Settings className="nav-link-icon" size={18} />
-          <span>Manage</span>
-        </NavLink>
       </nav>
 
       {/* Footer */}

@@ -25,6 +25,7 @@ app.use(cors({ origin: env.frontendUrl }));
 app.use(express.json());
 app.use(apiRateLimiter);
 
+app.get('/', (_req, res) => res.json({ status: 'ok', message: 'API is running' }));
 app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
 
 app.use('/api/auth', authRoutes);

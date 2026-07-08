@@ -1,4 +1,4 @@
-import api from './index';
+import api, { expectArray } from './index';
 import type { User } from '../types';
 
 export interface UpsertUserPayload {
@@ -13,7 +13,7 @@ export interface UpsertUserPayload {
 }
 
 export const userApi = {
-  list: () => api.get<User[]>('/users').then((res) => res.data),
+  list: () => api.get<User[]>('/users').then((res) => expectArray<User>(res.data)),
 
   update: (id: string, data: UpsertUserPayload) => api.put<User>(`/users/${id}`, data).then((res) => res.data),
 

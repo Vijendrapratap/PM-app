@@ -1,8 +1,8 @@
-import api from './index';
+import api, { expectArray } from './index';
 import type { DailyReport, Project, ProjectUpdate } from '../types';
 
 export const projectApi = {
-  list: () => api.get<Project[]>('/projects').then((res) => res.data),
+  list: () => api.get<Project[]>('/projects').then((res) => expectArray<Project>(res.data)),
 
   getById: (id: string) => api.get<Project>(`/projects/${id}`).then((res) => res.data),
 
@@ -10,7 +10,7 @@ export const projectApi = {
     api.post<Project>('/projects', data, { headers: { 'Content-Type': 'multipart/form-data' } }).then((res) => res.data),
 
   getUpdates: (projectId: string) =>
-    api.get<ProjectUpdate[]>(`/projects/${projectId}/updates`).then((res) => res.data),
+    api.get<ProjectUpdate[]>(`/projects/${projectId}/updates`).then((res) => expectArray<ProjectUpdate>(res.data)),
 
   addUpdate: (projectId: string, data: FormData) =>
     api
@@ -20,7 +20,7 @@ export const projectApi = {
       .then((res) => res.data),
 
   getDailyReports: (projectId: string) =>
-    api.get<DailyReport[]>(`/projects/${projectId}/daily-reports`).then((res) => res.data),
+    api.get<DailyReport[]>(`/projects/${projectId}/daily-reports`).then((res) => expectArray<DailyReport>(res.data)),
 
   saveDailyReport: (projectId: string, data: FormData) =>
     api
