@@ -6,9 +6,19 @@ import axios from 'axios';
 // on every route with no error boundary able to catch it. Missing
 // VITE_API_URL should degrade to failed API calls (already handled by
 // existing try/catch + loading states), not a dead white screen.
+// This backend always serves its routes under /api (see backend/src/app.ts).
+// Deployers repeatedly set VITE_API_URL to the bare backend origin and forget
+// this suffix (seen across Vercel, Hostinger and Railway deploys of this same
+// app) - every request then 404s against the frontend's own routes instead.
+// Normalizing here removes an entire class of misconfiguration.
+const withApiSuffix = (url: string): string => {
+  const trimmed = url.replace(/\/+$/, '');
+  return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;
+};
+
 const resolveApiUrl = (): string => {
   const configured = import.meta.env.VITE_API_URL;
-  if (configured) return configured;
+  if (configured) return withApiSuffix(configured);
   if (import.meta.env.DEV) return 'http://localhost:5000/api';
   console.error(
     'VITE_API_URL is not set for this production build. Falling back to same-origin "/api" ' +
