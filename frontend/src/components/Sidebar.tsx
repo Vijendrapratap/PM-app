@@ -16,7 +16,7 @@ const Sidebar = () => {
     <aside className="sidebar">
       {/* Logo */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon"><img src="/brand/pratap-ai-mark.png" alt="Pratap AI" /></div>
+        <div className="sidebar-logo-icon"><img src="/favicon.svg" alt="Pratap AI" /></div>
         <div>
           <div className="sidebar-logo-text">PRATAP AI</div>
           <div className="sidebar-logo-sub">Operations Studio</div>

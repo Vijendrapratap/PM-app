@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, Link, useNavigate } from 'react-router-dom';
-import { Zap, UserPlus } from 'lucide-react';
+import { UserPlus } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { authApi } from '../api/authApi';
 import { getErrorMessage } from '../utils/errorMessage';
@@ -59,9 +59,7 @@ const Register = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.75rem' }}>
-          <div className="sidebar-logo-icon">
-            <Zap size={18} />
-          </div>
+          <div className="sidebar-logo-icon"><img src="/favicon.svg" alt="Pratap AI" /></div>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>Pratap AI Innovation</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Project Hub</div>

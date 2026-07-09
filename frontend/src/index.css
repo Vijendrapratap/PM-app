@@ -184,7 +184,7 @@ a:hover { color: var(--accent-cyan); }
   flex-shrink: 0;
 }
 .sidebar .sidebar-logo-icon { background: #0a0a0b; }
-.sidebar-logo-icon img { width: 31px; height: 31px; object-fit: cover; object-position: center; border-radius: 6px; }
+.sidebar-logo-icon img { width: 26px; height: 26px; object-fit: contain; filter: sepia(.75) saturate(.8) hue-rotate(338deg) brightness(1.22); }
 
 .sidebar-logo-text {
   font-family: var(--font-display);
