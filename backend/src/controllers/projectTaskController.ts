@@ -15,6 +15,10 @@ export const getProjectTasks = asyncHandler(async (req: Request, res: Response) 
   res.json(await projectTaskService.listForProject(param(req, 'id')));
 });
 
+export const getMyAssignedTasks = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await projectTaskService.listAssignedToUser(actorOf(req).id));
+});
+
 export const createProjectTask = asyncHandler(async (req: Request, res: Response) => {
   const task = await projectTaskService.create(
     param(req, 'id'),

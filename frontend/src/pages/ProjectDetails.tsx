@@ -2,13 +2,16 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Clock, Paperclip, CheckCircle2, Plus,
-  ExternalLink, Users, Calendar, TrendingUp, Send, ChevronRight, Download
+  ExternalLink, Users, Calendar, TrendingUp, Send, ChevronRight, Download, Lock
 } from 'lucide-react';
 import AddUpdateModal from '../components/AddUpdateModal';
 import FinishProjectModal from '../components/FinishProjectModal';
+import ProjectTaskList from '../components/ProjectTaskList';
 import { useProjectDetails } from '../hooks/useProjectDetails';
 import { projectApi } from '../api/projectApi';
 import { getErrorMessage } from '../utils/errorMessage';
+import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../utils/roles';
 
 const STATUSES = ['Planning', 'In Progress', 'Review', 'Testing', 'Blocked', 'On Hold'];
 
@@ -29,6 +32,7 @@ const getStatusBadge = (status: string) => {
 const ProjectDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { user } = useAuth();
   const { project, updates, dailyReports, loading, refetch } = useProjectDetails(id);
   const [isAddUpdateOpen, setIsAddUpdateOpen] = useState(false);
   const [isFinishOpen, setIsFinishOpen] = useState(false);
@@ -186,6 +190,11 @@ const ProjectDetails = () => {
   );
 
   const isCompleted = project.status === 'Completed';
+  // Every authenticated user can view every project (transparent portal) -
+  // only a Super Admin or an assigned member may edit it. The backend
+  // enforces this too (projectService.assertProjectEditAccess) - this is
+  // just for the UI, never the only gate.
+  const canEdit = isSuperAdmin(user?.role) || project.assignedMembers?.some((m) => m._id === user?._id);
   const currentDateReports = dailyReports.filter(report => formatDateKey(new Date(report.workDate || report.reportDate)) === selectedDate);
 
   return (
@@ -205,7 +214,7 @@ const ProjectDetails = () => {
             </div>
             <p className="page-subtitle">{project.description || 'No description.'}</p>
           </div>
-          {!isCompleted && (
+          {!isCompleted && canEdit && (
             <div style={{ display: 'flex', gap: '0.625rem', flexShrink: 0 }}>
               <button className="btn btn-secondary" onClick={() => setIsAddUpdateOpen(true)}>
                 <Plus size={15} /> Advanced Update
@@ -219,6 +228,12 @@ const ProjectDetails = () => {
             </div>
           )}
         </div>
+        {!isCompleted && !canEdit && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.875rem', background: 'var(--surface-2)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-sm)', padding: '0.625rem 0.875rem', fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
+            <Lock size={14} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
+            You have read-only access. Only assigned members can edit this project.
+          </div>
+        )}
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
@@ -226,7 +241,7 @@ const ProjectDetails = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
 
           {/* Quick Update Form */}
-          {!isCompleted && (
+          {!isCompleted && canEdit && (
             <div className="section-card">
               <div className="section-card-header">
                 <div className="section-card-title">
@@ -414,7 +429,7 @@ const ProjectDetails = () => {
                                 placeholder={`What did ${member.name} complete today?`}
                                 value={draft.description}
                                 onChange={e => updateDraft(key, { description: e.target.value })}
-                                disabled={isCompleted}
+                                disabled={isCompleted || !canEdit}
                               />
                             </div>
 
@@ -425,7 +440,7 @@ const ProjectDetails = () => {
                                 className="form-input"
                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
                                 onChange={e => handleReportFiles(key, e.target.files)}
-                                disabled={isCompleted}
+                                disabled={isCompleted || !canEdit}
                               />
                             </div>
 
@@ -454,13 +469,15 @@ const ProjectDetails = () => {
                               </div>
                             )}
 
-                            {!isCompleted ? (
+                            {!isCompleted && canEdit ? (
                               <button type="button" className="btn btn-primary" style={{ width: '100%' }} onClick={() => saveDailyReport(selectedDate, member._id, existingReport?.description)}>
                                 <Send size={14} />
                                 {existingReport ? 'Update Report' : 'Save Report'}
                               </button>
-                            ) : existingReport ? (
+                            ) : isCompleted && existingReport ? (
                               <div style={{ fontSize: '0.75rem', color: 'var(--success)', fontWeight: 500 }}>Read-only after completion</div>
+                            ) : !canEdit ? (
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Read-only - not an assigned member</div>
                             ) : (
                               <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>No report submitted</div>
                             )}
@@ -718,7 +735,12 @@ const ProjectDetails = () => {
         </div>
       </div>
 
-      {!isCompleted && (
+      {/* Project Tasks */}
+      <div style={{ marginTop: '1.5rem' }}>
+        <ProjectTaskList projectId={project._id} members={project.assignedMembers} canEdit={Boolean(canEdit)} />
+      </div>
+
+      {!isCompleted && canEdit && (
         <div className="section-card" style={{ marginTop: '1.5rem' }}>
           <div className="section-card-header">
             <div className="section-card-title">

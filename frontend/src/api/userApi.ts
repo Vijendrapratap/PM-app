@@ -18,4 +18,10 @@ export const userApi = {
   update: (id: string, data: UpsertUserPayload) => api.put<User>(`/users/${id}`, data).then((res) => res.data),
 
   deactivate: (id: string) => api.post(`/users/${id}/deactivate`),
+
+  activate: (id: string) => api.post(`/users/${id}/activate`),
+
+  remove: (id: string) => api.delete(`/users/${id}`),
+
+  resetPassword: (id: string, password: string) => api.post(`/users/${id}/reset-password`, { password }),
 };

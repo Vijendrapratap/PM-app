@@ -3,28 +3,23 @@ import { X, Shield } from 'lucide-react';
 import { userApi } from '../api/userApi';
 import { authApi } from '../api/authApi';
 import { getErrorMessage } from '../utils/errorMessage';
+import { SUPER_ADMIN_ROLE } from '../utils/roles';
 import type { User } from '../types';
 
-const ROLE_OPTIONS = [
-  'Project Manager',
-  'Software Developer',
-  'UI/UX Designer',
-  'Backend Developer',
-  'Frontend Developer',
-  'QA Tester',
-  'Operations',
-  'Marketing',
-];
+const BASE_ROLE_OPTIONS = ['Team Member', 'Project Manager'];
 
 const CreateTeamMemberModal = ({
   onClose,
   onSuccess,
   member,
+  canAssignSuperAdmin = false,
 }: {
   onClose: () => void;
   onSuccess: () => void;
   member?: User | null;
+  canAssignSuperAdmin?: boolean;
 }) => {
+  const ROLE_OPTIONS = canAssignSuperAdmin ? [...BASE_ROLE_OPTIONS, SUPER_ADMIN_ROLE] : BASE_ROLE_OPTIONS;
   const isEdit = Boolean(member);
   const [form, setForm] = useState({
     name: '',
@@ -51,6 +46,7 @@ const CreateTeamMemberModal = ({
         skills: Array.isArray(member.skills) ? member.skills.join(', ') : '',
       });
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [member]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -109,7 +105,7 @@ const CreateTeamMemberModal = ({
                 <Shield size={13} style={{ color: 'var(--accent-cyan)' }} />
                 Temporary Password {isEdit ? '(leave blank to keep existing)' : '*'}
               </label>
-              <input type="password" className="form-input" required={!isEdit} placeholder="Minimum 8 characters" value={form.password} onChange={set('password')} />
+              <input type="password" className="form-input" required={!isEdit} placeholder="Minimum 6 characters" value={form.password} onChange={set('password')} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">

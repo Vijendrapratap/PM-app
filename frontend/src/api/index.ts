@@ -48,6 +48,20 @@ api.interceptors.request.use(
   (error) => Promise.reject(error)
 );
 
+// A 401 here means the stored token is missing/expired/invalid - AuthContext
+// has no way to observe that from inside a plain axios call, so force back to
+// the login screen instead of leaving pages stuck on a silent failed request.
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error?.response?.status === 401 && window.location.pathname !== '/login') {
+      localStorage.removeItem('token');
+      window.location.href = '/login';
+    }
+    return Promise.reject(error);
+  }
+);
+
 export default api;
 
 // A misconfigured API base URL (e.g. resolving to a host that doesn't route

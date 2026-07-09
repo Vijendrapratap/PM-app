@@ -1,7 +1,17 @@
-import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Zap } from 'lucide-react';
+import { NavLink, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Zap, Megaphone, ListChecks, Lightbulb } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../utils/roles';
 
 const Sidebar = () => {
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSignOut = () => {
+    logout();
+    navigate('/login', { replace: true });
+  };
+
   return (
     <aside className="sidebar">
       {/* Logo */}
@@ -34,6 +44,16 @@ const Sidebar = () => {
           <span>Completed</span>
         </NavLink>
 
+        <NavLink to="/daily-todo" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+          <ListChecks className="nav-link-icon" size={18} />
+          <span>Daily To-Do</span>
+        </NavLink>
+
+        <NavLink to="/ideas" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+          <Lightbulb className="nav-link-icon" size={18} />
+          <span>Ideas</span>
+        </NavLink>
+
         <div className="sidebar-section-label">People</div>
 
         <NavLink to="/team" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
@@ -41,20 +61,27 @@ const Sidebar = () => {
           <span>Team Members</span>
         </NavLink>
 
+        {isSuperAdmin(user?.role) && (
+          <NavLink to="/messages" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
+            <Megaphone className="nav-link-icon" size={18} />
+            <span>Important Messages</span>
+          </NavLink>
+        )}
       </nav>
 
       {/* Footer */}
       <div className="sidebar-footer">
         <div className="sidebar-user">
           <div className="avatar">
-            G
+            {user?.name?.charAt(0)?.toUpperCase() ?? '?'}
           </div>
           <div className="user-info">
-            <div className="user-name">Admin</div>
-            <div className="user-role">Project Manager</div>
+            <div className="user-name">{user?.name ?? 'Loading...'}</div>
+            <div className="user-role">{user?.role ?? ''}</div>
           </div>
         </div>
         <button
+          onClick={handleSignOut}
           className="nav-link"
           style={{ width: '100%', marginTop: '0.25rem', color: 'var(--danger)', background: 'transparent', border: 'none', cursor: 'pointer', fontFamily: 'inherit', fontSize: '0.875rem', fontWeight: 500 }}
         >

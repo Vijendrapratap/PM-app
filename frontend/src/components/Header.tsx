@@ -1,15 +1,21 @@
-import { Search, Bell } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { useLocation } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
+import NotificationBell from './NotificationBell';
 
 const BREADCRUMB_MAP: Record<string, string> = {
   '/': 'Dashboard',
   '/projects': 'Active Projects',
   '/completed': 'Completed Projects',
   '/team': 'Team Members',
+  '/messages': 'Important Messages',
+  '/daily-todo': 'Daily To-Do',
+  '/ideas': 'Ideas',
 };
 
 const Header = () => {
   const location = useLocation();
+  const { user } = useAuth();
   const isProjectDetail = location.pathname.startsWith('/projects/') && location.pathname.length > 10;
   const current = isProjectDetail
     ? 'Project Details'
@@ -33,10 +39,8 @@ const Header = () => {
 
       {/* Actions */}
       <div className="header-actions">
-        <button className="icon-btn">
-          <Bell size={17} />
-        </button>
-        <div className="avatar" style={{ cursor: 'pointer' }}>G</div>
+        <NotificationBell />
+        <div className="avatar" style={{ cursor: 'pointer' }}>{user?.name?.charAt(0)?.toUpperCase() ?? '?'}</div>
       </div>
     </header>
   );

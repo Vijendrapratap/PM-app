@@ -2,11 +2,35 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderKanban, CheckCircle2, Users, Layers,
-  ArrowUpRight, TrendingUp, Clock, Zap
+  ArrowUpRight, TrendingUp, Clock, Zap,
+  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock,
 } from 'lucide-react';
 import { projectApi } from '../api/projectApi';
 import { userApi } from '../api/userApi';
+import { todoApi, type DailyTodo, type Subtask, type TodaysTodo } from '../api/todoApi';
+import { messageApi, type ImportantMessage } from '../api/messageApi';
+import { projectTaskApi, type AssignedProjectTask } from '../api/projectTaskApi';
+import { activityApi, type ActivityEntry } from '../api/activityApi';
 import type { Project } from '../types';
+
+const PRIORITY_BADGE: Record<string, string> = {
+  Low: 'badge-neutral',
+  Medium: 'badge-info',
+  High: 'badge-warning',
+  Critical: 'badge-danger',
+};
+
+const daysAgo = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() - n);
+  return d;
+};
+
+const daysFromNow = (n: number) => {
+  const d = new Date();
+  d.setDate(d.getDate() + n);
+  return d.toISOString().slice(0, 10);
+};
 
 const Dashboard = () => {
   const [stats, setStats] = useState({
@@ -18,6 +42,15 @@ const Dashboard = () => {
   });
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(true);
+
+  const [todaysTodo, setTodaysTodo] = useState<TodaysTodo>({ todos: [], subtasks: [] });
+  const [assignedSubtasks, setAssignedSubtasks] = useState<Subtask[]>([]);
+  const [pinnedMessages, setPinnedMessages] = useState<ImportantMessage[]>([]);
+  const [overdueTodos, setOverdueTodos] = useState<DailyTodo[]>([]);
+  const [recentlyCompleted, setRecentlyCompleted] = useState<DailyTodo[]>([]);
+  const [assignedProjectTasks, setAssignedProjectTasks] = useState<AssignedProjectTask[]>([]);
+  const [recentActivity, setRecentActivity] = useState<ActivityEntry[]>([]);
+  const [planLoading, setPlanLoading] = useState(true);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -38,6 +71,44 @@ const Dashboard = () => {
       }
     };
     fetchStats();
+  }, []);
+
+  useEffect(() => {
+    const fetchPlanner = async () => {
+      try {
+        const [today, subtasks, messages, mine, myTasks, activity] = await Promise.all([
+          todoApi.today(),
+          todoApi.assignedSubtasks(),
+          messageApi.listActive(),
+          todoApi.listMine(),
+          projectTaskApi.assignedToMe(),
+          activityApi.recent(8),
+        ]);
+        setTodaysTodo(today);
+        setAssignedSubtasks(subtasks);
+        setPinnedMessages(messages.filter((m) => m.pinned));
+        setAssignedProjectTasks(myTasks.filter((t) => t.status !== 'Completed').slice(0, 6));
+        setRecentActivity(activity);
+
+        const todayStr = new Date().toISOString().slice(0, 10);
+        setOverdueTodos(
+          mine.filter((t) => t.status !== 'Completed' && t.dueDate && t.dueDate.slice(0, 10) < todayStr)
+        );
+
+        const cutoff = daysAgo(7);
+        setRecentlyCompleted(
+          mine
+            .filter((t) => t.status === 'Completed' && t.completedAt && new Date(t.completedAt) >= cutoff)
+            .sort((a, b) => new Date(b.completedAt!).getTime() - new Date(a.completedAt!).getTime())
+            .slice(0, 5)
+        );
+      } catch (error) {
+        console.error('Failed to load daily planner widgets', error);
+      } finally {
+        setPlanLoading(false);
+      }
+    };
+    fetchPlanner();
   }, []);
 
   const getStatusBadge = (status: string) => {
@@ -86,6 +157,11 @@ const Dashboard = () => {
       to: '/projects',
     },
   ];
+
+  const upcomingDeadlines = assignedProjectTasks
+    .filter((t) => t.dueDate && t.dueDate >= new Date().toISOString().slice(0, 10) && t.dueDate <= daysFromNow(3))
+    .map((t) => ({ id: t._id, title: t.title, dueDate: t.dueDate! }))
+    .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
   if (loading) {
     return (
@@ -286,6 +362,228 @@ const Dashboard = () => {
                 ))}
               </div>
             </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Daily Planner Widgets */}
+      <div className="grid grid-cols-2 gap-6" style={{ marginTop: '1.5rem' }}>
+        {/* Today's To-Do */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <ListTodo size={16} style={{ color: 'var(--accent-cyan)' }} />
+              Today's To-Do
+            </div>
+            <Link to="/daily-todo" style={{ fontSize: '0.8125rem', color: 'var(--accent-blue)', fontWeight: 500 }}>Open planner →</Link>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '60px', borderRadius: '10px' }}></div>
+            ) : todaysTodo.todos.length === 0 && todaysTodo.subtasks.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Nothing due today.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {todaysTodo.todos.map((t) => (
+                  <div key={t._id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span className={`badge ${PRIORITY_BADGE[t.priority]}`}>{t.priority}</span>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{t.title}</span>
+                  </div>
+                ))}
+                {todaysTodo.subtasks.map((s) => (
+                  <div key={s._id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{s.title}</span>
+                    {s.parentTitle && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>· {s.parentTitle}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Assigned Subtasks */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <ListChecks size={16} style={{ color: 'var(--accent-purple)' }} />
+              Assigned Subtasks
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '60px', borderRadius: '10px' }}></div>
+            ) : assignedSubtasks.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No subtasks assigned to you.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {assignedSubtasks.slice(0, 6).map((s) => (
+                  <div key={s._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{s.title}</span>
+                    {s.dueDate && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(s.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4" style={{ marginTop: '1.5rem' }}>
+        {/* Assigned Project Tasks */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <FolderKanban size={16} style={{ color: 'var(--accent-blue)' }} />
+              Assigned Project Tasks
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '50px', borderRadius: '10px' }}></div>
+            ) : assignedProjectTasks.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No project tasks assigned to you.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {assignedProjectTasks.map((t) => (
+                  <Link key={t._id} to={t.project ? `/projects/${t.project._id}` : '/projects'} style={{ display: 'block', textDecoration: 'none' }}>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{t.title}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{t.project?.name}</div>
+                  </Link>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Pinned Important Messages */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <Megaphone size={16} style={{ color: 'var(--accent-cyan)' }} />
+              Pinned Messages
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '50px', borderRadius: '10px' }}></div>
+            ) : pinnedMessages.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No pinned messages.</p>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {pinnedMessages.map((m) => (
+                  <div key={m._id}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                      <Pin size={11} style={{ color: 'var(--accent-cyan)' }} />
+                      <span style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--text-primary)' }}>{m.title}</span>
+                    </div>
+                    <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.125rem' }}>{m.description}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Overdue Items */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <AlarmClock size={16} style={{ color: 'var(--danger)' }} />
+              Overdue Items
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '50px', borderRadius: '10px' }}></div>
+            ) : overdueTodos.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Nothing overdue.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {overdueTodos.slice(0, 6).map((t) => (
+                  <div key={t._id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{t.title}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--danger)' }}>{new Date(t.dueDate!).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4" style={{ marginTop: '1.5rem' }}>
+        {/* Recently Completed */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <CheckCheck size={16} style={{ color: 'var(--success)' }} />
+              Recently Completed
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '50px', borderRadius: '10px' }}></div>
+            ) : recentlyCompleted.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Nothing completed recently.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {recentlyCompleted.map((t) => (
+                  <div key={t._id} style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{t.title}</div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Upcoming Deadlines */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <CalendarClock size={16} style={{ color: 'var(--accent-purple)' }} />
+              Upcoming Deadlines
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '50px', borderRadius: '10px' }}></div>
+            ) : upcomingDeadlines.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Nothing due in the next 3 days.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {upcomingDeadlines.slice(0, 6).map((d) => (
+                  <div key={d.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
+                    <span style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{d.title}</span>
+                    <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{new Date(d.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Recent Activity */}
+        <div className="section-card">
+          <div className="section-card-header">
+            <div className="section-card-title">
+              <Activity size={16} style={{ color: 'var(--accent-blue)' }} />
+              Recent Activity
+            </div>
+          </div>
+          <div className="section-card-body">
+            {planLoading ? (
+              <div className="skeleton" style={{ height: '50px', borderRadius: '10px' }}></div>
+            ) : recentActivity.length === 0 ? (
+              <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No recent activity.</p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {recentActivity.map((a) => (
+                  <div key={a._id}>
+                    <div style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{a.details}</div>
+                    <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{a.actor?.name ?? 'Someone'} · {new Date(a.createdAt).toLocaleDateString()}</div>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>

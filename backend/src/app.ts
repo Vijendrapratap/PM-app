@@ -13,6 +13,7 @@ import todoRoutes from './routes/todoRoutes';
 import ideaRoutes from './routes/ideaRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import activityLogRoutes from './routes/activityLogRoutes';
+import myTasksRoutes from './routes/myTasksRoutes';
 
 const app = express();
 
@@ -41,6 +42,7 @@ app.use('/api/todos', todoRoutes);
 app.use('/api/ideas', ideaRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
+app.use('/api/my-assigned-tasks', myTasksRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

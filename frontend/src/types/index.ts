@@ -9,9 +9,17 @@ export interface Member {
   photo?: string | null;
 }
 
+export interface AssignedProject {
+  id: string;
+  name: string;
+  status: string;
+}
+
 export interface User extends Member {
   skills: string[];
   availability: 'Available' | 'Busy' | 'On Leave';
+  assignedProjects: AssignedProject[];
+  lastLoginAt?: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +57,7 @@ export interface Project {
   finalLinks: FinalLinks;
   finalNotes?: string | null;
   isLocked: boolean;
+  archived: boolean;
   completionDate?: string | null;
   createdAt: string;
   updatedAt: string;
@@ -87,4 +96,14 @@ export interface DailyReport {
   documents: ProjectDocument[];
   createdBy?: { _id: string; name: string; photo?: string | null } | null;
   createdAt: string;
+}
+
+export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
+export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
+
+export interface TaskPerson {
+  _id: string;
+  name: string;
+  email?: string;
+  photo?: string | null;
 }

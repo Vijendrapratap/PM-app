@@ -1,10 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
-import { projectApi } from '../api/projectApi';
-import type { Project } from '../types';
+import { todoApi, type DailyTodo } from '../api/todoApi';
 import { getErrorMessage } from '../utils/errorMessage';
 
-export const useProjects = (includeArchived = false) => {
-  const [projects, setProjects] = useState<Project[]>([]);
+export const useDailyTodos = () => {
+  const [todos, setTodos] = useState<DailyTodo[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -12,17 +11,17 @@ export const useProjects = (includeArchived = false) => {
     try {
       setLoading(true);
       setError(null);
-      setProjects(await projectApi.list(includeArchived));
+      setTodos(await todoApi.listMine());
     } catch (err) {
-      setError(getErrorMessage(err, 'Failed to load projects'));
+      setError(getErrorMessage(err, 'Failed to load your to-do list'));
     } finally {
       setLoading(false);
     }
-  }, [includeArchived]);
+  }, []);
 
   useEffect(() => {
     refetch();
   }, [refetch]);
 
-  return { projects, loading, error, refetch };
+  return { todos, loading, error, refetch };
 };
