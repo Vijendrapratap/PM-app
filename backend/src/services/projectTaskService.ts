@@ -1,16 +1,35 @@
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { projectRepository } from '../repositories/projectRepository';
-import { projectService } from './projectService';
 import { notificationService } from './notificationService';
 import { uploadFiles } from '../lib/storage';
 import { mapDocument } from './mappers';
-import { notFound } from '../utils/httpError';
+import { notFound, forbidden } from '../utils/httpError';
+import { isSuperAdmin } from '../utils/roles';
 import { ProjectTask, ProjectTaskSubtask } from '../types/models';
 
 interface Actor {
   id: string;
   role: string;
 }
+
+// Only the Super Admin manages the task list itself (create/edit-details/delete
+// tasks and subtasks) - assigned members work the list, they don't curate it.
+const assertCanManageTasks = (actor: Actor) => {
+  if (!isSuperAdmin(actor.role)) throw forbidden('Only the Super Admin can add or edit tasks.');
+};
+
+// Ticking a task/subtask's status is the one action an assigned member is
+// allowed to take on their own - but only on the item assigned to them.
+const assertCanSetStatus = (assignedTo: string | null, actor: Actor) => {
+  if (isSuperAdmin(actor.role)) return;
+  if (assignedTo && assignedTo === actor.id) return;
+  throw forbidden('Only the assigned member can update this task\'s status.');
+};
+
+const isStatusOnlyPatch = (patch: Record<string, unknown>) => {
+  const keys = Object.keys(patch).filter((key) => patch[key] !== undefined);
+  return keys.length > 0 && keys.every((key) => key === 'status');
+};
 
 const mapPerson = (person: { id: string; name: string; email?: string; photo?: string | null } | null) =>
   person ? { _id: person.id, name: person.name, email: person.email, photo: person.photo } : null;
@@ -76,7 +95,7 @@ export const projectTaskService = {
   },
 
   async create(projectId: string, input: CreateTaskInput, actor: Actor) {
-    await projectService.assertProjectEditAccess(projectId, actor);
+    assertCanManageTasks(actor);
     const project = await projectRepository.findById(projectId);
     if (!project) throw notFound('Project not found');
 
@@ -116,9 +135,14 @@ export const projectTaskService = {
     patch: { title?: string; description?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string },
     actor: Actor
   ) {
-    await projectService.assertProjectEditAccess(projectId, actor);
     const existing = await projectTaskRepository.findById(taskId);
     if (!existing || existing.project_id !== projectId) throw notFound('Task not found');
+
+    if (isStatusOnlyPatch(patch)) {
+      assertCanSetStatus(existing.assigned_to, actor);
+    } else {
+      assertCanManageTasks(actor);
+    }
 
     const wasAssignedTo = existing.assigned_to;
 
@@ -159,7 +183,7 @@ export const projectTaskService = {
   },
 
   async remove(projectId: string, taskId: string, actor: Actor) {
-    await projectService.assertProjectEditAccess(projectId, actor);
+    assertCanManageTasks(actor);
     const existing = await projectTaskRepository.findById(taskId);
     if (!existing || existing.project_id !== projectId) throw notFound('Task not found');
     await projectTaskRepository.remove(taskId);
@@ -172,7 +196,7 @@ export const projectTaskService = {
     input: { title: string; assignedTo?: string; dueDate?: string; priority?: string; files?: Express.Multer.File[] },
     actor: Actor
   ) {
-    await projectService.assertProjectEditAccess(projectId, actor);
+    assertCanManageTasks(actor);
     const task = await projectTaskRepository.findById(taskId);
     if (!task || task.project_id !== projectId) throw notFound('Task not found');
 
@@ -211,11 +235,16 @@ export const projectTaskService = {
     patch: { title?: string; status?: string; assignedTo?: string; dueDate?: string; priority?: string },
     actor: Actor
   ) {
-    await projectService.assertProjectEditAccess(projectId, actor);
     const task = await projectTaskRepository.findById(taskId);
     if (!task || task.project_id !== projectId) throw notFound('Task not found');
     const subtask = await projectTaskRepository.findSubtaskById(subtaskId);
     if (!subtask || subtask.task_id !== taskId) throw notFound('Subtask not found');
+
+    if (isStatusOnlyPatch(patch)) {
+      assertCanSetStatus(subtask.assigned_to, actor);
+    } else {
+      assertCanManageTasks(actor);
+    }
 
     await projectTaskRepository.updateSubtask(subtaskId, {
       ...(patch.title !== undefined && { title: patch.title }),
@@ -243,7 +272,7 @@ export const projectTaskService = {
   },
 
   async removeSubtask(projectId: string, taskId: string, subtaskId: string, actor: Actor) {
-    await projectService.assertProjectEditAccess(projectId, actor);
+    assertCanManageTasks(actor);
     const task = await projectTaskRepository.findById(taskId);
     if (!task || task.project_id !== projectId) throw notFound('Task not found');
     const subtask = await projectTaskRepository.findSubtaskById(subtaskId);

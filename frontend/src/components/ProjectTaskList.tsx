@@ -15,15 +15,19 @@ const SubtaskRow = ({
   projectId,
   task,
   subtask,
-  canEdit,
+  canManage,
+  currentUserId,
   onChange,
 }: {
   projectId: string;
   task: ProjectTask;
   subtask: ProjectTaskSubtask;
-  canEdit: boolean;
+  canManage: boolean;
+  currentUserId?: string;
   onChange: () => void;
 }) => {
+  const canTick = canManage || subtask.assignedTo?._id === currentUserId;
+
   const toggle = async () => {
     try {
       await projectTaskApi.updateSubtask(projectId, task._id, subtask._id, {
@@ -46,12 +50,12 @@ const SubtaskRow = ({
 
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.3rem 0' }}>
-      <input type="checkbox" checked={subtask.status === 'Completed'} disabled={!canEdit} onChange={toggle} />
+      <input type="checkbox" checked={subtask.status === 'Completed'} disabled={!canTick} onChange={toggle} />
       <span style={{ fontSize: '0.8125rem', color: subtask.status === 'Completed' ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: subtask.status === 'Completed' ? 'line-through' : 'none', flex: 1 }}>
         {subtask.title}
       </span>
       {subtask.assignedTo && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{subtask.assignedTo.name}</span>}
-      {canEdit && (
+      {canManage && (
         <button className="icon-btn" style={{ width: '20px', height: '20px', color: 'var(--danger)' }} onClick={remove}>
           <Trash2 size={11} />
         </button>
@@ -64,13 +68,15 @@ const TaskCard = ({
   projectId,
   task,
   members,
-  canEdit,
+  canManage,
+  currentUserId,
   onChange,
 }: {
   projectId: string;
   task: ProjectTask;
   members: Member[];
-  canEdit: boolean;
+  canManage: boolean;
+  currentUserId?: string;
   onChange: () => void;
 }) => {
   const [open, setOpen] = useState(false);
@@ -78,6 +84,8 @@ const TaskCard = ({
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [subtaskAssignee, setSubtaskAssignee] = useState('');
   const [saving, setSaving] = useState(false);
+
+  const canTick = canManage || task.assignedTo?._id === currentUserId;
 
   const toggleComplete = async () => {
     await projectTaskApi.update(projectId, task._id, { status: task.status === 'Completed' ? 'Pending' : 'Completed' }).catch(() => {});
@@ -110,7 +118,7 @@ const TaskCard = ({
         <button className="icon-btn" style={{ width: '20px', height: '20px', marginTop: '0.125rem' }} onClick={() => setOpen((v) => !v)}>
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </button>
-        <input type="checkbox" style={{ marginTop: '0.25rem' }} checked={task.status === 'Completed'} disabled={!canEdit} onChange={toggleComplete} />
+        <input type="checkbox" style={{ marginTop: '0.25rem' }} checked={task.status === 'Completed'} disabled={!canTick} onChange={toggleComplete} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, fontSize: '0.875rem', color: task.status === 'Completed' ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: task.status === 'Completed' ? 'line-through' : 'none' }}>
@@ -132,9 +140,9 @@ const TaskCard = ({
           {open && (
             <div style={{ marginTop: '0.625rem', paddingLeft: '1rem', borderLeft: '2px solid var(--border-subtle)' }}>
               {task.subtasks.map((s) => (
-                <SubtaskRow key={s._id} projectId={projectId} task={task} subtask={s} canEdit={canEdit} onChange={onChange} />
+                <SubtaskRow key={s._id} projectId={projectId} task={task} subtask={s} canManage={canManage} currentUserId={currentUserId} onChange={onChange} />
               ))}
-              {canEdit && (
+              {canManage && (
                 addingSubtask ? (
                   <form onSubmit={addSubtask} style={{ display: 'flex', gap: '0.5rem', marginTop: '0.5rem' }}>
                     <input type="text" className="form-input" placeholder="Subtask title" autoFocus value={subtaskTitle} onChange={(e) => setSubtaskTitle(e.target.value)} />
@@ -153,7 +161,7 @@ const TaskCard = ({
             </div>
           )}
         </div>
-        {canEdit && (
+        {canManage && (
           <button className="icon-btn" style={{ color: 'var(--danger)' }} onClick={removeTask}>
             <Trash2 size={13} />
           </button>
@@ -163,7 +171,7 @@ const TaskCard = ({
   );
 };
 
-const ProjectTaskList = ({ projectId, members, canEdit }: { projectId: string; members: Member[]; canEdit: boolean }) => {
+const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { projectId: string; members: Member[]; canManage: boolean; currentUserId?: string }) => {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -220,7 +228,7 @@ const ProjectTaskList = ({ projectId, members, canEdit }: { projectId: string; m
           Project Tasks
           <span className="badge badge-neutral" style={{ marginLeft: '0.5rem' }}>{tasks.length}</span>
         </div>
-        {canEdit && (
+        {canManage && (
           <button className="btn btn-secondary" onClick={() => setShowForm((v) => !v)}>
             <Plus size={14} /> Add Task
           </button>
@@ -229,7 +237,7 @@ const ProjectTaskList = ({ projectId, members, canEdit }: { projectId: string; m
       <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {error && <p style={{ color: 'var(--danger)', fontSize: '0.8125rem' }}>{error}</p>}
 
-        {showForm && canEdit && (
+        {showForm && canManage && (
           <form onSubmit={handleCreate} style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-md)', padding: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
             <input type="text" className="form-input" placeholder="Task title" required autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
@@ -261,7 +269,7 @@ const ProjectTaskList = ({ projectId, members, canEdit }: { projectId: string; m
           <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No tasks yet for this project.</p>
         ) : (
           tasks.map((task) => (
-            <TaskCard key={task._id} projectId={projectId} task={task} members={members} canEdit={canEdit} onChange={refetch} />
+            <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} />
           ))
         )}
       </div>

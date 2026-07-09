@@ -737,7 +737,12 @@ const ProjectDetails = () => {
 
       {/* Project Tasks */}
       <div style={{ marginTop: '1.5rem' }}>
-        <ProjectTaskList projectId={project._id} members={project.assignedMembers} canEdit={Boolean(canEdit)} />
+        <ProjectTaskList
+          projectId={project._id}
+          members={project.assignedMembers}
+          canManage={isSuperAdmin(user?.role)}
+          currentUserId={user?._id}
+        />
       </div>
 
       {!isCompleted && canEdit && (
