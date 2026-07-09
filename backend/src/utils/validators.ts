@@ -1,8 +1,14 @@
 import { z } from 'zod';
 
+const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .email();
+
 export const registerSchema = z.object({
   name: z.string().min(1),
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(6),
   // Only honored when the caller is an authenticated Super Admin - see
   // authService.register. Optional so public self-registration can omit it.
@@ -13,13 +19,13 @@ export const registerSchema = z.object({
 });
 
 export const loginSchema = z.object({
-  email: z.string().email(),
+  email: emailSchema,
   password: z.string().min(1),
 });
 
 export const updateUserSchema = z.object({
   name: z.string().optional(),
-  email: z.string().email().optional(),
+  email: emailSchema.optional(),
   role: z.string().optional(),
   department: z.string().optional(),
   phone: z.string().optional(),

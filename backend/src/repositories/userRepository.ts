@@ -5,9 +5,21 @@ const TABLE = 'users';
 // Assigned-projects lookup for the Team Members page (Super Admin view).
 const WITH_PROJECTS_SELECT = '*, project_members(project:project_id(id, name, status))';
 
+// Escapes ILIKE wildcard/escape characters so findByEmail only ever matches
+// the literal address, not a pattern.
+const escapeForIlike = (value: string) => value.replace(/[%_\\]/g, (char) => `\\${char}`);
+
 export const userRepository = {
   async findByEmail(email: string): Promise<User | null> {
-    const { data, error } = await supabase.from(TABLE).select('*').eq('email', email).maybeSingle();
+    // Case-insensitive match: emails are normalized to lowercase going
+    // forward (see emailSchema), but accounts created before that existed
+    // may still have mixed-case values stored, which would otherwise cause
+    // a correct login to fail with a false "invalid credentials".
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .ilike('email', escapeForIlike(email))
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
