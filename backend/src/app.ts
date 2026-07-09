@@ -17,14 +17,16 @@ import myTasksRoutes from './routes/myTasksRoutes';
 
 const app = express();
 
-// The app sits behind Nginx on the same VPS (Hostinger), which forwards the
-// real client IP via X-Forwarded-For. Express ignores that header by default
-// and express-rate-limit refuses to key off it until `trust proxy` is set —
-// otherwise a client could spoof X-Forwarded-For to dodge rate limits. 'loopback'
-// trusts only connections whose immediate peer is 127.0.0.1/::1 (i.e. Nginx on
-// the same host), which is safer than a bare hop count if the app is ever
-// reachable directly. Must be set before any middleware reads req.ip.
-app.set('trust proxy', 'loopback');
+// This runs on Railway, which puts its own edge proxy in front of the app -
+// that proxy is a real network hop, not on loopback. Express ignores
+// X-Forwarded-For by default, and express-rate-limit refuses to key off it
+// until `trust proxy` is set (otherwise a client could spoof X-Forwarded-For
+// to dodge rate limits). Trusting exactly 1 hop matches Railway's topology:
+// requests arrive via Railway's edge and nothing else forwards them further.
+// `req.ip` (and therefore every IP-keyed rate limiter) is broken - every
+// visitor collapses onto one shared bucket - if this doesn't match the real
+// number of proxy hops. Must be set before any middleware reads req.ip.
+app.set('trust proxy', 1);
 
 app.use(helmet());
 app.use(cors({ origin: env.frontendUrl }));

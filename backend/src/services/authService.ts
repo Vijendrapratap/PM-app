@@ -3,6 +3,7 @@ import { userRepository } from '../repositories/userRepository';
 import { generateToken } from '../utils/jwt';
 import { badRequest, unauthorized } from '../utils/httpError';
 import { DEFAULT_ROLE, isSuperAdmin, isValidRole } from '../utils/roles';
+import { logger } from '../config/logger';
 
 interface RegisterInput {
   name: string;
@@ -56,7 +57,13 @@ export const authService = {
 
   async login(email: string, password: string) {
     const user = await userRepository.findByEmail(email);
-    if (!user || !user.password_hash || !(await bcrypt.compare(password, user.password_hash))) {
+    const passwordMatches = !!user?.password_hash && (await bcrypt.compare(password, user.password_hash));
+    // Deliberately never logs the password itself - just enough to tell,
+    // after the fact, whether a rejected login actually reached this code
+    // (vs. failing in transit before the server ever saw the request) and
+    // which check it failed.
+    logger.info('Login attempt', { email, userFound: !!user, passwordMatches });
+    if (!user || !passwordMatches) {
       throw unauthorized('Invalid email or password');
     }
     if (user.deleted_at) throw unauthorized('Invalid email or password');

@@ -34,6 +34,10 @@ const resolveApiUrl = (): string => {
 
 const api = axios.create({
   baseURL: resolveApiUrl(),
+  // Without a timeout, a stalled connection (a cold-starting backend, a
+  // dropped mobile packet) hangs forever with no error - the user just sees
+  // "Signing in..." indefinitely instead of a retryable failure.
+  timeout: 20000,
 });
 
 // Intercept requests to add auth token
