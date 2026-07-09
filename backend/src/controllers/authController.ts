@@ -4,7 +4,7 @@ import { authService } from '../services/authService';
 import { unauthorized } from '../utils/httpError';
 
 export const registerUser = asyncHandler(async (req: Request, res: Response) => {
-  const result = await authService.register(req.body);
+  const result = await authService.register(req.body, req.user?.role);
   res.status(201).json(result);
 });
 

@@ -18,3 +18,15 @@ export const updateUser = asyncHandler(async (req: Request, res: Response) => {
 export const deactivateUser = asyncHandler(async (req: Request, res: Response) => {
   res.json(await userService.deactivate(param(req, 'id')));
 });
+
+export const activateUser = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await userService.activate(param(req, 'id')));
+});
+
+export const deleteUser = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await userService.delete(param(req, 'id')));
+});
+
+export const resetPassword = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await userService.resetPassword(param(req, 'id'), req.body.password));
+});

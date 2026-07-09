@@ -21,11 +21,10 @@ export const projectRepository = {
     return data;
   },
 
-  async findAll() {
-    const { data, error } = await supabase
-      .from('projects')
-      .select(PROJECT_SELECT)
-      .order('created_at', { ascending: false });
+  async findAll(includeArchived = false) {
+    let query = supabase.from('projects').select(PROJECT_SELECT).order('created_at', { ascending: false });
+    if (!includeArchived) query = query.eq('archived', false);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
@@ -53,6 +52,31 @@ export const projectRepository = {
       .maybeSingle();
     if (error) throw error;
     return Boolean(data);
+  },
+
+  async removeMember(projectId: string, userId: string): Promise<void> {
+    const { error } = await supabase
+      .from('project_members')
+      .delete()
+      .eq('project_id', projectId)
+      .eq('user_id', userId);
+    if (error) throw error;
+  },
+
+  async update(id: string, patch: Partial<Project>): Promise<Project | null> {
+    const { data, error } = await supabase
+      .from('projects')
+      .update({ ...patch, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async remove(id: string): Promise<void> {
+    const { error } = await supabase.from('projects').delete().eq('id', id);
+    if (error) throw error;
   },
 
   async addInitialDocuments(

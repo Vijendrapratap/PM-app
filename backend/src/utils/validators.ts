@@ -4,7 +4,9 @@ export const registerSchema = z.object({
   name: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
-  role: z.string().min(1),
+  // Only honored when the caller is an authenticated Super Admin - see
+  // authService.register. Optional so public self-registration can omit it.
+  role: z.string().optional(),
   department: z.string().optional(),
   phone: z.string().optional(),
   skills: z.array(z.string()).optional(),
@@ -26,18 +28,38 @@ export const updateUserSchema = z.object({
   skills: z.array(z.string()).optional(),
 });
 
+export const resetPasswordSchema = z.object({
+  password: z.string().min(6),
+});
+
+const prioritySchema = z.enum(['Low', 'Medium', 'High', 'Critical']);
+const taskStatusSchema = z.enum(['Pending', 'In Progress', 'Completed', 'Blocked']);
+
 export const createProjectSchema = z.object({
   name: z.string().min(1),
   description: z.string().optional(),
   category: z.string().optional(),
   department: z.string().optional(),
-  priority: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(),
+  priority: prioritySchema.optional(),
   startDate: z.string().optional(),
   estimatedCompletionDate: z.string().optional(),
   deadline: z.string().optional(),
   budget: z.coerce.number().optional(),
   assignedMembers: z.union([z.array(z.string()), z.string()]).optional(),
   tags: z.union([z.array(z.string()), z.string()]).optional(),
+  status: z.string().optional(),
+});
+
+export const updateProjectSchema = z.object({
+  name: z.string().optional(),
+  description: z.string().optional(),
+  category: z.string().optional(),
+  department: z.string().optional(),
+  priority: prioritySchema.optional(),
+  startDate: z.string().optional(),
+  estimatedCompletionDate: z.string().optional(),
+  deadline: z.string().optional(),
+  budget: z.coerce.number().optional(),
   status: z.string().optional(),
 });
 
@@ -61,4 +83,91 @@ export const finishProjectSchema = z.object({
   googleDrive: z.string().optional(),
   liveWebsite: z.string().optional(),
   finalNotes: z.string().optional(),
+});
+
+export const addProjectMemberSchema = z.object({
+  userId: z.string().min(1),
+});
+
+export const createMessageSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
+  priority: prioritySchema.optional(),
+  startDate: z.string().optional(),
+  expiryDate: z.string().min(1),
+  pinned: z.boolean().optional(),
+  active: z.boolean().optional(),
+});
+
+export const updateMessageSchema = createMessageSchema.partial();
+
+export const createTodoSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+  assignedTo: z.string().optional(),
+});
+
+export const updateTodoSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+  status: taskStatusSchema.optional(),
+  assignedTo: z.string().optional(),
+});
+
+export const createSubtaskSchema = z.object({
+  title: z.string().min(1),
+  assignedTo: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+  addToToday: z.boolean().optional(),
+});
+
+export const updateSubtaskSchema = z.object({
+  title: z.string().optional(),
+  status: taskStatusSchema.optional(),
+  assignedTo: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+  addToToday: z.boolean().optional(),
+});
+
+export const createProjectTaskSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+  assignedTo: z.string().optional(),
+});
+
+export const updateProjectTaskSchema = z.object({
+  title: z.string().optional(),
+  description: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+  status: taskStatusSchema.optional(),
+  assignedTo: z.string().optional(),
+});
+
+export const createProjectTaskSubtaskSchema = z.object({
+  title: z.string().min(1),
+  assignedTo: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+});
+
+export const updateProjectTaskSubtaskSchema = z.object({
+  title: z.string().optional(),
+  status: taskStatusSchema.optional(),
+  assignedTo: z.string().optional(),
+  dueDate: z.string().optional(),
+  priority: prioritySchema.optional(),
+});
+
+export const createIdeaSchema = z.object({
+  title: z.string().min(1),
+  description: z.string().min(1),
 });

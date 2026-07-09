@@ -49,6 +49,7 @@ export const mapProject = (row: any) => ({
   },
   finalNotes: row.final_notes,
   isLocked: row.is_locked,
+  archived: row.archived,
   completionDate: row.completion_date,
   createdAt: row.created_at,
   updatedAt: row.updated_at,

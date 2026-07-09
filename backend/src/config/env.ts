@@ -25,4 +25,9 @@ export const env = {
   jwtSecret: required('JWT_SECRET'),
   frontendUrl: stripTrailingSlash(process.env.FRONTEND_URL || 'http://localhost:5173'),
   isProduction: process.env.NODE_ENV === 'production',
+  // Optional: used once at boot to seed the first Super Admin account (see
+  // services/bootstrapService.ts). Registration is public/self-service for
+  // everyone else, so this is the only way the very first admin gets created.
+  adminEmail: process.env.ADMIN_EMAIL,
+  adminPassword: process.env.ADMIN_PASSWORD,
 };

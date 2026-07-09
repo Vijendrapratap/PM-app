@@ -24,6 +24,8 @@ export interface User {
   status: UserStatus;
   availability: UserAvailability;
   photo: string | null;
+  deleted_at: string | null;
+  last_login_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -48,6 +50,7 @@ export interface Project {
   final_live_website: string | null;
   final_notes: string | null;
   is_locked: boolean;
+  archived: boolean;
   completion_date: string | null;
   created_at: string;
   updated_at: string;
@@ -93,5 +96,102 @@ export interface ActivityLog {
   user_id: string;
   project_id: string | null;
   details: string;
+  created_at: string;
+}
+
+export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
+export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
+export type MessagePriority = Priority;
+
+export interface ImportantMessage {
+  id: string;
+  title: string;
+  description: string;
+  priority: MessagePriority;
+  start_date: string;
+  expiry_date: string;
+  pinned: boolean;
+  active: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyTodo {
+  id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  original_due_date: string | null;
+  carry_forward_count: number;
+  priority: Priority;
+  status: TaskStatus;
+  assigned_to: string | null;
+  created_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface DailyTodoSubtask {
+  id: string;
+  todo_id: string;
+  title: string;
+  status: TaskStatus;
+  priority: Priority;
+  assigned_to: string | null;
+  due_date: string | null;
+  add_to_today: boolean;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectTask {
+  id: string;
+  project_id: string;
+  title: string;
+  description: string | null;
+  due_date: string | null;
+  priority: Priority;
+  status: TaskStatus;
+  assigned_to: string | null;
+  created_by: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface ProjectTaskSubtask {
+  id: string;
+  task_id: string;
+  title: string;
+  status: TaskStatus;
+  priority: Priority;
+  assigned_to: string | null;
+  due_date: string | null;
+  completed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface Idea {
+  id: string;
+  title: string;
+  description: string;
+  created_by: string;
+  created_at: string;
+}
+
+export interface AppNotification {
+  id: string;
+  user_id: string;
+  type: string;
+  title: string;
+  message: string;
+  link: string | null;
+  related_type: string | null;
+  related_id: string | null;
+  read: boolean;
   created_at: string;
 }

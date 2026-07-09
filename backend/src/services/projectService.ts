@@ -5,8 +5,15 @@ import { activityLogRepository } from '../repositories/activityLogRepository';
 import { userRepository } from '../repositories/userRepository';
 import { getSystemUserId } from '../repositories/systemUser';
 import { uploadFiles } from '../lib/storage';
+import { notificationService } from './notificationService';
 import { mapProject, mapUpdate, mapDailyReport } from './mappers';
-import { badRequest, notFound } from '../utils/httpError';
+import { badRequest, forbidden, notFound } from '../utils/httpError';
+import { isSuperAdmin } from '../utils/roles';
+
+interface Actor {
+  id: string;
+  role: string;
+}
 
 const toArray = (value: unknown): unknown[] => {
   if (!value) return [];
@@ -38,6 +45,16 @@ interface CreateProjectInput {
 }
 
 export const projectService = {
+  // Every authenticated user can view every project (the portal is
+  // transparent by design), but only a Super Admin or an assigned member may
+  // change it. This is the single gate every project-mutating endpoint below
+  // routes through - never rely on the frontend hiding a button.
+  async assertProjectEditAccess(projectId: string, actor: Actor) {
+    if (isSuperAdmin(actor.role)) return;
+    const assigned = await projectRepository.isMemberAssigned(projectId, actor.id);
+    if (!assigned) throw forbidden('Only assigned members can edit this project');
+  },
+
   async createProject(input: CreateProjectInput) {
     const existing = await projectRepository.findByName(input.name);
     if (existing) throw badRequest('Project name already taken');
@@ -69,6 +86,14 @@ export const projectService = {
       activeMembers.map((member) => member.id)
     );
 
+    for (const member of activeMembers) {
+      await notificationService.notify(member.id, 'project_assigned', 'Project Assigned', `You were assigned to "${project.name}".`, {
+        link: `/projects/${project.id}`,
+        relatedType: 'project',
+        relatedId: project.id,
+      });
+    }
+
     if (input.files.length > 0) {
       const uploaded = await uploadFiles(`projects/${project.id}`, input.files);
       await projectRepository.addInitialDocuments(
@@ -88,8 +113,8 @@ export const projectService = {
     return mapProject(full);
   },
 
-  async getProjects() {
-    const rows = await projectRepository.findAll();
+  async getProjects(includeArchived = false) {
+    const rows = await projectRepository.findAll(includeArchived);
     return rows.map(mapProject);
   },
 
@@ -97,6 +122,64 @@ export const projectService = {
     const row = await projectRepository.findById(id);
     if (!row) throw notFound('Project not found');
     return mapProject(row);
+  },
+
+  async updateProject(
+    id: string,
+    patch: Partial<{
+      name: string;
+      description: string;
+      category: string;
+      department: string;
+      priority: string;
+      startDate: string;
+      estimatedCompletionDate: string;
+      deadline: string;
+      budget: number;
+      status: string;
+    }>
+  ) {
+    const existing = await projectRepository.findById(id);
+    if (!existing) throw notFound('Project not found');
+
+    const updated = await projectRepository.update(id, {
+      ...(patch.name !== undefined && { name: patch.name }),
+      ...(patch.description !== undefined && { description: patch.description }),
+      ...(patch.category !== undefined && { category: patch.category }),
+      ...(patch.department !== undefined && { department: patch.department }),
+      ...(patch.priority !== undefined && { priority: patch.priority as any }),
+      ...(patch.startDate !== undefined && { start_date: patch.startDate }),
+      ...(patch.estimatedCompletionDate !== undefined && { estimated_completion_date: patch.estimatedCompletionDate }),
+      ...(patch.deadline !== undefined && { deadline: patch.deadline }),
+      ...(patch.budget !== undefined && { budget: patch.budget }),
+      ...(patch.status !== undefined && { status: patch.status as any }),
+    });
+    if (!updated) throw notFound('Project not found');
+
+    const full = await projectRepository.findById(id);
+    return mapProject(full);
+  },
+
+  async archiveProject(id: string) {
+    const updated = await projectRepository.update(id, { archived: true });
+    if (!updated) throw notFound('Project not found');
+    return mapProject(await projectRepository.findById(id));
+  },
+
+  async restoreProject(id: string) {
+    const updated = await projectRepository.update(id, { archived: false });
+    if (!updated) throw notFound('Project not found');
+    return mapProject(await projectRepository.findById(id));
+  },
+
+  async deleteProject(id: string) {
+    const existing = await projectRepository.findById(id);
+    if (!existing) throw notFound('Project not found');
+    // Every child table (project_members, updates, daily_reports, project
+    // tasks, documents, links) already has `on delete cascade` back to
+    // projects(id) - see 0001_init.sql / 0002 migration - so this is safe.
+    await projectRepository.remove(id);
+    return { message: 'Project deleted successfully' };
   },
 
   async getProjectDailyReports(projectId: string) {
@@ -238,6 +321,52 @@ export const projectService = {
     });
 
     const full = await projectRepository.findById(id);
+    return mapProject(full);
+  },
+
+  async addMember(projectId: string, userId: string, actorId?: string) {
+    const project = await projectRepository.findById(projectId);
+    if (!project) throw notFound('Project not found');
+
+    const member = await userRepository.findById(userId);
+    if (!member || member.status !== 'Active' || member.deleted_at) throw badRequest('Team member is not available');
+
+    const alreadyAssigned = await projectRepository.isMemberAssigned(projectId, userId);
+    if (alreadyAssigned) throw badRequest('Team member is already assigned to this project');
+
+    await projectRepository.addMembers(projectId, [userId]);
+
+    await notificationService.notify(userId, 'project_assigned', 'Project Assigned', `You were assigned to "${project.name}".`, {
+      link: `/projects/${projectId}`,
+      relatedType: 'project',
+      relatedId: projectId,
+    });
+
+    await activityLogRepository.create({
+      action: 'Project Member Added',
+      user_id: actorId || (await getSystemUserId()),
+      project_id: projectId,
+      details: `${member.name} was assigned to the project.`,
+    });
+
+    const full = await projectRepository.findById(projectId);
+    return mapProject(full);
+  },
+
+  async removeMember(projectId: string, userId: string, actorId?: string) {
+    const project = await projectRepository.findById(projectId);
+    if (!project) throw notFound('Project not found');
+
+    await projectRepository.removeMember(projectId, userId);
+
+    await activityLogRepository.create({
+      action: 'Project Member Removed',
+      user_id: actorId || (await getSystemUserId()),
+      project_id: projectId,
+      details: 'A team member was removed from the project.',
+    });
+
+    const full = await projectRepository.findById(projectId);
     return mapProject(full);
   },
 

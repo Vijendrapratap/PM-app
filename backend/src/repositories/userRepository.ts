@@ -2,6 +2,8 @@ import { supabase } from '../config/supabase';
 import { User } from '../types/models';
 
 const TABLE = 'users';
+// Assigned-projects lookup for the Team Members page (Super Admin view).
+const WITH_PROJECTS_SELECT = '*, project_members(project:project_id(id, name, status))';
 
 export const userRepository = {
   async findByEmail(email: string): Promise<User | null> {
@@ -12,6 +14,12 @@ export const userRepository = {
 
   async findById(id: string): Promise<User | null> {
     const { data, error } = await supabase.from(TABLE).select('*').eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async findByIdWithProjects(id: string): Promise<any | null> {
+    const { data, error } = await supabase.from(TABLE).select(WITH_PROJECTS_SELECT).eq('id', id).maybeSingle();
     if (error) throw error;
     return data;
   },
@@ -34,21 +42,53 @@ export const userRepository = {
     return data;
   },
 
-  async list(): Promise<User[]> {
-    const { data, error } = await supabase.from(TABLE).select('*').order('created_at', { ascending: false });
+  async list(): Promise<any[]> {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select(WITH_PROJECTS_SELECT)
+      .is('deleted_at', null)
+      .order('created_at', { ascending: false });
     if (error) throw error;
     return data;
   },
 
   async findManyActiveByIds(ids: string[]): Promise<User[]> {
     if (ids.length === 0) return [];
-    const { data, error } = await supabase.from(TABLE).select('*').in('id', ids).eq('status', 'Active');
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .in('id', ids)
+      .eq('status', 'Active')
+      .is('deleted_at', null);
     if (error) throw error;
     return data;
   },
 
   async update(id: string, patch: Partial<User>): Promise<User | null> {
     const { data, error } = await supabase.from(TABLE).update(patch).eq('id', id).select('*').maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async countOtherActiveSuperAdmins(excludeId: string): Promise<number> {
+    const { count, error } = await supabase
+      .from(TABLE)
+      .select('id', { count: 'exact', head: true })
+      .eq('role', 'Super Admin')
+      .eq('status', 'Active')
+      .is('deleted_at', null)
+      .neq('id', excludeId);
+    if (error) throw error;
+    return count ?? 0;
+  },
+
+  async softDelete(id: string): Promise<User | null> {
+    const { data, error } = await supabase
+      .from(TABLE)
+      .update({ deleted_at: new Date().toISOString(), status: 'Inactive' })
+      .eq('id', id)
+      .select('*')
+      .maybeSingle();
     if (error) throw error;
     return data;
   },
