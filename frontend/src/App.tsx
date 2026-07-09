@@ -12,6 +12,13 @@ import Register from './pages/Register';
 import Messages from './pages/Messages';
 import DailyPlanner from './pages/DailyPlanner';
 import Ideas from './pages/Ideas';
+import DemoDashboard from './pages/DemoDashboard';
+import { useAuth } from './context/AuthContext';
+
+const Home = () => {
+  const { isDemo } = useAuth();
+  return isDemo ? <DemoDashboard /> : <Dashboard />;
+};
 
 function App() {
   return (
@@ -31,7 +38,7 @@ function App() {
               </ProtectedRoute>
             }
           >
-            <Route index element={<Dashboard />} />
+            <Route index element={<Home />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetails />} />
             <Route path="completed" element={<CompletedProjects />} />

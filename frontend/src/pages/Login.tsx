@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import { Zap, LogIn } from 'lucide-react';
+import { LogIn, Play } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errorMessage';
 
 const Login = () => {
-  const { user, loading, login } = useAuth();
+  const { user, loading, login, startDemo } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [email, setEmail] = useState('');
@@ -23,6 +23,11 @@ const Login = () => {
     setError('');
     setSubmitting(true);
     try {
+      if (email.trim().toLowerCase() === 'demo@pratap.ai' && password === 'Demo@123') {
+        startDemo();
+        navigate((location.state as { from?: string } | null)?.from || '/', { replace: true });
+        return;
+      }
       await login(email, password);
       navigate((location.state as { from?: string } | null)?.from || '/', { replace: true });
     } catch (err) {
@@ -55,9 +60,7 @@ const Login = () => {
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.75rem' }}>
-          <div className="sidebar-logo-icon">
-            <Zap size={18} />
-          </div>
+          <div className="sidebar-logo-icon"><img src="/brand/pratap-ai-mark.png" alt="Pratap AI" /></div>
           <div>
             <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>Pratap AI Innovation</div>
             <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Project Hub</div>
@@ -114,10 +117,16 @@ const Login = () => {
           <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
             <LogIn size={15} /> {submitting ? 'Signing in...' : 'Sign In'}
           </button>
+          <button type="button" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.65rem' }} onClick={() => { startDemo(); navigate('/'); }}>
+            <Play size={14} /> Explore demo workspace
+          </button>
         </form>
 
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.25rem' }}>
           Don't have an account? <Link to="/register" style={{ color: 'var(--accent-blue)', fontWeight: 500 }}>Register</Link>
+        </p>
+        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '.65rem' }}>
+          Demo: <span style={{ color: 'var(--text-secondary)' }}>demo@pratap.ai</span> · <span style={{ color: 'var(--text-secondary)' }}>Demo@123</span>
         </p>
       </div>
     </div>

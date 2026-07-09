@@ -1,5 +1,5 @@
 import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Zap, Megaphone, ListChecks, Lightbulb } from 'lucide-react';
+import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Megaphone, ListChecks, Lightbulb } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/roles';
 
@@ -16,12 +16,10 @@ const Sidebar = () => {
     <aside className="sidebar">
       {/* Logo */}
       <div className="sidebar-logo">
-        <div className="sidebar-logo-icon">
-          <Zap size={18} />
-        </div>
+        <div className="sidebar-logo-icon"><img src="/brand/pratap-ai-mark.png" alt="Pratap AI" /></div>
         <div>
-          <div className="sidebar-logo-text">Pratap AI Innovation</div>
-          <div className="sidebar-logo-sub">Project Hub</div>
+          <div className="sidebar-logo-text">PRATAP AI</div>
+          <div className="sidebar-logo-sub">Operations Studio</div>
         </div>
       </div>
 

@@ -17,8 +17,14 @@ export const ideaRepository = {
     return data;
   },
 
-  async create(input: { title: string; description: string; created_by: string }): Promise<Idea> {
+  async create(input: { title: string; description: string; created_by: string; category?: string; impact?: string; effort?: string }): Promise<Idea> {
     const { data, error } = await supabase.from(TABLE).insert(input).select('*').single();
+    if (error) throw error;
+    return data;
+  },
+
+  async update(id: string, input: Partial<Pick<Idea, 'status' | 'category' | 'impact' | 'effort'>>): Promise<Idea> {
+    const { data, error } = await supabase.from(TABLE).update(input).eq('id', id).select('*').single();
     if (error) throw error;
     return data;
   },

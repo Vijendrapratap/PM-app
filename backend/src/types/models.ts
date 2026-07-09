@@ -179,6 +179,10 @@ export interface Idea {
   id: string;
   title: string;
   description: string;
+  status: 'Inbox' | 'Evaluating' | 'Planned' | 'Building' | 'Parked';
+  impact: 'Low' | 'Medium' | 'High';
+  effort: 'Small' | 'Medium' | 'Large';
+  category: string | null;
   created_by: string;
   created_at: string;
 }

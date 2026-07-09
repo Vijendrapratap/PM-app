@@ -109,8 +109,14 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
             {/* Row 3 */}
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
-                <label className="form-label">Category</label>
-                <input type="text" className="form-input" placeholder="e.g. Product, Engineering" value={form.category} onChange={set('category')} />
+                <label className="form-label">Workstream</label>
+                <select className="form-select" value={form.category} onChange={set('category')}>
+                  <option value="">Choose workstream</option>
+                  <option>Client delivery</option>
+                  <option>Internal engine</option>
+                  <option>Internal systems</option>
+                  <option>Research &amp; innovation</option>
+                </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Department</label>

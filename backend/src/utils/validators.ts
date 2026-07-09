@@ -170,4 +170,14 @@ export const updateProjectTaskSubtaskSchema = z.object({
 export const createIdeaSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),
+  category: z.string().max(60).optional(),
+  impact: z.enum(['Low', 'Medium', 'High']).optional(),
+  effort: z.enum(['Small', 'Medium', 'Large']).optional(),
+});
+
+export const updateIdeaSchema = z.object({
+  status: z.enum(['Inbox', 'Evaluating', 'Planned', 'Building', 'Parked']).optional(),
+  category: z.string().max(60).optional(),
+  impact: z.enum(['Low', 'Medium', 'High']).optional(),
+  effort: z.enum(['Small', 'Medium', 'Large']).optional(),
 });

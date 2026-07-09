@@ -13,6 +13,10 @@ export const createIdea = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json(await ideaService.create(req.body, req.user.id));
 });
 
+export const updateIdea = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await ideaService.update(param(req, 'id'), req.body));
+});
+
 export const deleteIdea = asyncHandler(async (req: Request, res: Response) => {
   res.json(await ideaService.remove(param(req, 'id')));
 });

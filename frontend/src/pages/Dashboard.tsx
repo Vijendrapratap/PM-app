@@ -1,9 +1,9 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderKanban, CheckCircle2, Users, Layers,
   ArrowUpRight, TrendingUp, Clock, Zap,
-  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock,
+  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock, AlertTriangle, UserRoundX, Lightbulb,
 } from 'lucide-react';
 import { projectApi } from '../api/projectApi';
 import { userApi } from '../api/userApi';
@@ -11,6 +11,8 @@ import { todoApi, type DailyTodo, type Subtask, type TodaysTodo } from '../api/t
 import { messageApi, type ImportantMessage } from '../api/messageApi';
 import { projectTaskApi, type AssignedProjectTask } from '../api/projectTaskApi';
 import { activityApi, type ActivityEntry } from '../api/activityApi';
+import { ideaApi, type Idea } from '../api/ideaApi';
+import type { ProjectTask } from '../api/projectTaskApi';
 import type { Project } from '../types';
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -41,6 +43,10 @@ const Dashboard = () => {
     draftProjects: 0,
   });
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [decisionQueue, setDecisionQueue] = useState({ atRisk: [] as Project[], unassigned: [] as { task: ProjectTask; project: Project }[], plannedIdeas: [] as Idea[] });
+  const [portfolioTasks, setPortfolioTasks] = useState<{ project: Project; tasks: ProjectTask[] }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ _id: string; name: string; availability: 'Available' | 'Busy' | 'On Leave'; status: string }[]>([]);
+  const [workstream, setWorkstream] = useState('All workstreams');
   const [loading, setLoading] = useState(true);
 
   const [todaysTodo, setTodaysTodo] = useState<TodaysTodo>({ todos: [], subtasks: [] });
@@ -55,7 +61,7 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [projects, users] = await Promise.all([projectApi.list(), userApi.list()]);
+        const [projects, users, ideas] = await Promise.all([projectApi.list(), userApi.list(), ideaApi.list()]);
         setStats({
           totalProjects: projects.length,
           completedProjects: projects.filter((p) => p.status === 'Completed').length,
@@ -64,6 +70,20 @@ const Dashboard = () => {
           totalMembers: users.length,
         });
         setRecentProjects(projects.slice(0, 5));
+        setTeamMembers(users);
+        const activeProjects = projects.filter((project) => project.status !== 'Completed' && !project.archived);
+        const taskGroups = await Promise.all(activeProjects.map(async (project) => ({ project, tasks: await projectTaskApi.list(project._id) })));
+        setPortfolioTasks(taskGroups);
+        const today = new Date().toISOString().slice(0, 10);
+        const soon = daysFromNow(3);
+        const atRisk = activeProjects.filter((project) => {
+          const due = project.estimatedCompletionDate || project.deadline;
+          return Boolean(due && project.progress < 100 && (due < today || (due <= soon && project.progress < 75)));
+        });
+        const unassigned = taskGroups.flatMap(({ project, tasks }) => tasks
+          .filter((task) => task.status !== 'Completed' && !task.assignedTo)
+          .map((task) => ({ task, project })));
+        setDecisionQueue({ atRisk, unassigned, plannedIdeas: ideas.filter((idea) => idea.status === 'Planned').slice(0, 4) });
       } catch (error) {
         console.error('Failed to load stats', error);
       } finally {
@@ -163,6 +183,20 @@ const Dashboard = () => {
     .map((t) => ({ id: t._id, title: t.title, dueDate: t.dueDate! }))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
+  const workstreams = useMemo(() => ['All workstreams', ...Array.from(new Set(portfolioTasks.map(({ project }) => project.category).filter((v): v is string => Boolean(v))))], [portfolioTasks]);
+  const inWorkstream = (project: Project) => workstream === 'All workstreams' || project.category === workstream;
+  const visibleProjects = recentProjects.filter(inWorkstream);
+  const visibleRisks = decisionQueue.atRisk.filter(inWorkstream);
+  const visibleUnassigned = decisionQueue.unassigned.filter(({ project }) => inWorkstream(project));
+  const capacity = useMemo(() => {
+    const counts = new Map<string, number>();
+    portfolioTasks.filter(({ project }) => inWorkstream(project)).forEach(({ tasks }) => tasks.forEach((task) => {
+      if (task.status !== 'Completed' && task.assignedTo) counts.set(task.assignedTo._id, (counts.get(task.assignedTo._id) || 0) + 1);
+    }));
+    return teamMembers.filter((member) => member.status === 'Active').map((member) => ({ ...member, openTasks: counts.get(member._id) || 0 }))
+      .sort((a, b) => b.openTasks - a.openTasks || a.name.localeCompare(b.name));
+  }, [portfolioTasks, teamMembers, workstream]);
+
   if (loading) {
     return (
       <div className="animate-fade-in">
@@ -188,8 +222,8 @@ const Dashboard = () => {
             <Zap size={20} style={{ color: 'var(--accent-cyan)' }} />
             <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-cyan)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Pratap AI Innovation</span>
           </div>
-          <h1 className="page-title">Command Center</h1>
-          <p className="page-subtitle">Track all projects and team activity in real time.</p>
+          <h1 className="page-title">Portfolio command center</h1>
+          <p className="page-subtitle">What needs a decision, who owns the work, and where delivery needs attention.</p>
         </div>
         <div style={{ textAlign: 'right' }}>
           <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Today</p>
@@ -198,6 +232,22 @@ const Dashboard = () => {
           </p>
         </div>
       </div>
+
+      {/* The first screen answers a PM's three daily decisions. */}
+      <section className="decision-panel">
+        <div className="decision-panel-title"><div><span>Decision queue</span><small>Resolve these before planning new work</small></div><label className="workstream-filter">Portfolio scope <select value={workstream} onChange={(e) => setWorkstream(e.target.value)}>{workstreams.map((item) => <option key={item}>{item}</option>)}</select></label></div>
+        <div className="decision-grid">
+          <Link to="/projects" className="decision-item danger">
+            <AlertTriangle size={19} /><div><strong>{visibleRisks.length} project{visibleRisks.length === 1 ? '' : 's'} at risk</strong><span>{visibleRisks[0]?.name ?? 'No deadline risks detected'}</span></div><ArrowUpRight size={15} />
+          </Link>
+          <Link to="/projects" className="decision-item">
+            <UserRoundX size={19} /><div><strong>{visibleUnassigned.length} unassigned task{visibleUnassigned.length === 1 ? '' : 's'}</strong><span>{visibleUnassigned[0] ? `${visibleUnassigned[0].task.title} · ${visibleUnassigned[0].project.name}` : 'Every open task has an owner'}</span></div><ArrowUpRight size={15} />
+          </Link>
+          <Link to="/ideas" className="decision-item">
+            <Lightbulb size={19} /><div><strong>{decisionQueue.plannedIdeas.length} idea{decisionQueue.plannedIdeas.length === 1 ? '' : 's'} ready to plan</strong><span>{decisionQueue.plannedIdeas[0]?.title ?? 'Move evaluated opportunities into a slot'}</span></div><ArrowUpRight size={15} />
+          </Link>
+        </div>
+      </section>
 
       {/* Stat Cards */}
       <div className="grid grid-cols-4 gap-4 mb-8">
@@ -228,11 +278,11 @@ const Dashboard = () => {
             </Link>
           </div>
           <div style={{ padding: 0 }}>
-            {recentProjects.length === 0 ? (
+            {visibleProjects.length === 0 ? (
               <div className="empty-state" style={{ padding: '3rem 2rem' }}>
                 <div className="empty-state-icon"><FolderKanban size={28} /></div>
-                <div className="empty-state-title">No Projects Yet</div>
-                <div className="empty-state-desc">Create your first project to get started.</div>
+                <div className="empty-state-title">{recentProjects.length ? 'No projects in this workstream' : 'No Projects Yet'}</div>
+                <div className="empty-state-desc">{recentProjects.length ? 'Choose another portfolio scope to see work.' : 'Create your first project to get started.'}</div>
               </div>
             ) : (
               <table className="data-table">
@@ -245,7 +295,7 @@ const Dashboard = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {recentProjects.map((project) => (
+                  {visibleProjects.map((project) => (
                     <tr key={project._id} onClick={() => window.location.href = `/projects/${project._id}`}>
                       <td>
                         <div style={{ fontWeight: 600, color: 'var(--text-primary)', fontSize: '0.875rem' }}>{project.name}</div>
@@ -365,6 +415,16 @@ const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      <section className="capacity-card">
+        <div className="capacity-header"><div><div className="eyebrow"><Users size={13} /> Team capacity</div><h2>Open work by owner</h2><p>Use this to balance assignments before adding work to a sprint.</p></div><Link to="/team">View team <ArrowUpRight size={14} /></Link></div>
+        <div className="capacity-list">
+          {capacity.length === 0 ? <span className="capacity-empty">No active team members available.</span> : capacity.slice(0, 6).map((member) => {
+            const level = member.openTasks >= 8 ? 'high' : member.openTasks >= 4 ? 'medium' : 'low';
+            return <div className="capacity-member" key={member._id}><div className="avatar">{member.name.charAt(0)}</div><div className="capacity-name"><strong>{member.name}</strong><span>{member.availability} · {member.openTasks} open task{member.openTasks === 1 ? '' : 's'}</span></div><div className={`capacity-meter ${level}`}><i style={{ width: `${Math.min(member.openTasks / 8 * 100, 100)}%` }} /></div></div>;
+          })}
+        </div>
+      </section>
 
       {/* Daily Planner Widgets */}
       <div className="grid grid-cols-2 gap-6" style={{ marginTop: '1.5rem' }}>
