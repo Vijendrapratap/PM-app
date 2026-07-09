@@ -44,7 +44,9 @@ const DailyPlanner = () => {
 
   const toggleExpand = (id: string) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
 
-  const canManageTodo = (todo: DailyTodo) => isSuperAdmin(user?.role) || todo.createdBy?._id === user?._id;
+  const isAdmin = isSuperAdmin(user?.role);
+  const canManageTodo = () => isAdmin;
+  const canTickTodo = (todo: DailyTodo) => isAdmin || todo.assignedTo?._id === user?._id;
 
   const grouped = useMemo(() => {
     const today = dateKey(0);
@@ -96,9 +98,11 @@ const DailyPlanner = () => {
           <h1 className="page-title">Daily To-Do</h1>
           <p className="page-subtitle">Personal tasks and subtasks, separate from project work.</p>
         </div>
-        <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
-          <Plus size={15} /> New Task
-        </button>
+        {isAdmin && (
+          <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
+            <Plus size={15} /> New Task
+          </button>
+        )}
       </div>
 
       {error && (
@@ -155,6 +159,7 @@ const DailyPlanner = () => {
                     type="checkbox"
                     style={{ marginTop: '0.3rem' }}
                     checked={todo.status === 'Completed'}
+                    disabled={!canTickTodo(todo)}
                     onChange={() => toggleTodoComplete(todo)}
                   />
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -205,13 +210,13 @@ const DailyPlanner = () => {
                       <SubtaskList
                         todo={todo}
                         members={members}
-                        canManage={canManageTodo(todo)}
+                        canManage={canManageTodo()}
                         currentUserId={user?._id}
                         onChange={refetch}
                       />
                     )}
                   </div>
-                  {canManageTodo(todo) && (
+                  {canManageTodo() && (
                     <button className="icon-btn" style={{ color: 'var(--danger)' }} onClick={() => setDeleteTarget(todo)}>
                       <Trash2 size={14} />
                     </button>

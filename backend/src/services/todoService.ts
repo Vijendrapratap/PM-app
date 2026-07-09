@@ -14,6 +14,24 @@ interface Actor {
 const mapPerson = (person: { id: string; name: string; email?: string; photo?: string | null } | null) =>
   person ? { _id: person.id, name: person.name, email: person.email, photo: person.photo } : null;
 
+// Only the Super Admin curates the to-do list itself (create/edit-details/
+// delete tasks and subtasks, for anyone). An assignee's only self-service
+// action is ticking their own item's status - mirrors the Project Tasks rule.
+const assertCanManageTodos = (actor: Actor) => {
+  if (!isSuperAdmin(actor.role)) throw forbidden('Only the Super Admin can add or edit to-do tasks.');
+};
+
+const assertCanSetStatus = (assignedTo: string | null | undefined, actor: Actor) => {
+  if (isSuperAdmin(actor.role)) return;
+  if (assignedTo && assignedTo === actor.id) return;
+  throw forbidden('Only the assigned member can update this task\'s status.');
+};
+
+const isStatusOnlyPatch = (patch: Record<string, unknown>) => {
+  const keys = Object.keys(patch).filter((key) => patch[key] !== undefined);
+  return keys.length > 0 && keys.every((key) => key === 'status');
+};
+
 const todayISO = () => new Date().toISOString().slice(0, 10);
 
 const daysBetween = (from: string, to: string) =>
@@ -97,12 +115,8 @@ export const todoService = {
   },
 
   async create(input: CreateTodoInput, actor: Actor) {
+    assertCanManageTodos(actor);
     const assignedTo = input.assignedTo || actor.id;
-    // "The Super Admin can create a daily task and assign it to any team
-    // member. Users can also create personal daily tasks for themselves."
-    if (assignedTo !== actor.id && !isSuperAdmin(actor.role)) {
-      throw forbidden('Only a Super Admin can assign a task to another team member');
-    }
 
     const todo = await todoRepository.create({
       title: input.title,
@@ -135,13 +149,12 @@ export const todoService = {
     const existing = await todoRepository.findById(id);
     if (!existing) throw notFound('Task not found');
 
-    const isOwnerOrAdmin = isSuperAdmin(actor.role) || existing.created_by === actor.id;
-    const isAssignee = existing.assigned_to === actor.id;
-    if (!isOwnerOrAdmin && !isAssignee) throw forbidden('You do not have permission to update this task');
-
-    // The assignee (if not also the creator/admin) may only change their own
-    // completion status - everything else about the task stays with its owner.
-    const allowedPatch = isOwnerOrAdmin ? patch : { status: patch.status };
+    if (isStatusOnlyPatch(patch)) {
+      assertCanSetStatus(existing.assigned_to, actor);
+    } else {
+      assertCanManageTodos(actor);
+    }
+    const allowedPatch = patch;
 
     if (Object.values(allowedPatch).every((v) => v === undefined)) {
       throw badRequest('Nothing to update');
@@ -179,11 +192,9 @@ export const todoService = {
   },
 
   async remove(id: string, actor: Actor) {
+    assertCanManageTodos(actor);
     const existing = await todoRepository.findById(id);
     if (!existing) throw notFound('Task not found');
-    if (!isSuperAdmin(actor.role) && existing.created_by !== actor.id) {
-      throw forbidden('Only the creator or a Super Admin can manage this task');
-    }
     await todoRepository.remove(id);
     return { message: 'Task deleted successfully' };
   },
@@ -193,11 +204,9 @@ export const todoService = {
     input: { title: string; assignedTo?: string; dueDate?: string; priority?: string; addToToday?: boolean; files?: Express.Multer.File[] },
     actor: Actor
   ) {
+    assertCanManageTodos(actor);
     const todo = await todoRepository.findById(todoId);
     if (!todo) throw notFound('Task not found');
-    if (!isSuperAdmin(actor.role) && todo.created_by !== actor.id) {
-      throw forbidden('Only the creator or a Super Admin can manage this task');
-    }
 
     const subtask = await todoRepository.createSubtask({
       todo_id: todoId,
@@ -237,15 +246,15 @@ export const todoService = {
     const subtask = await todoRepository.findSubtaskById(subtaskId);
     if (!subtask || subtask.todo_id !== todoId) throw notFound('Subtask not found');
 
-    const isOwnerOrAdmin = isSuperAdmin(actor.role) || todo.created_by === actor.id;
-    const isAssignee = subtask.assigned_to === actor.id;
-    if (!isOwnerOrAdmin && !isAssignee) throw forbidden('You do not have permission to update this subtask');
-
-    // Same rule as parent tasks: a plain assignee can only toggle completion.
+    if (isStatusOnlyPatch(patch)) {
+      assertCanSetStatus(subtask.assigned_to, actor);
+    } else {
+      assertCanManageTodos(actor);
+    }
     // Completing it here (e.g. from the Today's To-Do widget) updates this
     // exact row, so the parent task's subtask list reflects it too - single
     // source of truth, never duplicated.
-    const allowedPatch = isOwnerOrAdmin ? patch : { status: patch.status };
+    const allowedPatch = patch;
 
     await todoRepository.updateSubtask(subtaskId, {
       ...(allowedPatch.title !== undefined && { title: allowedPatch.title }),
@@ -279,11 +288,9 @@ export const todoService = {
   },
 
   async removeSubtask(todoId: string, subtaskId: string, actor: Actor) {
+    assertCanManageTodos(actor);
     const todo = await todoRepository.findById(todoId);
     if (!todo) throw notFound('Task not found');
-    if (!isSuperAdmin(actor.role) && todo.created_by !== actor.id) {
-      throw forbidden('Only the creator or a Super Admin can manage this task');
-    }
 
     const subtask = await todoRepository.findSubtaskById(subtaskId);
     if (!subtask || subtask.todo_id !== todoId) throw notFound('Subtask not found');
