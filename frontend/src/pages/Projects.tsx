@@ -163,7 +163,11 @@ const Projects = () => {
         <div className="grid grid-cols-3 gap-5">
           {filtered.map((project) => (
             <div key={project._id} style={{ position: 'relative' }}>
-              <Link to={`/projects/${project._id}`} className="project-card" style={{ opacity: project.archived ? 0.6 : 1 }}>
+              <Link
+                to={`/projects/${project._id}`}
+                className={`project-card ${canManage ? 'project-card--managed' : ''}`}
+                style={{ opacity: project.archived ? 0.6 : 1 }}
+              >
                 {/* Priority stripe */}
                 <div style={{
                   position: 'absolute',

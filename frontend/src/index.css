@@ -183,8 +183,8 @@ a:hover { color: var(--accent-cyan); }
   box-shadow: var(--shadow-glow-blue);
   flex-shrink: 0;
 }
-.sidebar .sidebar-logo-icon { background: #0a0a0b; }
-.sidebar-logo-icon img { width: 26px; height: 26px; object-fit: contain; filter: sepia(.75) saturate(.8) hue-rotate(338deg) brightness(1.22); }
+.sidebar .sidebar-logo-icon { background: #fffdf8; }
+.sidebar-logo-icon img { width: 28px; height: 28px; object-fit: contain; }
 
 .sidebar-logo-text {
   font-family: var(--font-display);
@@ -532,7 +532,9 @@ a:hover { color: var(--accent-cyan); }
   cursor: pointer;
   transition: all var(--transition-normal);
   text-decoration: none;
-  display: block;
+  display: flex;
+  flex-direction: column;
+  min-height: 294px;
   position: relative;
   overflow: hidden;
 }
@@ -563,6 +565,9 @@ a:hover { color: var(--accent-cyan); }
   gap: 0.75rem;
 }
 
+/* Keep the title and status clear of the edit/archive/delete controls. */
+.project-card--managed .project-card-header { padding-right: 106px; }
+
 .project-card-title {
   font-family: var(--font-display);
   font-size: 1rem;
@@ -571,6 +576,7 @@ a:hover { color: var(--accent-cyan); }
   line-height: 1.3;
   margin-bottom: 0.375rem;
   transition: color var(--transition-fast);
+  overflow-wrap: anywhere;
 }
 
 .project-card:hover .project-card-title { color: var(--accent-blue); }
@@ -580,9 +586,10 @@ a:hover { color: var(--accent-cyan); }
   color: var(--text-muted);
   line-height: 1.5;
   display: -webkit-box;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+  min-height: 3.65rem;
   margin-bottom: 1.25rem;
 }
 
@@ -590,7 +597,7 @@ a:hover { color: var(--accent-cyan); }
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-top: 1rem;
+  margin-top: auto;
   padding-top: 1rem;
   border-top: 1px solid var(--border-subtle);
 }
@@ -1196,7 +1203,7 @@ a:hover { color: var(--accent-cyan); }
 
 /* A compact, decision-first layer for project managers. */
 .decision-panel { margin: 0 0 1.5rem; padding: 1rem 1.15rem 1.1rem; border: 1px solid var(--border-normal); border-radius: var(--radius-lg); background: linear-gradient(105deg, rgba(201,169,97,.16), rgba(255,253,248,.96) 48%); }
-.decision-panel-title { display: flex; align-items: center; justify-content: space-between; gap: .65rem; margin-bottom: .8rem; }.decision-panel-title span { font: 650 .9rem var(--font-display); color: var(--text-primary); }.decision-panel-title small { display: block; color: var(--text-muted); font-size: .7rem; margin-top: .15rem; }.workstream-filter { display: flex; align-items: center; gap: .45rem; color: var(--text-muted); font-size: .68rem; white-space: nowrap; }.workstream-filter select { min-width: 150px; padding: .38rem .55rem; border: 1px solid var(--border-normal); border-radius: 5px; background: var(--surface-2); color: var(--text-secondary); font: inherit; }
+.decision-panel-title { display: flex; align-items: center; justify-content: space-between; gap: .65rem; margin-bottom: .8rem; }.decision-panel-title span { font: 650 .9rem var(--font-display); color: var(--text-primary); }.decision-panel-title small { display: block; color: var(--text-muted); font-size: .7rem; margin-top: .15rem; }.workstream-filter { display: flex; align-items: center; gap: .55rem; color: var(--text-secondary); font-size: .75rem; font-weight: 600; white-space: nowrap; }.workstream-filter select { min-width: 188px; min-height: 38px; padding: .5rem 2.1rem .5rem .75rem; border: 1px solid rgba(142, 116, 52, .45); border-radius: 7px; background-color: #fffdf8; color: var(--text-primary); box-shadow: 0 1px 2px rgba(70, 58, 30, .08); font: 600 .8125rem var(--font-body); cursor: pointer; }.workstream-filter select:hover { border-color: var(--accent-indigo); }.workstream-filter select:focus { outline: 3px solid rgba(201, 169, 97, .28); outline-offset: 2px; border-color: var(--accent-indigo); }
 .decision-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .65rem; }.decision-item { min-width: 0; display: flex; align-items: center; gap: .65rem; padding: .75rem; border: 1px solid var(--border-subtle); background: rgba(255,253,248,.72); border-radius: var(--radius-sm); color: var(--accent-cyan); text-decoration: none; transition: border-color var(--transition-fast), transform var(--transition-fast), background var(--transition-fast); }.decision-item:hover { color: var(--accent-cyan); border-color: var(--border-accent); background: rgba(201,169,97,.10); transform: translateY(-1px); }.decision-item.danger { color: #b9564b; }.decision-item > div { min-width: 0; flex: 1; }.decision-item strong, .decision-item span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }.decision-item strong { color: var(--text-primary); font-size: .76rem; }.decision-item span { color: var(--text-muted); font-size: .67rem; margin-top: .16rem; }
 .capacity-card { margin-top: 1.5rem; padding: 1.15rem 1.3rem; border: 1px solid var(--border-subtle); border-radius: var(--radius-lg); background: var(--surface-1); }.capacity-header { display:flex; align-items:end; justify-content:space-between; gap:1rem; margin-bottom:1rem; }.capacity-header h2 { font: 650 1.05rem var(--font-display); color:var(--text-primary); margin-top:.1rem; }.capacity-header p { color:var(--text-muted); font-size:.74rem; margin-top:.25rem; }.capacity-header a { display:flex; align-items:center; gap:.25rem; color:var(--accent-cyan); font-size:.75rem; font-weight:600; white-space:nowrap; }.capacity-list { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:.55rem .8rem; }.capacity-member { min-width:0; display:flex; align-items:center; gap:.55rem; padding:.65rem; border:1px solid var(--border-subtle); border-radius:var(--radius-sm); }.capacity-member .avatar { width:28px; height:28px; font-size:.66rem; }.capacity-name { min-width:0; flex:1; }.capacity-name strong, .capacity-name span { display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }.capacity-name strong { color:var(--text-primary); font-size:.75rem; }.capacity-name span { color:var(--text-muted); font-size:.65rem; margin-top:.14rem; }.capacity-meter { width:38px; height:4px; border-radius:10px; background:var(--surface-3); overflow:hidden; }.capacity-meter i { display:block; height:100%; border-radius:inherit; background:var(--success); }.capacity-meter.medium i { background:var(--warning); }.capacity-meter.high i { background:var(--danger); }.capacity-empty { color:var(--text-muted); font-size:.76rem; }
 
