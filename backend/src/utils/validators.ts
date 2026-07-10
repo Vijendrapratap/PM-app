@@ -56,15 +56,24 @@ export const createProjectSchema = z.object({
   status: z.string().optional(),
 });
 
+// Postgres `date` columns reject '' outright ("invalid input syntax for type
+// date"). The edit form always submits these fields, blank or not, so an
+// empty string here must be treated the same as "not provided", not as a
+// literal value to save.
+const optionalDateString = z
+  .string()
+  .optional()
+  .transform((value) => (value === '' ? undefined : value));
+
 export const updateProjectSchema = z.object({
   name: z.string().optional(),
   description: z.string().optional(),
   category: z.string().optional(),
   department: z.string().optional(),
   priority: prioritySchema.optional(),
-  startDate: z.string().optional(),
-  estimatedCompletionDate: z.string().optional(),
-  deadline: z.string().optional(),
+  startDate: optionalDateString,
+  estimatedCompletionDate: optionalDateString,
+  deadline: optionalDateString,
   budget: z.coerce.number().optional(),
   status: z.string().optional(),
 });
@@ -118,7 +127,7 @@ export const createTodoSchema = z.object({
 export const updateTodoSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
-  dueDate: z.string().optional(),
+  dueDate: optionalDateString,
   priority: prioritySchema.optional(),
   status: taskStatusSchema.optional(),
   assignedTo: z.string().optional(),
@@ -136,7 +145,7 @@ export const updateSubtaskSchema = z.object({
   title: z.string().optional(),
   status: taskStatusSchema.optional(),
   assignedTo: z.string().optional(),
-  dueDate: z.string().optional(),
+  dueDate: optionalDateString,
   priority: prioritySchema.optional(),
   addToToday: z.boolean().optional(),
 });
@@ -152,7 +161,7 @@ export const createProjectTaskSchema = z.object({
 export const updateProjectTaskSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
-  dueDate: z.string().optional(),
+  dueDate: optionalDateString,
   priority: prioritySchema.optional(),
   status: taskStatusSchema.optional(),
   assignedTo: z.string().optional(),
@@ -169,7 +178,7 @@ export const updateProjectTaskSubtaskSchema = z.object({
   title: z.string().optional(),
   status: taskStatusSchema.optional(),
   assignedTo: z.string().optional(),
-  dueDate: z.string().optional(),
+  dueDate: optionalDateString,
   priority: prioritySchema.optional(),
 });
 

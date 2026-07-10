@@ -1,4 +1,5 @@
 import { notificationRepository } from '../repositories/notificationRepository';
+import { logger } from '../config/logger';
 
 const toDto = (n: {
   id: string;
@@ -21,8 +22,14 @@ const toDto = (n: {
 export const notificationService = {
   // Small helper reused by every module that needs to notify a user (project
   // assignment, task/subtask assignment, task completion, message
-  // publishing, and the lazy due-soon/overdue generators). Never throws on
-  // duplicates - see notificationRepository.create.
+  // publishing, and the lazy due-soon/overdue generators). This is always a
+  // side effect of some other write (assign a task, mark it complete, ...)
+  // that already succeeded by the time this runs - a notification failing
+  // (e.g. a stale assignee id that no longer exists, tripping the user_id
+  // foreign key) must never fail the request for the write that already
+  // happened. Every caller `await`s this inline without its own try/catch,
+  // so any error thrown here previously surfaced as a 500 on the whole
+  // assign/complete/create request even though the real operation worked.
   async notify(
     userId: string | null | undefined,
     type: string,
@@ -31,15 +38,19 @@ export const notificationService = {
     options?: { link?: string; relatedType?: string; relatedId?: string }
   ) {
     if (!userId) return;
-    await notificationRepository.create({
-      user_id: userId,
-      type,
-      title,
-      message,
-      link: options?.link,
-      related_type: options?.relatedType,
-      related_id: options?.relatedId,
-    });
+    try {
+      await notificationRepository.create({
+        user_id: userId,
+        type,
+        title,
+        message,
+        link: options?.link,
+        related_type: options?.relatedType,
+        related_id: options?.relatedId,
+      });
+    } catch (error) {
+      logger.error('Failed to create notification', { userId, type, error: error instanceof Error ? error.message : error });
+    }
   },
 
   async list(userId: string) {

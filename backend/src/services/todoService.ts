@@ -165,7 +165,7 @@ export const todoService = {
       ...(allowedPatch.description !== undefined && { description: allowedPatch.description }),
       ...(allowedPatch.dueDate !== undefined && { due_date: allowedPatch.dueDate }),
       ...(allowedPatch.priority !== undefined && { priority: allowedPatch.priority as any }),
-      ...(allowedPatch.assignedTo !== undefined && { assigned_to: allowedPatch.assignedTo }),
+      ...(allowedPatch.assignedTo !== undefined && { assigned_to: allowedPatch.assignedTo || null }),
       ...(allowedPatch.status !== undefined && {
         status: allowedPatch.status as any,
         completed_at: allowedPatch.status === 'Completed' ? new Date().toISOString() : null,

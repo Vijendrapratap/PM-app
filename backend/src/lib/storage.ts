@@ -1,3 +1,4 @@
+import { randomUUID } from 'crypto';
 import { supabase } from '../config/supabase';
 
 const BUCKET = 'project-files';
@@ -12,7 +13,11 @@ export const uploadFile = async (
   folder: string,
   file: Express.Multer.File
 ): Promise<UploadedFile> => {
-  const storagePath = `${folder}/${Date.now()}-${file.originalname}`;
+  // A plain Date.now() prefix collides whenever two files in the same
+  // upload request share a filename (same millisecond -> same path), which
+  // makes the second upsert:false write fail as "already exists". A UUID
+  // guarantees uniqueness per file regardless of name or timing.
+  const storagePath = `${folder}/${randomUUID()}-${file.originalname}`;
 
   const { error } = await supabase.storage.from(BUCKET).upload(storagePath, file.buffer, {
     contentType: file.mimetype,
