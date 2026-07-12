@@ -198,6 +198,7 @@ const Dashboard = () => {
   const visibleProjects = recentProjects.filter(inWorkstream);
   const visibleRisks = decisionQueue.atRisk.filter(inWorkstream);
   const visibleUnassigned = decisionQueue.unassigned.filter(({ project }) => inWorkstream(project));
+  const visibleBlockers = portfolioTasks.filter(({ project }) => inWorkstream(project)).flatMap(({ project, tasks }) => tasks.filter((task) => task.status === 'Blocked').map((task) => ({ project, task })));
   const capacity = useMemo(() => {
     const counts = new Map<string, number>();
     const overdue = new Map<string, number>();
@@ -229,7 +230,7 @@ const Dashboard = () => {
   }
 
   return (
-    <div className="animate-fade-in">
+    <div className="animate-fade-in dashboard-compact">
       {/* Page Header */}
       <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
         <div>
@@ -277,6 +278,12 @@ const Dashboard = () => {
             <ArrowUpRight className="stat-arrow" size={16} />
           </Link>
         ))}
+      </div>
+
+      <div className="dashboard-signal-grid">
+        <section className="signal-card danger"><header><AlarmClock size={15}/><span>Missed daily tasks</span><strong>{overdueTodos.length}</strong></header><div>{overdueTodos.slice(0, 3).map((task) => <Link to="/daily-todo" key={task._id}><span>{task.title}</span><em>{task.daysOverdue}d overdue</em></Link>)}{!overdueTodos.length && <p>No missed daily tasks.</p>}</div></section>
+        <section className="signal-card blocker"><header><AlertTriangle size={15}/><span>Project blockers</span><strong>{visibleBlockers.length}</strong></header><div>{visibleBlockers.slice(0, 3).map(({ task, project }) => <Link to={`/projects/${project._id}`} key={task._id}><span>{task.title}</span><em>{project.name}</em></Link>)}{!visibleBlockers.length && <p>No active blockers.</p>}</div></section>
+        <section className="signal-card"><header><Users size={15}/><span>Team delivery pressure</span><strong>{capacity.filter((member) => member.overdueTasks > 0).length}</strong></header><div>{capacity.slice(0, 3).map((member) => <Link to={`/team?member=${member._id}`} key={member._id}><span>{member.name}</span><em className={member.overdueTasks ? 'vermilion' : ''}>{member.overdueTasks ? `${member.overdueTasks} overdue` : `${member.openTasks} open · on track`}</em></Link>)}</div></section>
       </div>
 
       {/* Content Grid */}

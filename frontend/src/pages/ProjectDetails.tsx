@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Clock, Paperclip, CheckCircle2, Plus,
@@ -46,6 +46,22 @@ const ProjectDetails = () => {
   const [quickLink, setQuickLink] = useState('');
   const [saving, setSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [uploadingDocs, setUploadingDocs] = useState(false);
+  const documentInputRef = useRef<HTMLInputElement>(null);
+
+  const uploadProjectDocuments = async (files: FileList | null) => {
+    if (!id || !files?.length) return;
+    setUploadingDocs(true);
+    try {
+      await projectApi.addDocuments(id, Array.from(files).slice(0, 5));
+      await refetch();
+    } catch (error) {
+      alert(getErrorMessage(error, 'Failed to upload project documents.'));
+    } finally {
+      setUploadingDocs(false);
+      if (documentInputRef.current) documentInputRef.current.value = '';
+    }
+  };
 
   useEffect(() => {
     if (!project) return;
@@ -708,7 +724,7 @@ const ProjectDetails = () => {
 
           {/* Documents */}
           <div className="section-card documentation-card">
-            <div className="section-card-header"><div className="section-card-title"><FileCheck2 size={15}/>Documentation readiness</div><span className="badge badge-neutral">{documentationDone}/{documentationChecklist.length}</span></div>
+            <div className="section-card-header"><div className="section-card-title"><FileCheck2 size={15}/>Documentation readiness</div><div className="documentation-actions"><span className="badge badge-neutral">{documentationDone}/{documentationChecklist.length}</span>{canEdit && !isCompleted && <><input ref={documentInputRef} type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.jpg,.jpeg,.png,.txt" hidden onChange={(event) => uploadProjectDocuments(event.target.files)}/><button className="btn btn-secondary" disabled={uploadingDocs} onClick={() => documentInputRef.current?.click()}><Plus size={12}/>{uploadingDocs ? 'Uploading…' : 'Add document'}</button></>}</div></div>
             <div className="documentation-list">
               {documentationChecklist.map((item) => <div className={`documentation-item ${item.done ? 'done' : ''}`} key={item.label}>
                 <span className="documentation-check">{item.done ? <CheckCircle2 size={14}/> : <span/>}</span><div><strong>{item.label}</strong><small>{item.help}</small></div><em>{item.required ? 'Required' : 'Optional'}</em>

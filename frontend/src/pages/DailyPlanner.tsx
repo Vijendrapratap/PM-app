@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, ListChecks, Trash2, ChevronDown, ChevronRight, Paperclip, RotateCcw } from 'lucide-react';
+import { Plus, ListChecks, Trash2, ChevronDown, ChevronRight, Paperclip, RotateCcw, Columns3, List } from 'lucide-react';
 import { useDailyTodos } from '../hooks/useDailyTodos';
 import { useTeam } from '../hooks/useTeam';
 import { useAuth } from '../context/AuthContext';
@@ -41,6 +41,7 @@ const DailyPlanner = () => {
   const [deleteTarget, setDeleteTarget] = useState<DailyTodo | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
+  const [view, setView] = useState<'list' | 'board'>('list');
 
   const toggleExpand = (id: string) => setExpanded((e) => ({ ...e, [id]: !e[id] }));
 
@@ -90,6 +91,13 @@ const DailyPlanner = () => {
   };
 
   const visible = grouped[tab];
+  const boardColumns = [
+    { status: 'Pending', label: 'To Do' }, { status: 'In Progress', label: 'In Progress' }, { status: 'In Review', label: 'In Review' }, { status: 'Completed', label: 'Done' },
+  ] as const;
+
+  const updateTodoStatus = async (todo: DailyTodo, status: DailyTodo['status']) => {
+    try { await todoApi.update(todo._id, { status }); refetch(); } catch (err) { setError(getErrorMessage(err, 'Failed to update task.')); }
+  };
 
   return (
     <div className="animate-fade-in">
@@ -112,7 +120,7 @@ const DailyPlanner = () => {
       )}
 
       {/* Tabs */}
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
+      <div className="planner-view-row"><div style={{ display: 'flex', gap: '0.5rem', borderBottom: '1px solid var(--border-subtle)' }}>
         {TABS.map((t) => (
           <button
             key={t.key}
@@ -131,7 +139,7 @@ const DailyPlanner = () => {
             {t.label} <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>({grouped[t.key].length})</span>
           </button>
         ))}
-      </div>
+      </div><div className="view-switch"><button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} title="List view"><List size={14}/></button><button className={view === 'board' ? 'active' : ''} onClick={() => setView('board')} title="Board view"><Columns3 size={14}/></button></div></div>
 
       {loading ? (
         <div className="flex flex-col gap-3">
@@ -145,6 +153,11 @@ const DailyPlanner = () => {
             <div className="empty-state-desc">No tasks in this view yet.</div>
           </div>
         </div>
+      ) : view === 'board' ? (
+        <div className="todo-board">{boardColumns.map((column) => {
+          const items = visible.filter((todo) => todo.status === column.status || (column.status === 'Pending' && todo.status === 'Blocked'));
+          return <section className={`todo-column todo-column-${column.status.toLowerCase().replace(' ', '-')}`} key={column.status}><header><span>{column.label}</span><strong>{items.length}</strong></header><div>{items.map((todo) => <article className="todo-board-card" key={todo._id}><div><span className={`badge ${PRIORITY_BADGE[todo.priority]}`}>{todo.priority}</span>{todo.status === 'Blocked' && <span className="badge badge-danger">Blocked</span>}</div><h3>{todo.title}</h3>{todo.description && <p>{todo.description}</p>}<footer><span>{todo.assignedTo?.name || 'Unassigned'}</span><span className={todo.daysOverdue > 0 ? 'task-date-overdue' : ''}>{todo.daysOverdue > 0 ? `${todo.daysOverdue}d overdue` : todo.dueDate ? new Date(todo.dueDate).toLocaleDateString('en-US', { month:'short', day:'numeric' }) : ''}</span></footer>{canTickTodo(todo) && <select value={todo.status} onChange={(event) => updateTodoStatus(todo, event.target.value as DailyTodo['status'])}>{boardColumns.map((item) => <option value={item.status} key={item.status}>{item.label}</option>)}<option value="Blocked">Blocked</option></select>}</article>)}</div>{!items.length && <p className="todo-column-empty">No tasks</p>}</section>;
+        })}</div>
       ) : (
         <div className="flex flex-col gap-3">
           {visible.map((todo) => {

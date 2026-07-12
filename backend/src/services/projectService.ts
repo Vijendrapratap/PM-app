@@ -124,6 +124,16 @@ export const projectService = {
     return mapProject(row);
   },
 
+  async addProjectDocuments(id: string, files: Express.Multer.File[], actorId: string) {
+    const project = await projectRepository.findById(id);
+    if (!project) throw notFound('Project not found');
+    if (!files.length) throw badRequest('Select at least one document');
+    const uploaded = await uploadFiles(`projects/${id}`, files);
+    await projectRepository.addInitialDocuments(id, uploaded.map((file) => ({ name: file.name, storage_path: file.storagePath })));
+    await activityLogRepository.create({ action: 'Project Documents Added', user_id: actorId, project_id: id, details: `${files.length} document${files.length === 1 ? '' : 's'} added to ${project.name}.` });
+    return mapProject(await projectRepository.findById(id));
+  },
+
   async updateProject(
     id: string,
     patch: Partial<{

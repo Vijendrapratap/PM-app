@@ -110,3 +110,10 @@ export const removeProjectMember = asyncHandler(async (req: Request, res: Respon
   const project = await projectService.removeMember(param(req, 'id'), param(req, 'userId'), req.user?.id);
   res.json(project);
 });
+
+export const addProjectDocuments = asyncHandler(async (req: Request, res: Response) => {
+  const actor = actorOf(req);
+  const projectId = param(req, 'id');
+  await projectService.assertProjectEditAccess(projectId, actor);
+  res.status(201).json(await projectService.addProjectDocuments(projectId, filesOf(req), actor.id));
+});

@@ -15,6 +15,7 @@ import {
   saveDailyReport,
   addProjectMember,
   removeProjectMember,
+  addProjectDocuments,
 } from '../controllers/projectController';
 import { upload } from '../middleware/upload';
 import { protect, requireSuperAdmin } from '../middleware/auth';
@@ -53,6 +54,8 @@ router.post('/:id/restore', requireSuperAdmin, restoreProject);
 router.route('/:id/updates')
   .post(upload.array('documents', 5), validateBody(addUpdateSchema), addUpdate)
   .get(getProjectUpdates);
+
+router.post('/:id/documents', upload.array('documents', 5), addProjectDocuments);
 
 router.route('/:id/daily-reports')
   .get(getProjectDailyReports)

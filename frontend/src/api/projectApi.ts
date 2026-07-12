@@ -29,6 +29,12 @@ export const projectApi = {
 
   update: (id: string, data: UpsertProjectPayload) => api.put<Project>(`/projects/${id}`, data).then((res) => res.data),
 
+  addDocuments: (id: string, files: File[]) => {
+    const data = new FormData();
+    files.forEach((file) => data.append('documents', file));
+    return api.post<Project>(`/projects/${id}/documents`, data, { headers: { 'Content-Type': 'multipart/form-data' } }).then((res) => res.data);
+  },
+
   remove: (id: string) => api.delete(`/projects/${id}`),
 
   archive: (id: string) => api.post<Project>(`/projects/${id}/archive`).then((res) => res.data),
