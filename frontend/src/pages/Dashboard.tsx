@@ -285,6 +285,57 @@ const Dashboard = () => {
         </div>
       </div>
 
+      {/* Live deadline-timer banner - kept visually distinct (blue) from the
+          gold decision-panel below so it reads as its own signal. */}
+      <section
+        style={{
+          marginBottom: '1.5rem',
+          padding: '1rem 1.15rem 1.1rem',
+          border: '1px solid rgba(37, 99, 235, 0.35)',
+          borderRadius: 'var(--radius-lg)',
+          background: 'linear-gradient(105deg, rgba(37, 99, 235, 0.14), rgba(255, 253, 248, 0.97) 55%)',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
+          <AlarmClock size={18} style={{ color: '#2563eb' }} />
+          <span style={{ font: '650 0.9rem var(--font-display)', color: 'var(--text-primary)' }}>
+            {isAdmin ? 'All Assigned Projects' : 'My Assigned Projects'}
+          </span>
+          <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Live deadline countdown</small>
+        </div>
+        {deadlineTimerProjects.length === 0 ? (
+          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+            {isAdmin ? 'No projects currently have assigned members.' : 'You are not assigned to any active projects.'}
+          </p>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' }}>
+            {deadlineTimerProjects.map((project) => (
+              <Link
+                key={project._id}
+                to={`/projects/${project._id}`}
+                style={{
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '0.25rem',
+                  padding: '0.7rem 0.85rem',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid rgba(37, 99, 235, 0.25)',
+                  background: 'rgba(255, 253, 248, 0.85)',
+                  textDecoration: 'none',
+                }}
+              >
+                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {isAdmin
+                    ? project.assignedMembers.map((m) => m.name).join(', ')
+                    : 'You are assigned to this work'}
+                </span>
+                <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{project.name}</strong>
+                <DeadlineTimer deadline={project.deadline || project.estimatedCompletionDate} completed={project.status === 'Completed'} />
+              </Link>
+            ))}
+          </div>
+        )}
+      </section>
 
       {/* The first screen answers a PM's three daily decisions. */}
       <section className="decision-panel">
@@ -400,47 +451,6 @@ const Dashboard = () => {
 
         {/* Summary Panel */}
         <div className="flex flex-col gap-4">
-          {/* Assigned project deadline timers - live countdown, right corner of the dashboard */}
-          <div className="section-card">
-            <div className="section-card-header">
-              <div className="section-card-title">
-                <AlarmClock size={16} style={{ color: 'var(--danger)' }} />
-                {isAdmin ? 'All Assigned Projects' : 'My Assigned Projects'}
-              </div>
-            </div>
-            <div className="section-card-body" style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.625rem', maxHeight: '320px', overflowY: 'auto' }}>
-              {deadlineTimerProjects.length === 0 ? (
-                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
-                  {isAdmin ? 'No projects currently have assigned members.' : 'You are not assigned to any active projects.'}
-                </p>
-              ) : (
-                deadlineTimerProjects.map((project) => (
-                  <Link
-                    key={project._id}
-                    to={`/projects/${project._id}`}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      gap: '0.25rem',
-                      padding: '0.625rem 0.75rem',
-                      borderRadius: 'var(--radius-md)',
-                      border: '1px solid var(--border-subtle)',
-                      textDecoration: 'none',
-                    }}
-                  >
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      {isAdmin
-                        ? project.assignedMembers.map((m) => m.name).join(', ')
-                        : 'You are assigned to this work'}
-                    </span>
-                    <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{project.name}</strong>
-                    <DeadlineTimer deadline={project.deadline || project.estimatedCompletionDate} completed={project.status === 'Completed'} />
-                  </Link>
-                ))
-              )}
-            </div>
-          </div>
-
           {/* Status Breakdown */}
           <div className="section-card">
             <div className="section-card-header">
