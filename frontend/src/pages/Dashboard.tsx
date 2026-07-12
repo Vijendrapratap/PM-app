@@ -15,6 +15,8 @@ import { ideaApi, type Idea } from '../api/ideaApi';
 import type { ProjectTask } from '../api/projectTaskApi';
 import type { Project } from '../types';
 import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
+import { useAuth } from '../context/AuthContext';
+
 
 const PRIORITY_BADGE: Record<string, string> = {
   Low: 'badge-neutral',
@@ -36,6 +38,15 @@ const daysFromNow = (n: number) => {
 };
 
 const Dashboard = () => {
+  const { user } = useAuth();
+  const getGreeting = () => {
+    const hour = new Date().getHours();
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  };
+  const greetingText = user?.name ? `${getGreeting()}, ${user.name.split(' ')[0]}` : 'Portfolio command center';
+
   const [stats, setStats] = useState({
     totalProjects: 0,
     completedProjects: 0,
@@ -233,22 +244,23 @@ const Dashboard = () => {
   return (
     <div className="animate-fade-in dashboard-compact">
       {/* Page Header */}
-      <div className="page-header" style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+      <div className="dashboard-welcome-header">
         <div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
-            <Zap size={20} style={{ color: 'var(--accent-cyan)' }} />
-            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent-cyan)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>Pratap AI Innovation</span>
+            <Zap size={18} style={{ color: 'var(--accent-cyan)' }} />
+            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-cyan)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Pratap AI Innovation</span>
           </div>
-          <h1 className="page-title">Portfolio command center</h1>
-          <p className="page-subtitle">What needs a decision, who owns the work, and where delivery needs attention.</p>
+          <h1 className="dashboard-welcome-title">{greetingText}</h1>
+          <p className="dashboard-welcome-subtitle">What needs a decision, who owns the work, and where delivery needs attention.</p>
         </div>
         <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Today</p>
-          <p style={{ fontSize: '0.9375rem', fontWeight: 600, color: 'var(--text-secondary)' }}>
+          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today</p>
+          <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
             {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
           </p>
         </div>
       </div>
+
 
       {/* The first screen answers a PM's three daily decisions. */}
       <section className="decision-panel">

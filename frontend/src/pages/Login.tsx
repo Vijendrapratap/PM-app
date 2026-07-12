@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogIn, Play } from 'lucide-react';
+import { LogIn, Play, Eye, EyeOff } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { getErrorMessage } from '../utils/errorMessage';
 
@@ -10,8 +10,10 @@ const Login = () => {
   const location = useLocation();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [showDemoHint, setShowDemoHint] = useState(false);
 
   if (!loading && user) {
     const redirectTo = (location.state as { from?: string } | null)?.from || '/';
@@ -38,44 +40,25 @@ const Login = () => {
   };
 
   return (
-    <div
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        background: 'var(--bg-primary)',
-        padding: '1.5rem',
-      }}
-    >
-      <div
-        className="animate-fade-in"
-        style={{
-          width: '100%',
-          maxWidth: '380px',
-          background: 'var(--surface-1)',
-          border: '1px solid var(--border-subtle)',
-          borderRadius: 'var(--radius-lg)',
-          padding: '2rem',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1.75rem' }}>
-          <div className="sidebar-logo-icon"><img src="/brand/pratap-ai-mark.png" alt="Pratap AI" /></div>
+    <div className="auth-page">
+      <div className="auth-card animate-fade-in" style={{ maxWidth: '400px' }}>
+        <div className="auth-header">
+          <div className="sidebar-logo-icon">
+            <img src="/brand/pratap-ai-mark.png" alt="Pratap AI" />
+          </div>
           <div>
-            <div style={{ fontWeight: 700, fontSize: '0.9375rem', color: 'var(--text-primary)' }}>Pratap AI Innovation</div>
-            <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>Project Hub</div>
+            <div className="auth-logo-title">Pratap AI Innovation</div>
+            <div className="auth-logo-sub">Project Hub</div>
           </div>
         </div>
 
-        <h1 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: '0.25rem' }}>
-          Sign in
-        </h1>
-        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', marginBottom: '1.5rem' }}>
+        <h1 className="auth-title">Sign in</h1>
+        <p className="auth-subtitle">
           Enter your credentials to access the portal.
         </p>
 
         <form onSubmit={handleSubmit}>
-          <div className="form-group" style={{ marginBottom: '1rem' }}>
+          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
             <label className="form-label">Email Address</label>
             <input
               type="email"
@@ -87,16 +70,27 @@ const Login = () => {
               onChange={(e) => setEmail(e.target.value)}
             />
           </div>
-          <div className="form-group" style={{ marginBottom: '1.25rem' }}>
+          <div className="form-group" style={{ marginBottom: '1.5rem' }}>
             <label className="form-label">Password</label>
-            <input
-              type="password"
-              className="form-input"
-              required
-              placeholder="••••••••"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
+            <div className="password-input-wrapper">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                className="form-input"
+                required
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                style={{ paddingRight: '2.5rem' }}
+              />
+              <button
+                type="button"
+                className="password-toggle-btn"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -114,20 +108,50 @@ const Login = () => {
             </div>
           )}
 
-          <button type="submit" className="btn btn-primary" style={{ width: '100%', justifyContent: 'center' }} disabled={submitting}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{ width: '100%', justifyContent: 'center', marginBottom: '0.75rem' }}
+            disabled={submitting}
+          >
             <LogIn size={15} /> {submitting ? 'Signing in...' : 'Sign In'}
           </button>
-          <button type="button" className="btn btn-secondary" style={{ width: '100%', justifyContent: 'center', marginTop: '0.65rem' }} onClick={() => { startDemo(); navigate('/'); }}>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            style={{ width: '100%', justifyContent: 'center' }}
+            onClick={() => {
+              startDemo();
+              navigate('/');
+            }}
+          >
             <Play size={14} /> Explore demo workspace
           </button>
         </form>
 
-        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.25rem' }}>
-          Don't have an account? <Link to="/register" style={{ color: 'var(--accent-blue)', fontWeight: 500 }}>Register</Link>
+        <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.5rem', marginBottom: 0 }}>
+          Don't have an account?{' '}
+          <Link to="/register" style={{ color: 'var(--accent-cyan)', fontWeight: 600, textDecoration: 'none' }}>
+            Register
+          </Link>
         </p>
-        <p style={{ fontSize: '0.7rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '.65rem' }}>
-          Demo: <span style={{ color: 'var(--text-secondary)' }}>demo@pratap.ai</span> · <span style={{ color: 'var(--text-secondary)' }}>Demo@123</span>
-        </p>
+
+        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+          <button
+            type="button"
+            className="btn btn-ghost"
+            style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', color: 'var(--text-muted)' }}
+            onClick={() => setShowDemoHint(!showDemoHint)}
+          >
+            {showDemoHint ? 'Hide demo credentials' : 'View demo credentials'}
+          </button>
+          {showDemoHint && (
+            <div className="demo-hint-box animate-fade-in">
+              Demo Email: <strong>demo@pratap.ai</strong><br />
+              Password: <strong>Demo@123</strong>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
