@@ -137,6 +137,8 @@ export const projectService = {
       deadline: string;
       budget: number;
       status: string;
+      github: string;
+      demoVideo: string;
     }>
   ) {
     const existing = await projectRepository.findById(id);
@@ -153,6 +155,8 @@ export const projectService = {
       ...(patch.deadline !== undefined && { deadline: patch.deadline }),
       ...(patch.budget !== undefined && { budget: patch.budget }),
       ...(patch.status !== undefined && { status: patch.status as any }),
+      ...(patch.github !== undefined && { final_github: patch.github || null }),
+      ...(patch.demoVideo !== undefined && { final_demo_video: patch.demoVideo || null }),
     });
     if (!updated) throw notFound('Project not found');
 
@@ -301,7 +305,7 @@ export const projectService = {
 
   async finishProject(
     id: string,
-    input: { github?: string; googleDrive?: string; liveWebsite?: string; finalNotes?: string; actorId?: string }
+    input: { github?: string; googleDrive?: string; liveWebsite?: string; demoVideo?: string; finalNotes?: string; actorId?: string }
   ) {
     const project = await projectRepository.findById(id);
     if (!project) throw notFound('Project not found');
@@ -310,6 +314,7 @@ export const projectService = {
       final_github: input.github,
       final_google_drive: input.googleDrive,
       final_live_website: input.liveWebsite,
+      final_demo_video: input.demoVideo,
       final_notes: input.finalNotes,
     });
 

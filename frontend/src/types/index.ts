@@ -35,6 +35,7 @@ export interface FinalLinks {
   github?: string | null;
   googleDrive?: string | null;
   liveWebsite?: string | null;
+  demoVideo?: string | null;
 }
 
 export interface Project {

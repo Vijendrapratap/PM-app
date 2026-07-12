@@ -101,6 +101,7 @@ export const projectRepository = {
       final_github?: string;
       final_google_drive?: string;
       final_live_website?: string;
+      final_demo_video?: string;
       final_notes?: string;
     }
   ): Promise<Project> {

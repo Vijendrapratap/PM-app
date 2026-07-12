@@ -69,7 +69,17 @@ const Dashboard = () => {
           draftProjects: projects.filter((p) => p.status === 'Draft').length,
           totalMembers: users.length,
         });
-        setRecentProjects(projects.slice(0, 5));
+        setRecentProjects([...projects]
+          .filter((project) => project.status !== 'Completed' && !project.archived)
+          .sort((a, b) => {
+            const aDeadline = a.deadline || a.estimatedCompletionDate;
+            const bDeadline = b.deadline || b.estimatedCompletionDate;
+            if (!aDeadline && !bDeadline) return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+            if (!aDeadline) return 1;
+            if (!bDeadline) return -1;
+            return new Date(aDeadline).getTime() - new Date(bDeadline).getTime();
+          })
+          .slice(0, 7));
         setTeamMembers(users);
         const activeProjects = projects.filter((project) => project.status !== 'Completed' && !project.archived);
         const taskGroups = await Promise.all(activeProjects.map(async (project) => ({ project, tasks: await projectTaskApi.list(project._id) })));
@@ -190,11 +200,16 @@ const Dashboard = () => {
   const visibleUnassigned = decisionQueue.unassigned.filter(({ project }) => inWorkstream(project));
   const capacity = useMemo(() => {
     const counts = new Map<string, number>();
-    portfolioTasks.filter(({ project }) => inWorkstream(project)).forEach(({ tasks }) => tasks.forEach((task) => {
-      if (task.status !== 'Completed' && task.assignedTo) counts.set(task.assignedTo._id, (counts.get(task.assignedTo._id) || 0) + 1);
-    }));
-    return teamMembers.filter((member) => member.status === 'Active').map((member) => ({ ...member, openTasks: counts.get(member._id) || 0 }))
-      .sort((a, b) => b.openTasks - a.openTasks || a.name.localeCompare(b.name));
+    const overdue = new Map<string, number>();
+    const today = new Date().toISOString().slice(0, 10);
+    const register = (item: { status: string; dueDate: string | null; assignedTo: { _id: string } | null }) => {
+      if (item.status === 'Completed' || !item.assignedTo) return;
+      counts.set(item.assignedTo._id, (counts.get(item.assignedTo._id) || 0) + 1);
+      if (item.dueDate && item.dueDate < today) overdue.set(item.assignedTo._id, (overdue.get(item.assignedTo._id) || 0) + 1);
+    };
+    portfolioTasks.filter(({ project }) => inWorkstream(project)).forEach(({ tasks }) => tasks.forEach((task) => { register(task); task.subtasks.forEach(register); }));
+    return teamMembers.filter((member) => member.status === 'Active').map((member) => ({ ...member, openTasks: counts.get(member._id) || 0, overdueTasks: overdue.get(member._id) || 0 }))
+      .sort((a, b) => b.overdueTasks - a.overdueTasks || b.openTasks - a.openTasks || a.name.localeCompare(b.name));
   }, [portfolioTasks, teamMembers, workstream]);
 
   if (loading) {
@@ -266,12 +281,12 @@ const Dashboard = () => {
 
       {/* Content Grid */}
       <div className="grid grid-cols-3 gap-6">
-        {/* Recent Projects */}
+        {/* Projects ordered by delivery urgency. */}
         <div className="col-span-2 section-card">
           <div className="section-card-header">
             <div className="section-card-title">
               <TrendingUp size={16} style={{ color: 'var(--accent-blue)' }} />
-              Recent Projects
+              Projects by Deadline
             </div>
             <Link to="/projects" style={{ fontSize: '0.8125rem', color: 'var(--accent-blue)', fontWeight: 500 }}>
               View all →
@@ -291,6 +306,7 @@ const Dashboard = () => {
                     <th>Project</th>
                     <th>Status</th>
                     <th>Progress</th>
+                    <th>Deadline</th>
                     <th>Members</th>
                   </tr>
                 </thead>
@@ -312,6 +328,12 @@ const Dashboard = () => {
                           <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', width: '30px' }}>{project.progress}%</span>
                         </div>
                       </td>
+                      <td>{(() => {
+                        const deadline = project.deadline || project.estimatedCompletionDate;
+                        if (!deadline) return <span className="deadline-label no-date">No date</span>;
+                        const days = Math.ceil((new Date(deadline).getTime() - Date.now()) / 86400000);
+                        return <div className={`deadline-label ${days < 0 ? 'overdue' : days <= 7 ? 'soon' : ''}`}><strong>{new Date(deadline).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</strong><span>{days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : `${days}d left`}</span></div>;
+                      })()}</td>
                       <td>
                         <div style={{ display: 'flex', gap: '-4px' }}>
                           {(project.assignedMembers || []).slice(0, 3).map((m, i) => (
@@ -366,51 +388,21 @@ const Dashboard = () => {
             </div>
           </div>
 
-          {/* Quick Actions */}
+          {/* Documentation readiness replaces redundant navigation shortcuts. */}
           <div className="section-card">
             <div className="section-card-header">
               <div className="section-card-title">
-                <Zap size={16} style={{ color: 'var(--accent-cyan)' }} />
-                Quick Links
+                <CheckCheck size={16} style={{ color: 'var(--accent-cyan)' }} />
+                Delivery Readiness
               </div>
             </div>
             <div className="section-card-body" style={{ padding: '1rem' }}>
-              <div className="flex flex-col gap-2">
-                {[
-                  { label: 'Active Projects', to: '/projects', icon: FolderKanban },
-                  { label: 'Completed Projects', to: '/completed', icon: CheckCircle2 },
-                  { label: 'Team Members', to: '/team', icon: Users },
-                ].map(item => (
-                  <Link
-                    key={item.label}
-                    to={item.to}
-                    style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '0.625rem',
-                      padding: '0.625rem 0.75rem',
-                      borderRadius: 'var(--radius-sm)',
-                      fontSize: '0.8125rem',
-                      fontWeight: 500,
-                      color: 'var(--text-secondary)',
-                      transition: 'all 0.15s',
-                      textDecoration: 'none',
-                    }}
-                    onMouseEnter={e => {
-                      (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)';
-                      (e.currentTarget as HTMLElement).style.color = 'var(--text-primary)';
-                    }}
-                    onMouseLeave={e => {
-                      (e.currentTarget as HTMLElement).style.background = 'transparent';
-                      (e.currentTarget as HTMLElement).style.color = 'var(--text-secondary)';
-                    }}
-                  >
-                    <item.icon size={15} style={{ color: 'var(--accent-blue)' }} />
-                    {item.label}
-                    <ArrowUpRight size={13} style={{ marginLeft: 'auto', opacity: 0.5 }} />
-                  </Link>
-                ))}
-              </div>
+              <p className="readiness-intro">Projects missing handover essentials.</p>
+              <div className="readiness-list">{recentProjects.filter((project) => project.status !== 'Completed').slice(0, 4).map((project) => {
+                const requirements = project.documents?.some((document) => /brd|requirement|scope|spec|prd/i.test(document.name));
+                const ready = [requirements, Boolean(project.finalLinks?.github), Boolean(project.description && project.description.length >= 80)].filter(Boolean).length;
+                return <Link to={`/projects/${project._id}`} key={project._id}><div><strong>{project.name}</strong><span>{ready === 3 ? 'Core documentation ready' : `${3 - ready} core item${3 - ready === 1 ? '' : 's'} missing`}</span></div><b className={ready === 3 ? 'ready' : ''}>{ready}/3</b></Link>;
+              })}{recentProjects.length === 0 && <span className="capacity-empty">No active projects to review.</span>}</div>
             </div>
           </div>
         </div>
@@ -421,7 +413,7 @@ const Dashboard = () => {
         <div className="capacity-list">
           {capacity.length === 0 ? <span className="capacity-empty">No active team members available.</span> : capacity.slice(0, 6).map((member) => {
             const level = member.openTasks >= 8 ? 'high' : member.openTasks >= 4 ? 'medium' : 'low';
-            return <div className="capacity-member" key={member._id}><div className="avatar">{member.name.charAt(0)}</div><div className="capacity-name"><strong>{member.name}</strong><span>{member.availability} · {member.openTasks} open task{member.openTasks === 1 ? '' : 's'}</span></div><div className={`capacity-meter ${level}`}><i style={{ width: `${Math.min(member.openTasks / 8 * 100, 100)}%` }} /></div></div>;
+            return <div className={`capacity-member ${member.overdueTasks ? 'has-overdue' : ''}`} key={member._id}><div className="avatar">{member.name.charAt(0)}</div><div className="capacity-name"><strong>{member.name}</strong><span>{member.availability} · {member.openTasks} open{member.overdueTasks ? ` · ${member.overdueTasks} overdue` : ''}</span></div><div className={`capacity-meter ${level}`}><i style={{ width: `${Math.min(member.openTasks / 8 * 100, 100)}%` }} /></div></div>;
           })}
         </div>
       </section>

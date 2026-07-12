@@ -139,7 +139,7 @@ const SubtaskList = ({
                   <option key={m._id} value={m._id}>{m.name}</option>
                 ))}
               </select>
-              <input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <input type="date" required className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               <select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
                 {['Low', 'Medium', 'High', 'Critical'].map((p) => <option key={p}>{p}</option>)}
               </select>

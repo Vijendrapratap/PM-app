@@ -16,6 +16,8 @@ const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; o
     deadline: project.deadline?.slice(0, 10) ?? '',
     budget: project.budget ?? '',
     status: project.status,
+    github: project.finalLinks?.github ?? '',
+    demoVideo: project.finalLinks?.demoVideo ?? '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -102,6 +104,14 @@ const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; o
             <div className="form-group">
               <label className="form-label">Budget</label>
               <input type="number" className="form-input" value={form.budget} onChange={set('budget')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">GitHub Repository <span className="form-optional">Recommended</span></label>
+              <input type="url" className="form-input" placeholder="https://github.com/organization/repository" value={form.github} onChange={set('github')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label">Demo Video <span className="form-optional">Optional</span></label>
+              <input type="url" className="form-input" placeholder="Loom, YouTube or Drive walkthrough URL" value={form.demoVideo} onChange={set('demoVideo')} />
             </div>
             {error && <p style={{ color: 'var(--danger)', fontSize: '0.8125rem' }}>{error}</p>}
           </div>

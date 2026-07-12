@@ -61,6 +61,7 @@ const SubtaskRow = ({
       <span style={{ fontSize: '0.8125rem', color: subtask.status === 'Completed' ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: subtask.status === 'Completed' ? 'line-through' : 'none', flex: 1 }}>
         {subtask.title}
       </span>
+      {subtask.dueDate && <span className={subtask.status !== 'Completed' && subtask.dueDate < new Date().toISOString().slice(0, 10) ? 'task-date-overdue' : 'task-date'}>Due {new Date(subtask.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
       {subtask.assignedTo && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{subtask.assignedTo.name}</span>}
       {canManage && (
         <button className="icon-btn" style={{ width: '20px', height: '20px', color: 'var(--danger)' }} onClick={remove}>
@@ -90,6 +91,7 @@ const TaskCard = ({
   const [addingSubtask, setAddingSubtask] = useState(false);
   const [subtaskTitle, setSubtaskTitle] = useState('');
   const [subtaskAssignee, setSubtaskAssignee] = useState('');
+  const [subtaskDueDate, setSubtaskDueDate] = useState('');
   const [saving, setSaving] = useState(false);
 
   const canTick = canManage || task.assignedTo?._id === currentUserId;
@@ -114,9 +116,10 @@ const TaskCard = ({
     if (!subtaskTitle.trim()) return;
     setSaving(true);
     try {
-      await projectTaskApi.addSubtask(projectId, task._id, { title: subtaskTitle, assignedTo: subtaskAssignee || undefined });
+      await projectTaskApi.addSubtask(projectId, task._id, { title: subtaskTitle, assignedTo: subtaskAssignee || undefined, dueDate: subtaskDueDate });
       setSubtaskTitle('');
       setSubtaskAssignee('');
+      setSubtaskDueDate('');
       setAddingSubtask(false);
       onChange();
     } finally {
@@ -147,7 +150,7 @@ const TaskCard = ({
           </div>
           <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
             {task.assignedTo && <span>Assigned to {task.assignedTo.name}</span>}
-            {task.dueDate && <span>Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
+            {task.dueDate && <span className={task.status !== 'Completed' && task.dueDate < new Date().toISOString().slice(0, 10) ? 'task-date-overdue' : ''}>Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
           </div>
           {canTick && <select className="task-status-select" value={task.status} onChange={(event) => changeStatus(event.target.value as TaskStatus)} aria-label={`Status for ${task.title}`}>
             {BOARD_COLUMNS.map((column) => <option key={column.status} value={column.status}>{column.label}</option>)}
@@ -167,6 +170,7 @@ const TaskCard = ({
                       <option value="">Unassigned</option>
                       {members.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
                     </select>
+                    <input type="date" required className="form-input" style={{ maxWidth: '140px' }} value={subtaskDueDate} onChange={(e) => setSubtaskDueDate(e.target.value)} />
                     <button type="submit" className="btn btn-primary" style={{ padding: '0.375rem 0.75rem' }} disabled={saving}>Add</button>
                   </form>
                 ) : (
@@ -262,7 +266,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
                 <option value="">Unassigned</option>
                 {members.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
               </select>
-              <input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <input type="date" required className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               <select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
                 {['Low', 'Medium', 'High', 'Critical'].map((p) => <option key={p}>{p}</option>)}
               </select>

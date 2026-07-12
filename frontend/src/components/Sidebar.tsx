@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/roles';
 import { useProjects } from '../hooks/useProjects';
 import { useTeam } from '../hooks/useTeam';
+import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
@@ -14,7 +15,7 @@ const Sidebar = () => {
   const { members } = useTeam();
   const [projectsOpen, setProjectsOpen] = useState(location.pathname.startsWith('/projects'));
   const [teamOpen, setTeamOpen] = useState(location.pathname.startsWith('/team'));
-  const domains = useMemo(() => Array.from(new Set(projects.filter((project) => !project.archived && project.status !== 'Completed').map((project) => project.category || project.department || 'General'))).slice(0, 5), [projects]);
+  const portfolioCounts = useMemo(() => Object.fromEntries(PROJECT_PORTFOLIOS.map((portfolio) => [portfolio, projects.filter((project) => !project.archived && project.status !== 'Completed' && getProjectPortfolio(project) === portfolio).length])), [projects]);
 
   const handleSignOut = () => {
     logout();
@@ -47,7 +48,7 @@ const Sidebar = () => {
             <button className="nav-expand" aria-label="Expand projects" aria-expanded={projectsOpen} onClick={() => setProjectsOpen((value) => !value)}>{projectsOpen ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</button>
           </div>
           {projectsOpen && <div className="nav-children">
-            {domains.map((domain) => <NavLink key={domain} to={`/projects?category=${encodeURIComponent(domain)}`}><Layers3 size={12}/><span>{domain}</span></NavLink>)}
+            {PROJECT_PORTFOLIOS.map((portfolio) => <NavLink key={portfolio} to={`/projects?portfolio=${encodeURIComponent(portfolio)}`}><Layers3 size={12}/><span>{portfolio}</span><small>{portfolioCounts[portfolio]}</small></NavLink>)}
             <NavLink to="/completed"><CheckCircle2 size={12}/><span>Completed</span></NavLink>
           </div>}
         </div>

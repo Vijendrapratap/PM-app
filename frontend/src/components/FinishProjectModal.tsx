@@ -18,7 +18,7 @@ const FinishProjectModal = ({
   const [step, setStep] = useState<Step>(1);
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
-  const [finalData, setFinalData] = useState({ github: '', googleDrive: '', liveWebsite: '', finalNotes: '' });
+  const [finalData, setFinalData] = useState({ github: project.finalLinks?.github || '', googleDrive: '', liveWebsite: '', demoVideo: project.finalLinks?.demoVideo || '', finalNotes: '' });
 
   const handleValidate = async () => {
     setLoading(true);
@@ -132,6 +132,10 @@ const FinishProjectModal = ({
               <div className="form-group">
                 <label className="form-label">Final Live URL (Optional)</label>
                 <input type="url" className="form-input" placeholder="https://..." value={finalData.liveWebsite} onChange={e => setFinalData({ ...finalData, liveWebsite: e.target.value })} />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Demo Video (Optional)</label>
+                <input type="url" className="form-input" placeholder="https://loom.com/... or https://youtube.com/..." value={finalData.demoVideo} onChange={e => setFinalData({ ...finalData, demoVideo: e.target.value })} />
               </div>
               <div className="form-group">
                 <label className="form-label">Final Notes</label>

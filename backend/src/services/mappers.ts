@@ -46,6 +46,7 @@ export const mapProject = (row: any) => ({
     github: row.final_github,
     googleDrive: row.final_google_drive,
     liveWebsite: row.final_live_website,
+    demoVideo: row.final_demo_video,
   },
   finalNotes: row.final_notes,
   isLocked: row.is_locked,

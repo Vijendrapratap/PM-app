@@ -48,6 +48,7 @@ export interface Project {
   final_github: string | null;
   final_google_drive: string | null;
   final_live_website: string | null;
+  final_demo_video: string | null;
   final_notes: string | null;
   is_locked: boolean;
   archived: boolean;

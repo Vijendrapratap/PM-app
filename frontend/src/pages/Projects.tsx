@@ -10,6 +10,7 @@ import { isSuperAdmin } from '../utils/roles';
 import { projectApi } from '../api/projectApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { Project } from '../types';
+import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 
 const Projects = () => {
   const { user } = useAuth();
@@ -24,20 +25,18 @@ const Projects = () => {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
-  const categoryFilter = searchParams.get('category') || 'All';
+  const portfolioFilter = searchParams.get('portfolio') || 'All';
   const [sortBy, setSortBy] = useState('recent');
 
   const projects = allProjects.filter((p) => p.status !== 'Completed' && (showArchived || !p.archived));
 
   const statuses = Array.from(new Set(projects.map((project) => project.status)));
-  const categories = Array.from(new Set(projects.map((project) => project.category || project.department || 'General')));
   const filtered = projects
     .filter((project) => {
       const query = search.trim().toLowerCase();
       const matchesSearch = !query || [project.name, project.description, project.category, project.department]
         .some((value) => value?.toLowerCase().includes(query));
-      const projectCategory = project.category || project.department || 'General';
-      return matchesSearch && (statusFilter === 'All' || project.status === statusFilter) && (categoryFilter === 'All' || projectCategory === categoryFilter);
+      return matchesSearch && (statusFilter === 'All' || project.status === statusFilter) && (portfolioFilter === 'All' || getProjectPortfolio(project) === portfolioFilter);
     })
     .sort((a, b) => {
       if (sortBy === 'deadline') {
@@ -151,9 +150,9 @@ const Projects = () => {
           <input type="search" placeholder="Search name, category or department" value={search} onChange={e => setSearch(e.target.value)} />
         </label>
         <label className="project-select"><FolderKanban size={14} /><span>Domain</span>
-          <select value={categoryFilter} onChange={(e) => setSearchParams(e.target.value === 'All' ? {} : { category: e.target.value })}>
-            <option value="All">All domains</option>
-            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          <select value={portfolioFilter} onChange={(e) => setSearchParams(e.target.value === 'All' ? {} : { portfolio: e.target.value })}>
+            <option value="All">All portfolios</option>
+            {PROJECT_PORTFOLIOS.map((portfolio) => <option key={portfolio} value={portfolio}>{portfolio}</option>)}
           </select>
         </label>
         <label className="project-select"><SlidersHorizontal size={14} /><span>Status</span>
@@ -172,13 +171,13 @@ const Projects = () => {
         </label>
       </div>
 
-      {categories.length > 1 && <div className="project-domain-strip" aria-label="Project domains">
-        <button className={categoryFilter === 'All' ? 'active' : ''} onClick={() => setSearchParams({})}><span>All work</span><strong>{projects.length}</strong></button>
-        {categories.map((category) => {
-          const count = projects.filter((project) => (project.category || project.department || 'General') === category).length;
-          return <button key={category} className={categoryFilter === category ? 'active' : ''} onClick={() => setSearchParams({ category })}><span>{category}</span><strong>{count}</strong></button>;
+      <div className="project-domain-strip" aria-label="Project portfolios">
+        <button className={portfolioFilter === 'All' ? 'active' : ''} onClick={() => setSearchParams({})}><span>All work</span><strong>{projects.length}</strong></button>
+        {PROJECT_PORTFOLIOS.map((portfolio) => {
+          const count = projects.filter((project) => getProjectPortfolio(project) === portfolio).length;
+          return <button key={portfolio} className={portfolioFilter === portfolio ? 'active' : ''} onClick={() => setSearchParams({ portfolio })}><span>{portfolio}</span><strong>{count}</strong></button>;
         })}
-      </div>}
+      </div>
 
       {/* Projects Grid */}
       {loading ? (
@@ -216,7 +215,7 @@ const Projects = () => {
                 <div className="project-card-header">
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="project-card-title">{project.name}</div>
-                    <div className="project-card-context">{project.category || project.department || project.priority}</div>
+                    <div className="project-card-context">{getProjectPortfolio(project)}{project.category ? ` · ${project.category}` : ''}</div>
                   </div>
                   <div className="project-card-badges"><span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>{project.archived && <span className="badge badge-neutral">Archived</span>}</div>
                 </div>

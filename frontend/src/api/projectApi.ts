@@ -12,6 +12,8 @@ export interface UpsertProjectPayload {
   deadline?: string;
   budget?: number;
   status?: string;
+  github?: string;
+  demoVideo?: string;
 }
 
 export const projectApi = {
@@ -58,7 +60,7 @@ export const projectApi = {
 
   finish: (
     projectId: string,
-    data: { github?: string; googleDrive?: string; liveWebsite?: string; finalNotes?: string }
+    data: { github?: string; googleDrive?: string; liveWebsite?: string; demoVideo?: string; finalNotes?: string }
   ) => api.post<Project>(`/projects/${projectId}/finish`, data).then((res) => res.data),
 
   addMember: (projectId: string, userId: string) =>

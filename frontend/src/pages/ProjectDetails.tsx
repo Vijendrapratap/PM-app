@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   Clock, Paperclip, CheckCircle2, Plus,
-  ExternalLink, Users, Calendar, TrendingUp, Send, ChevronRight, Download, Lock
+  ExternalLink, Users, Calendar, TrendingUp, Send, ChevronRight, Download, Lock, FileCheck2, Code2, Video
 } from 'lucide-react';
 import AddUpdateModal from '../components/AddUpdateModal';
 import FinishProjectModal from '../components/FinishProjectModal';
@@ -196,6 +196,15 @@ const ProjectDetails = () => {
   // just for the UI, never the only gate.
   const canEdit = isSuperAdmin(user?.role) || project.assignedMembers?.some((m) => m._id === user?._id);
   const currentDateReports = dailyReports.filter(report => formatDateKey(new Date(report.workDate || report.reportDate)) === selectedDate);
+  const documentNames = (project.documents || []).map((document) => document.name.toLowerCase());
+  const documentationChecklist = [
+    { label: 'Project overview', help: 'Explain the problem, users and solution being built', done: Boolean(project.description && project.description.trim().length >= 80), required: true },
+    { label: 'Requirements / BRD', help: 'Upload requirements, scope or acceptance criteria', done: documentNames.some((name) => /brd|requirement|scope|spec|prd/.test(name)), required: true },
+    { label: 'Technical documentation', help: 'Architecture, setup, API or implementation notes', done: documentNames.some((name) => /technical|architecture|readme|api|design|documentation/.test(name)), required: true },
+    { label: 'GitHub repository', help: 'Link the source repository for handover', done: Boolean(project.finalLinks?.github), required: false },
+    { label: 'Demo video', help: 'Optional walkthrough for stakeholders', done: Boolean(project.finalLinks?.demoVideo), required: false },
+  ];
+  const documentationDone = documentationChecklist.filter((item) => item.done).length;
 
   return (
     <div className="animate-fade-in">
@@ -698,6 +707,16 @@ const ProjectDetails = () => {
           </div>
 
           {/* Documents */}
+          <div className="section-card documentation-card">
+            <div className="section-card-header"><div className="section-card-title"><FileCheck2 size={15}/>Documentation readiness</div><span className="badge badge-neutral">{documentationDone}/{documentationChecklist.length}</span></div>
+            <div className="documentation-list">
+              {documentationChecklist.map((item) => <div className={`documentation-item ${item.done ? 'done' : ''}`} key={item.label}>
+                <span className="documentation-check">{item.done ? <CheckCircle2 size={14}/> : <span/>}</span><div><strong>{item.label}</strong><small>{item.help}</small></div><em>{item.required ? 'Required' : 'Optional'}</em>
+              </div>)}
+              {(project.finalLinks?.github || project.finalLinks?.demoVideo) && <div className="documentation-links">{project.finalLinks.github && <a href={project.finalLinks.github} target="_blank" rel="noreferrer"><Code2 size={13}/>Repository<ExternalLink size={11}/></a>}{project.finalLinks.demoVideo && <a href={project.finalLinks.demoVideo} target="_blank" rel="noreferrer"><Video size={13}/>Demo video<ExternalLink size={11}/></a>}</div>}
+            </div>
+          </div>
+
           {project.documents?.length > 0 && (
             <div className="section-card">
               <div className="section-card-header">

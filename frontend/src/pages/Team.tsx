@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Users, Pencil, UserX, UserCheck, Trash2, KeyRound, ChevronLeft, ChevronRight, FolderKanban, ArrowUpDown } from 'lucide-react';
+import { Search, Plus, Users, Pencil, UserX, UserCheck, Trash2, KeyRound, ChevronLeft, ChevronRight, FolderKanban, MoreHorizontal, Mail } from 'lucide-react';
 import CreateTeamMemberModal from '../components/CreateTeamMemberModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ResetPasswordModal from '../components/ResetPasswordModal';
@@ -80,19 +80,6 @@ const Team = () => {
     setPage(1);
   };
 
-  const toggleSort = (key: SortKey) => {
-    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === 1 ? -1 : 1 } : { key, dir: 1 }));
-  };
-
-  const SortHeader = ({ label, sortKey }: { label: string; sortKey: SortKey }) => (
-    <th style={{ cursor: 'pointer', userSelect: 'none' }} onClick={() => toggleSort(sortKey)}>
-      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '0.25rem' }}>
-        {label}
-        <ArrowUpDown size={11} style={{ opacity: sort.key === sortKey ? 1 : 0.35 }} />
-      </span>
-    </th>
-  );
-
   const handleToggleStatus = async (member: User) => {
     setActionError('');
     try {
@@ -165,9 +152,12 @@ const Team = () => {
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
+        <select className="form-select" style={{ maxWidth: '180px' }} value={sort.key} onChange={(e) => setSort({ key: e.target.value as SortKey, dir: 1 })}>
+          <option value="name">Sort by name</option><option value="role">Sort by role</option><option value="status">Sort by status</option><option value="lastLoginAt">Sort by recent login</option>
+        </select>
       </div>
 
-      {/* Table */}
+      {/* Compact member directory */}
       {loading ? (
         <div className="grid grid-cols-3 gap-5">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -188,73 +178,30 @@ const Team = () => {
           </div>
         </div>
       ) : (
-        <div className="section-card" style={{ padding: 0, overflowX: 'auto' }}>
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortHeader label="Name" sortKey="name" />
-                <th>Email</th>
-                <SortHeader label="Role" sortKey="role" />
-                <th>Assigned Projects</th>
-                <SortHeader label="Status" sortKey="status" />
-                <SortHeader label="Created" sortKey="createdAt" />
-                <SortHeader label="Last Login" sortKey="lastLoginAt" />
-                {canManage && <th>Actions</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {paginated.map((member) => (
-                <tr key={member._id}>
-                  <td>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-                      <div className="avatar" style={{ width: '30px', height: '30px', fontSize: '0.75rem' }}>
-                        {member.photo ? (
-                          <img src={member.photo} alt={member.name} style={{ width: '100%', height: '100%', borderRadius: '50%', objectFit: 'cover' }} />
-                        ) : (
-                          member.name?.charAt(0)?.toUpperCase() ?? '?'
-                        )}
-                      </div>
-                      <span style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--text-primary)' }}>{member.name}</span>
-                    </div>
-                  </td>
-                  <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>{member.email}</td>
-                  <td><span className={`badge ${getRoleColor(member.role)}`}>{member.role ?? 'Team Member'}</span></td>
-                  <td style={{ fontSize: '0.8125rem', color: 'var(--text-secondary)' }}>
-                    {member.assignedProjects?.length
-                      ? member.assignedProjects.map((p) => p.name).join(', ')
-                      : <span style={{ color: 'var(--text-muted)' }}>Unassigned</span>}
-                  </td>
-                  <td><span className={`badge ${member.status === 'Inactive' ? 'badge-danger' : 'badge-success'}`}>{member.status ?? 'Active'}</span></td>
-                  <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{formatDate(member.createdAt)}</td>
-                  <td style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>{formatDate(member.lastLoginAt)}</td>
-                  {canManage && (
-                    <td>
-                      <div style={{ display: 'flex', gap: '0.375rem' }}>
-                        <button className="icon-btn" title="Edit" onClick={() => { setEditingMember(member); setIsModalOpen(true); }}>
-                          <Pencil size={14} />
-                        </button>
-                        <button className="icon-btn" title="Manage Projects" onClick={() => setProjectsTarget(member)}>
-                          <FolderKanban size={14} />
-                        </button>
-                        <button className="icon-btn" title="Reset Password" onClick={() => setResetTarget(member)}>
-                          <KeyRound size={14} />
-                        </button>
-                        <button className="icon-btn" title={member.status === 'Inactive' ? 'Activate' : 'Deactivate'} onClick={() => handleToggleStatus(member)}>
-                          {member.status === 'Inactive' ? <UserCheck size={14} /> : <UserX size={14} />}
-                        </button>
-                        <button className="icon-btn" title="Delete" style={{ color: 'var(--danger)' }} onClick={() => setDeleteTarget(member)}>
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </td>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <div className="team-card-grid">
+            {paginated.map((member) => <article className="team-card" key={member._id}>
+              <header className="team-card-header">
+                <div className="avatar team-card-avatar">{member.photo ? <img src={member.photo} alt=""/> : member.name?.charAt(0)?.toUpperCase() ?? '?'}</div>
+                <div className="team-card-identity"><h2>{member.name}</h2><p><Mail size={11}/>{member.email}</p></div>
+                {canManage && <details className="team-actions"><summary><MoreHorizontal size={17}/></summary><div>
+                  <button onClick={() => { setEditingMember(member); setIsModalOpen(true); }}><Pencil size={13}/>Edit member</button>
+                  <button onClick={() => setProjectsTarget(member)}><FolderKanban size={13}/>Manage projects</button>
+                  <button onClick={() => setResetTarget(member)}><KeyRound size={13}/>Reset password</button>
+                  <button onClick={() => handleToggleStatus(member)}>{member.status === 'Inactive' ? <UserCheck size={13}/> : <UserX size={13}/>}{member.status === 'Inactive' ? 'Activate' : 'Deactivate'}</button>
+                  <button className="danger" onClick={() => setDeleteTarget(member)}><Trash2 size={13}/>Delete</button>
+                </div></details>}
+              </header>
+              <div className="team-card-status"><span className={`badge ${getRoleColor(member.role)}`}>{member.role || 'Team Member'}</span><span className={`availability-dot availability-${(member.availability || 'Available').toLowerCase().replace(' ', '-')}`}>{member.availability || member.status || 'Available'}</span></div>
+              <div className="team-card-work"><div><span>Assigned work</span><strong>{member.assignedProjects?.length || 0} project{member.assignedProjects?.length === 1 ? '' : 's'}</strong></div>
+                <div className="team-project-chips">{member.assignedProjects?.length ? <>{member.assignedProjects.slice(0, 2).map((project) => <span key={project.id}>{project.name}</span>)}{member.assignedProjects.length > 2 && <span>+{member.assignedProjects.length - 2} more</span>}</> : <em>No projects assigned</em>}</div>
+              </div>
+              <footer><span>{member.department || 'General team'}</span><span>Last login {formatDate(member.lastLoginAt)}</span></footer>
+            </article>)}
+          </div>
 
           {totalPages > 1 && (
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 1.25rem', borderTop: '1px solid var(--border-subtle)' }}>
+            <div className="team-pagination">
               <span style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>Page {currentPage} of {totalPages}</span>
               <div style={{ display: 'flex', gap: '0.5rem' }}>
                 <button className="btn btn-secondary" disabled={currentPage <= 1} onClick={() => setPage((p) => p - 1)}>
