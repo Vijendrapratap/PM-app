@@ -1,20 +1,22 @@
 import multer from 'multer';
 import path from 'path';
+import { badRequest } from '../utils/httpError';
 
 // Vercel serverless functions have no writable shared disk, so files are buffered
 // in memory here and then pushed to Supabase Storage by the service layer.
 const storage = multer.memoryStorage();
 
-const ALLOWED_EXTENSIONS = /pdf|doc|docx|xls|xlsx|ppt|pptx|zip|jpg|jpeg|png|gif|txt/;
+const ALLOWED_EXTENSIONS = /\.(pdf|doc|docx|xls|xlsx|ppt|pptx|zip|jpg|jpeg|png|gif|txt)$/i;
 
+// Browsers/OSes report inconsistent mimetypes for the same extension (e.g.
+// .doc as application/msword, but some send application/octet-stream), so
+// the extension is the only reliable signal here - checking mimetype too
+// used to reject legitimate .doc/.xls/.ppt/.txt uploads outright.
 const fileFilter: multer.Options['fileFilter'] = (_req, file, cb) => {
-  const extname = ALLOWED_EXTENSIONS.test(path.extname(file.originalname).toLowerCase());
-  const mimetype = ALLOWED_EXTENSIONS.test(file.mimetype);
-
-  if (extname && mimetype) {
+  if (ALLOWED_EXTENSIONS.test(path.extname(file.originalname))) {
     cb(null, true);
   } else {
-    cb(new Error('Invalid file type'));
+    cb(badRequest('Invalid file type'));
   }
 };
 

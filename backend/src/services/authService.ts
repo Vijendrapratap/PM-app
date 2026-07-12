@@ -67,6 +67,7 @@ export const authService = {
       throw unauthorized('Invalid email or password');
     }
     if (user.deleted_at) throw unauthorized('Invalid email or password');
+    if (user.status === 'Inactive') throw unauthorized('Account is inactive');
     await userRepository.update(user.id, { last_login_at: new Date().toISOString() });
     return toAuthResponse(user);
   },

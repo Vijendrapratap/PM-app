@@ -207,8 +207,16 @@ export const projectService = {
     memberId: string;
     description: string;
     files: Express.Multer.File[];
-    actorId?: string;
+    actorId: string;
+    actorRole: string;
   }) {
+    // A member may only submit their own daily report - never one on behalf
+    // of another assigned member. Only a Super Admin may write on someone
+    // else's behalf (e.g. correcting a missed entry).
+    if (!isSuperAdmin(input.actorRole) && input.actorId !== input.memberId) {
+      throw forbidden('You can only submit your own daily report');
+    }
+
     const project = await projectRepository.findById(input.projectId);
     if (!project) throw notFound('Project not found');
     if (project.status === 'Completed' || project.is_locked) {

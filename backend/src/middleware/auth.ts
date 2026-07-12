@@ -1,8 +1,12 @@
 import { NextFunction, Request, Response } from 'express';
 import { verifyToken } from '../utils/jwt';
 import { isSuperAdmin } from '../utils/roles';
+import { userRepository } from '../repositories/userRepository';
 
-export const protect = (req: Request, res: Response, next: NextFunction): void => {
+// Re-checks the user's current status on every request (not just at login) so
+// that deactivating/deleting a user revokes access immediately instead of
+// only once their existing 30-day token happens to expire.
+export const protect = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
   const header = req.headers.authorization;
   if (!header || !header.startsWith('Bearer ')) {
     res.status(401).json({ message: 'Not authorized, no token' });
@@ -10,7 +14,13 @@ export const protect = (req: Request, res: Response, next: NextFunction): void =
   }
 
   try {
-    req.user = verifyToken(header.split(' ')[1]);
+    const decoded = verifyToken(header.split(' ')[1]);
+    const user = await userRepository.findById(decoded.id);
+    if (!user || user.deleted_at || user.status === 'Inactive') {
+      res.status(401).json({ message: 'Not authorized, account is inactive' });
+      return;
+    }
+    req.user = decoded;
     next();
   } catch {
     res.status(401).json({ message: 'Not authorized, token failed' });

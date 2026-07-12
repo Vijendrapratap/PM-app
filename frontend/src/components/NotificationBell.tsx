@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Bell, CheckCheck } from 'lucide-react';
 import { notificationApi, type AppNotification } from '../api/notificationApi';
+import { useAuth } from '../context/AuthContext';
 
 const POLL_INTERVAL_MS = 45000;
 
@@ -10,6 +11,7 @@ const POLL_INTERVAL_MS = 45000;
 // (fetch-on-mount, no real-time infrastructure).
 const NotificationBell = () => {
   const navigate = useNavigate();
+  const { isDemo } = useAuth();
   const [open, setOpen] = useState(false);
   const [unreadCount, setUnreadCount] = useState(0);
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
@@ -17,12 +19,15 @@ const NotificationBell = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const refreshCount = useCallback(async () => {
+    // Demo mode has no real backend session (see AuthContext.startDemo) -
+    // polling here would 401 and force-logout the demo user.
+    if (isDemo) return;
     try {
       setUnreadCount(await notificationApi.unreadCount());
     } catch (error) {
       console.error('Failed to load unread notification count', error);
     }
-  }, []);
+  }, [isDemo]);
 
   useEffect(() => {
     refreshCount();
@@ -42,7 +47,7 @@ const NotificationBell = () => {
   const toggleOpen = async () => {
     const next = !open;
     setOpen(next);
-    if (next) {
+    if (next && !isDemo) {
       setLoading(true);
       try {
         setNotifications(await notificationApi.list());

@@ -16,6 +16,8 @@ import type { ProjectTask } from '../api/projectTaskApi';
 import type { Project } from '../types';
 import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 import { useAuth } from '../context/AuthContext';
+import { isSuperAdmin } from '../utils/roles';
+import DeadlineTimer from '../components/DeadlineTimer';
 
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -55,6 +57,7 @@ const Dashboard = () => {
     draftProjects: 0,
   });
   const [recentProjects, setRecentProjects] = useState<Project[]>([]);
+  const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [decisionQueue, setDecisionQueue] = useState({ atRisk: [] as Project[], unassigned: [] as { task: ProjectTask; project: Project }[], plannedIdeas: [] as Idea[] });
   const [portfolioTasks, setPortfolioTasks] = useState<{ project: Project; tasks: ProjectTask[] }[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ _id: string; name: string; availability: 'Available' | 'Busy' | 'On Leave'; status: string }[]>([]);
@@ -74,6 +77,7 @@ const Dashboard = () => {
     const fetchStats = async () => {
       try {
         const [projects, users, ideas] = await Promise.all([projectApi.list(), userApi.list(), ideaApi.list()]);
+        setAllProjects(projects);
         setStats({
           totalProjects: projects.length,
           completedProjects: projects.filter((p) => p.status === 'Completed').length,
@@ -204,6 +208,26 @@ const Dashboard = () => {
     .filter((t) => t.dueDate && t.dueDate >= new Date().toISOString().slice(0, 10) && t.dueDate <= daysFromNow(3))
     .map((t) => ({ id: t._id, title: t.title, dueDate: t.dueDate! }))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
+
+  // Live deadline-timer panel: a regular member sees only projects they're
+  // assigned to; a Super Admin sees every assigned project across the team.
+  const isAdmin = isSuperAdmin(user?.role);
+  const deadlineTimerProjects = useMemo(() => {
+    const withAssignments = allProjects.filter(
+      (project) => project.status !== 'Completed' && !project.archived && (project.assignedMembers?.length ?? 0) > 0
+    );
+    const scoped = isAdmin
+      ? withAssignments
+      : withAssignments.filter((project) => project.assignedMembers.some((m) => m._id === user?._id));
+    return [...scoped].sort((a, b) => {
+      const aDeadline = a.deadline || a.estimatedCompletionDate;
+      const bDeadline = b.deadline || b.estimatedCompletionDate;
+      if (!aDeadline && !bDeadline) return 0;
+      if (!aDeadline) return 1;
+      if (!bDeadline) return -1;
+      return new Date(aDeadline).getTime() - new Date(bDeadline).getTime();
+    });
+  }, [allProjects, isAdmin, user]);
 
   const workstreams = ['All portfolios', ...PROJECT_PORTFOLIOS];
   const inWorkstream = (project: Project) => workstream === 'All portfolios' || getProjectPortfolio(project) === workstream;
@@ -376,6 +400,47 @@ const Dashboard = () => {
 
         {/* Summary Panel */}
         <div className="flex flex-col gap-4">
+          {/* Assigned project deadline timers - live countdown, right corner of the dashboard */}
+          <div className="section-card">
+            <div className="section-card-header">
+              <div className="section-card-title">
+                <AlarmClock size={16} style={{ color: 'var(--danger)' }} />
+                {isAdmin ? 'All Assigned Projects' : 'My Assigned Projects'}
+              </div>
+            </div>
+            <div className="section-card-body" style={{ padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.625rem', maxHeight: '320px', overflowY: 'auto' }}>
+              {deadlineTimerProjects.length === 0 ? (
+                <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+                  {isAdmin ? 'No projects currently have assigned members.' : 'You are not assigned to any active projects.'}
+                </p>
+              ) : (
+                deadlineTimerProjects.map((project) => (
+                  <Link
+                    key={project._id}
+                    to={`/projects/${project._id}`}
+                    style={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.25rem',
+                      padding: '0.625rem 0.75rem',
+                      borderRadius: 'var(--radius-md)',
+                      border: '1px solid var(--border-subtle)',
+                      textDecoration: 'none',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                      {isAdmin
+                        ? project.assignedMembers.map((m) => m.name).join(', ')
+                        : 'You are assigned to this work'}
+                    </span>
+                    <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{project.name}</strong>
+                    <DeadlineTimer deadline={project.deadline || project.estimatedCompletionDate} completed={project.status === 'Completed'} />
+                  </Link>
+                ))
+              )}
+            </div>
+          </div>
+
           {/* Status Breakdown */}
           <div className="section-card">
             <div className="section-card-header">

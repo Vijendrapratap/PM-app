@@ -61,6 +61,7 @@ export const saveDailyReport = asyncHandler(async (req: Request, res: Response) 
     description,
     files: filesOf(req),
     actorId: actor.id,
+    actorRole: actor.role,
   });
   res.status(201).json(report);
 });

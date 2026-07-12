@@ -33,7 +33,7 @@ const ProjectDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
   const { user } = useAuth();
-  const { project, updates, dailyReports, loading, refetch } = useProjectDetails(id);
+  const { project, updates, dailyReports, loading, error, refetch } = useProjectDetails(id);
   const [isAddUpdateOpen, setIsAddUpdateOpen] = useState(false);
   const [isFinishOpen, setIsFinishOpen] = useState(false);
   const [reportDrafts, setReportDrafts] = useState<Record<string, { description: string; files: File[] }>>({});
@@ -212,7 +212,7 @@ const ProjectDetails = () => {
 
   if (!project) return (
     <div className="animate-fade-in" style={{ textAlign: 'center', padding: '4rem' }}>
-      <p style={{ color: 'var(--text-muted)' }}>Project not found.</p>
+      <p style={{ color: 'var(--text-muted)' }}>{error ?? 'Project not found.'}</p>
     </div>
   );
 
@@ -399,7 +399,7 @@ const ProjectDetails = () => {
                       {getProjectDates().map(dateKey => {
                         const dateLabel = new Date(`${dateKey}T00:00:00`).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
                         const reportsForDate = groupedReports[dateKey] ?? [];
-                        const completeCount = project.assignedMembers.filter((member) => reportsForDate.some((report) => report.teamMemberId === member._id || report.member?._id === member._id)).length;
+                        const completeCount = (project.assignedMembers ?? []).filter((member) => reportsForDate.some((report) => report.teamMemberId === member._id || report.member?._id === member._id)).length;
                         const active = selectedDate === dateKey;
 
                         return (
@@ -424,7 +424,7 @@ const ProjectDetails = () => {
                           >
                             <div>
                               <div style={{ fontSize: '0.875rem', fontWeight: 600 }}>{dateLabel}</div>
-                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{completeCount}/{project.assignedMembers.length} submitted</div>
+                              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{completeCount}/{project.assignedMembers?.length ?? 0} submitted</div>
                             </div>
                             <ChevronRight size={14} style={{ color: active ? 'var(--accent-blue)' : 'var(--text-muted)' }} />
                           </button>
@@ -442,7 +442,7 @@ const ProjectDetails = () => {
                     </div>
 
                     <div style={{ padding: '1rem', display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
-                      {selectedDate && project.assignedMembers.map((member) => {
+                      {selectedDate && (project.assignedMembers ?? []).map((member) => {
                         const key = `${selectedDate}-${member._id}`;
                         const existingReport = currentDateReports.find((report) => report.teamMemberId === member._id || report.member?._id === member._id);
                         const draft = reportDrafts[key] ?? {

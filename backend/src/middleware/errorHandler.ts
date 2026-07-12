@@ -1,4 +1,5 @@
 import { NextFunction, Request, Response } from 'express';
+import multer from 'multer';
 import { env } from '../config/env';
 import { logger } from '../config/logger';
 import { HttpError } from '../utils/httpError';
@@ -28,6 +29,10 @@ const POSTGRES_STATUS_BY_CODE: Record<string, number> = {
 const resolveError = (err: unknown): { statusCode: number; message: string } => {
   if (err instanceof HttpError) {
     return { statusCode: err.statusCode, message: err.message };
+  }
+  if (err instanceof multer.MulterError) {
+    const message = err.code === 'LIMIT_FILE_SIZE' ? 'File too large (max 10MB)' : err.message;
+    return { statusCode: 400, message };
   }
   if (isPostgrestError(err)) {
     return { statusCode: (err.code && POSTGRES_STATUS_BY_CODE[err.code]) || 500, message: err.message };
