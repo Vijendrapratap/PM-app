@@ -28,7 +28,7 @@ const assertCanSetStatus = (assignedTo: string | null, actor: Actor) => {
 
 const isStatusOnlyPatch = (patch: Record<string, unknown>) => {
   const keys = Object.keys(patch).filter((key) => patch[key] !== undefined);
-  return keys.length > 0 && keys.every((key) => key === 'status');
+  return keys.length > 0 && keys.every((key) => key === 'status' || key === 'blockerReason');
 };
 
 const mapPerson = (person: { id: string; name: string; email?: string; photo?: string | null } | null) =>
@@ -48,11 +48,12 @@ const mapSubtask = (subtask: ProjectTaskSubtask & { assignee?: any; documents?: 
   updatedAt: subtask.updated_at,
 });
 
-const mapTask = (task: ProjectTask & { assignee?: any; creator?: any; subtasks?: any[]; documents?: any[] }) => ({
+const mapTask = (task: ProjectTask & { assignee?: any; creator?: any; subtasks?: any[]; documents?: any[]; comments?: any[] }) => ({
   _id: task.id,
   projectId: task.project_id,
   title: task.title,
   description: task.description,
+  blockerReason: task.blocker_reason,
   dueDate: task.due_date,
   priority: task.priority,
   status: task.status,
@@ -60,6 +61,7 @@ const mapTask = (task: ProjectTask & { assignee?: any; creator?: any; subtasks?:
   createdBy: mapPerson(task.creator || null),
   completedAt: task.completed_at,
   documents: (task.documents || []).map(mapDocument),
+  comments: (task.comments || []).map((comment: any) => ({ _id: comment.id, body: comment.body, createdAt: comment.created_at, author: mapPerson(comment.author || null) })),
   subtasks: (task.subtasks || []).map(mapSubtask),
   createdAt: task.created_at,
   updatedAt: task.updated_at,
@@ -132,7 +134,7 @@ export const projectTaskService = {
   async update(
     projectId: string,
     taskId: string,
-    patch: { title?: string; description?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string },
+    patch: { title?: string; description?: string; blockerReason?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string },
     actor: Actor
   ) {
     const existing = await projectTaskRepository.findById(taskId);
@@ -149,6 +151,7 @@ export const projectTaskService = {
     await projectTaskRepository.update(taskId, {
       ...(patch.title !== undefined && { title: patch.title }),
       ...(patch.description !== undefined && { description: patch.description }),
+      ...(patch.blockerReason !== undefined && { blocker_reason: patch.blockerReason || null }),
       ...(patch.dueDate !== undefined && { due_date: patch.dueDate }),
       ...(patch.priority !== undefined && { priority: patch.priority as any }),
       ...(patch.assignedTo !== undefined && { assigned_to: patch.assignedTo || null }),
@@ -180,6 +183,23 @@ export const projectTaskService = {
 
     const full = await projectTaskRepository.findById(taskId);
     return mapTask(full);
+  },
+
+  async addComment(projectId: string, taskId: string, body: string, actor: Actor) {
+    const task = await projectTaskRepository.findById(taskId);
+    if (!task || task.project_id !== projectId) throw notFound('Task not found');
+    assertCanSetStatus(task.assigned_to, actor);
+    await projectTaskRepository.addComment(taskId, actor.id, body);
+    return mapTask(await projectTaskRepository.findById(taskId));
+  },
+
+  async addDocuments(projectId: string, taskId: string, files: Express.Multer.File[], actor: Actor) {
+    const task = await projectTaskRepository.findById(taskId);
+    if (!task || task.project_id !== projectId) throw notFound('Task not found');
+    assertCanSetStatus(task.assigned_to, actor);
+    const uploaded = await uploadFiles(`project-tasks/${taskId}`, files);
+    await projectTaskRepository.addDocuments(taskId, uploaded.map((file) => ({ name: file.name, storage_path: file.storagePath })));
+    return mapTask(await projectTaskRepository.findById(taskId));
   },
 
   async remove(projectId: string, taskId: string, actor: Actor) {

@@ -122,7 +122,7 @@ export const updateMessageSchema = createMessageSchema.partial();
 export const createTodoSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  dueDate: z.string().min(1),
+  dueDate: z.string().optional(),
   priority: prioritySchema.optional(),
   assignedTo: z.string().optional(),
 });
@@ -139,7 +139,7 @@ export const updateTodoSchema = z.object({
 export const createSubtaskSchema = z.object({
   title: z.string().min(1),
   assignedTo: z.string().optional(),
-  dueDate: z.string().min(1),
+  dueDate: z.string().optional(),
   priority: prioritySchema.optional(),
   addToToday: z.boolean().optional(),
 });
@@ -156,7 +156,7 @@ export const updateSubtaskSchema = z.object({
 export const createProjectTaskSchema = z.object({
   title: z.string().min(1),
   description: z.string().optional(),
-  dueDate: z.string().min(1),
+  dueDate: z.string().optional(),
   priority: prioritySchema.optional(),
   assignedTo: z.string().optional(),
 });
@@ -164,16 +164,19 @@ export const createProjectTaskSchema = z.object({
 export const updateProjectTaskSchema = z.object({
   title: z.string().optional(),
   description: z.string().optional(),
+  blockerReason: z.string().optional(),
   dueDate: optionalDateString,
   priority: prioritySchema.optional(),
   status: taskStatusSchema.optional(),
   assignedTo: z.string().optional(),
 });
 
+export const createTaskCommentSchema = z.object({ body: z.string().min(1).max(2000) });
+
 export const createProjectTaskSubtaskSchema = z.object({
   title: z.string().min(1),
   assignedTo: z.string().optional(),
-  dueDate: z.string().min(1),
+  dueDate: z.string().optional(),
   priority: prioritySchema.optional(),
 });
 

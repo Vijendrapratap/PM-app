@@ -20,6 +20,7 @@ export interface ProjectTask {
   projectId: string;
   title: string;
   description: string | null;
+  blockerReason: string | null;
   dueDate: string | null;
   priority: Priority;
   status: TaskStatus;
@@ -27,6 +28,7 @@ export interface ProjectTask {
   createdBy: TaskPerson | null;
   completedAt: string | null;
   documents: { name: string; url: string }[];
+  comments: { _id: string; body: string; createdAt: string; author: TaskPerson | null }[];
   subtasks: ProjectTaskSubtask[];
   createdAt: string;
   updatedAt: string;
@@ -49,6 +51,7 @@ export interface CreateProjectTaskPayload {
   dueDate?: string;
   priority?: Priority;
   assignedTo?: string;
+  blockerReason?: string;
 }
 
 export interface CreateProjectTaskSubtaskPayload {
@@ -83,6 +86,13 @@ export const projectTaskApi = {
 
   update: (projectId: string, taskId: string, data: Partial<CreateProjectTaskPayload & { status: TaskStatus }>) =>
     api.put<ProjectTask>(`/projects/${projectId}/tasks/${taskId}`, data).then((res) => res.data),
+
+  addComment: (projectId: string, taskId: string, body: string) => api.post<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/comments`, { body }).then((res) => res.data),
+
+  addDocuments: (projectId: string, taskId: string, files: File[]) => {
+    const data = new FormData(); files.forEach((file) => data.append('documents', file));
+    return api.post<ProjectTask>(`/projects/${projectId}/tasks/${taskId}/documents`, data, { headers: { 'Content-Type': 'multipart/form-data' } }).then((res) => res.data);
+  },
 
   remove: (projectId: string, taskId: string) => api.delete(`/projects/${projectId}/tasks/${taskId}`),
 

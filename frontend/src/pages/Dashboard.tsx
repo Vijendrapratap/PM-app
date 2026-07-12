@@ -255,7 +255,7 @@ const Dashboard = () => {
         <div className="decision-panel-title"><div><span>Decision queue</span><small>Resolve these before planning new work</small></div><label className="workstream-filter">Portfolio scope <select value={workstream} onChange={(e) => setWorkstream(e.target.value)}>{workstreams.map((item) => <option key={item}>{item}</option>)}</select></label></div>
         <div className="decision-grid">
           <Link to="/projects" className="decision-item danger">
-            <AlertTriangle size={19} /><div><strong>{visibleRisks.length} project{visibleRisks.length === 1 ? '' : 's'} at risk</strong><span>{visibleRisks[0]?.name ?? 'No deadline risks detected'}</span></div><ArrowUpRight size={15} />
+            <AlertTriangle size={19} /><div><strong>{visibleRisks.length} project{visibleRisks.length === 1 ? '' : 's'} at risk</strong><span>{visibleRisks.length ? `${visibleRisks.slice(0, 3).map((project) => project.name).join(' · ')}${visibleRisks.length > 3 ? ` · +${visibleRisks.length - 3} more` : ''}` : 'No deadline risks detected'}</span></div><ArrowUpRight size={15} />
           </Link>
           <Link to="/projects" className="decision-item">
             <UserRoundX size={19} /><div><strong>{visibleUnassigned.length} unassigned task{visibleUnassigned.length === 1 ? '' : 's'}</strong><span>{visibleUnassigned[0] ? `${visibleUnassigned[0].task.title} · ${visibleUnassigned[0].project.name}` : 'Every open task has an owner'}</span></div><ArrowUpRight size={15} />
@@ -281,11 +281,11 @@ const Dashboard = () => {
         ))}
       </div>
 
-      <div className="dashboard-signal-grid">
+      <section className="attention-card section-card"><div className="section-card-header"><div className="section-card-title"><AlertTriangle size={15}/>Attention Needed</div><span>Missed work, blockers and delivery pressure</span></div><div className="dashboard-signal-grid">
         <section className="signal-card danger"><header><AlarmClock size={15}/><span>Missed daily tasks</span><strong>{overdueTodos.length}</strong></header><div>{overdueTodos.slice(0, 3).map((task) => <Link to="/daily-todo" key={task._id}><span>{task.title}</span><em>{task.daysOverdue}d overdue</em></Link>)}{!overdueTodos.length && <p>No missed daily tasks.</p>}</div></section>
-        <section className="signal-card blocker"><header><AlertTriangle size={15}/><span>Project blockers</span><strong>{visibleBlockers.length}</strong></header><div>{visibleBlockers.slice(0, 3).map(({ task, project }) => <Link to={`/projects/${project._id}`} key={task._id}><span>{task.title}</span><em>{project.name}</em></Link>)}{!visibleBlockers.length && <p>No active blockers.</p>}</div></section>
+        <section className="signal-card blocker"><header><AlertTriangle size={15}/><span>Project blockers</span><strong>{visibleBlockers.length}</strong></header><div>{visibleBlockers.slice(0, 3).map(({ task, project }) => <Link to={`/projects/${project._id}`} key={task._id}><span>{task.title}</span><em title={task.blockerReason || project.name}>{task.blockerReason || project.name}</em></Link>)}{!visibleBlockers.length && <p>No active blockers.</p>}</div></section>
         <section className="signal-card"><header><Users size={15}/><span>Team delivery pressure</span><strong>{capacity.filter((member) => member.overdueTasks > 0).length}</strong></header><div>{capacity.slice(0, 3).map((member) => <Link to={`/team?member=${member._id}`} key={member._id}><span>{member.name}</span><em className={member.overdueTasks ? 'vermilion' : ''}>{member.overdueTasks ? `${member.overdueTasks} overdue` : `${member.openTasks} open · on track`}</em></Link>)}</div></section>
-      </div>
+      </div></section>
 
       {/* Content Grid */}
       <div className="grid grid-cols-3 gap-6">

@@ -3,10 +3,12 @@ import { CheckSquare, ChevronDown, ChevronRight, Plus, Trash2, Paperclip, Column
 import { projectTaskApi, type ProjectTask, type ProjectTaskSubtask } from '../api/projectTaskApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { Member, Priority, TaskStatus } from '../types';
+import TaskDetailPanel from './TaskDetailPanel';
 
 const BOARD_COLUMNS: { status: TaskStatus; label: string }[] = [
   { status: 'Pending', label: 'To Do' },
   { status: 'In Progress', label: 'In Progress' },
+  { status: 'Blocked', label: 'Blocked' },
   { status: 'In Review', label: 'In Review' },
   { status: 'Completed', label: 'Done' },
 ];
@@ -61,6 +63,7 @@ const SubtaskRow = ({
       <span style={{ fontSize: '0.8125rem', color: subtask.status === 'Completed' ? 'var(--text-muted)' : 'var(--text-secondary)', textDecoration: subtask.status === 'Completed' ? 'line-through' : 'none', flex: 1 }}>
         {subtask.title}
       </span>
+      {subtask.status !== 'Pending' && <span className={`subtask-status subtask-status-${subtask.status.toLowerCase().replace(' ', '-')}`}>{subtask.status === 'Completed' ? 'Done' : subtask.status}</span>}
       {subtask.dueDate && <span className={subtask.status !== 'Completed' && subtask.dueDate < new Date().toISOString().slice(0, 10) ? 'task-date-overdue' : 'task-date'}>Due {new Date(subtask.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
       {subtask.assignedTo && <span style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>{subtask.assignedTo.name}</span>}
       {canManage && (
@@ -79,6 +82,7 @@ const TaskCard = ({
   canManage,
   currentUserId,
   onChange,
+  onOpen,
 }: {
   projectId: string;
   task: ProjectTask;
@@ -86,6 +90,7 @@ const TaskCard = ({
   canManage: boolean;
   currentUserId?: string;
   onChange: () => void;
+  onOpen: () => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -101,11 +106,6 @@ const TaskCard = ({
     onChange();
   };
 
-  const changeStatus = async (status: TaskStatus) => {
-    await projectTaskApi.update(projectId, task._id, { status }).catch(() => {});
-    onChange();
-  };
-
   const removeTask = async () => {
     await projectTaskApi.remove(projectId, task._id).catch(() => {});
     onChange();
@@ -116,7 +116,7 @@ const TaskCard = ({
     if (!subtaskTitle.trim()) return;
     setSaving(true);
     try {
-      await projectTaskApi.addSubtask(projectId, task._id, { title: subtaskTitle, assignedTo: subtaskAssignee || undefined, dueDate: subtaskDueDate });
+      await projectTaskApi.addSubtask(projectId, task._id, { title: subtaskTitle, assignedTo: subtaskAssignee || undefined, dueDate: subtaskDueDate || undefined });
       setSubtaskTitle('');
       setSubtaskAssignee('');
       setSubtaskDueDate('');
@@ -128,12 +128,12 @@ const TaskCard = ({
   };
 
   return (
-    <div className="task-card" style={{ borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', background: 'var(--surface-1)' }}>
+    <div className={`task-card task-status-${task.status.toLowerCase().replace(' ', '-')} ${task.dueDate && task.status !== 'Completed' && task.dueDate < new Date().toISOString().slice(0, 10) ? 'is-overdue' : ''}`} onClick={onOpen} style={{ borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', background: 'var(--surface-1)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
-        <button className="icon-btn" style={{ width: '20px', height: '20px', marginTop: '0.125rem' }} onClick={() => setOpen((v) => !v)}>
+        <button className="icon-btn" style={{ width: '20px', height: '20px', marginTop: '0.125rem' }} onClick={(event) => { event.stopPropagation(); setOpen((v) => !v); }}>
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         </button>
-        <input type="checkbox" style={{ marginTop: '0.25rem' }} checked={task.status === 'Completed'} disabled={!canTick} onChange={toggleComplete} />
+        <input type="checkbox" style={{ marginTop: '0.25rem' }} checked={task.status === 'Completed'} disabled={!canTick} onClick={(event) => event.stopPropagation()} onChange={toggleComplete} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
             <span style={{ fontWeight: 600, fontSize: '0.875rem', color: task.status === 'Completed' ? 'var(--text-muted)' : 'var(--text-primary)', textDecoration: task.status === 'Completed' ? 'line-through' : 'none' }}>
@@ -141,21 +141,17 @@ const TaskCard = ({
             </span>
             <span className={`badge ${PRIORITY_BADGE[task.priority]}`}>{task.priority}</span>
             {task.status === 'Blocked' && <span className="badge badge-danger">Blocked</span>}
-            {task.documents?.length > 0 && (
-              <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}><Paperclip size={11} />{task.documents.length}</span>
-            )}
             {task.subtasks.length > 0 && (
-              <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>{task.subtasks.filter((s) => s.status === 'Completed').length}/{task.subtasks.length} subtasks</span>
+              <span className="task-metric"><CheckSquare size={11}/>{task.subtasks.filter((s) => s.status === 'Completed').length}/{task.subtasks.length}</span>
             )}
+            {task.documents.length > 0 && <span className="task-metric"><Paperclip size={11}/>{task.documents.length}</span>}
+            {task.comments?.length > 0 && <span className="task-metric">{task.comments.length} comments</span>}
           </div>
           <div style={{ display: 'flex', gap: '1rem', marginTop: '0.25rem', fontSize: '0.75rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
             {task.assignedTo && <span>Assigned to {task.assignedTo.name}</span>}
             {task.dueDate && <span className={task.status !== 'Completed' && task.dueDate < new Date().toISOString().slice(0, 10) ? 'task-date-overdue' : ''}>Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
           </div>
-          {canTick && <select className="task-status-select" value={task.status} onChange={(event) => changeStatus(event.target.value as TaskStatus)} aria-label={`Status for ${task.title}`}>
-            {BOARD_COLUMNS.map((column) => <option key={column.status} value={column.status}>{column.label}</option>)}
-            <option value="Blocked">Blocked</option>
-          </select>}
+          {task.assignedTo && <div className="task-assignee" title={task.assignedTo.name}>{task.assignedTo.photo ? <img src={task.assignedTo.photo} alt=""/> : task.assignedTo.name.charAt(0)}</div>}
 
           {open && (
             <div style={{ marginTop: '0.625rem', paddingLeft: '1rem', borderLeft: '2px solid var(--border-subtle)' }}>
@@ -170,7 +166,7 @@ const TaskCard = ({
                       <option value="">Unassigned</option>
                       {members.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
                     </select>
-                    <input type="date" required className="form-input" style={{ maxWidth: '140px' }} value={subtaskDueDate} onChange={(e) => setSubtaskDueDate(e.target.value)} />
+                    <input type="date" className="form-input" style={{ maxWidth: '140px' }} value={subtaskDueDate} onChange={(e) => setSubtaskDueDate(e.target.value)} />
                     <button type="submit" className="btn btn-primary" style={{ padding: '0.375rem 0.75rem' }} disabled={saving}>Add</button>
                   </form>
                 ) : (
@@ -205,6 +201,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
   const [view, setView] = useState<'board' | 'list'>('board');
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
     try {
@@ -266,7 +263,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
                 <option value="">Unassigned</option>
                 {members.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
               </select>
-              <input type="date" required className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
+              <input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
               <select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
                 {['Low', 'Medium', 'High', 'Critical'].map((p) => <option key={p}>{p}</option>)}
               </select>
@@ -287,24 +284,25 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
         {loading ? (
           <div className="skeleton" style={{ height: '60px', borderRadius: '10px' }}></div>
         ) : tasks.length === 0 ? (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No tasks yet for this project.</p>
+          <div className="task-empty"><CheckSquare size={22}/><strong>No tasks yet</strong><span>Add the first task to make this project’s work visible.</span>{canManage && <button className="btn btn-secondary" onClick={() => setShowForm(true)}><Plus size={13}/>Add first task</button>}</div>
         ) : view === 'list' ? (
           tasks.map((task) => (
-            <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} />
+            <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} onOpen={() => setSelectedTaskId(task._id)} />
           ))
         ) : (
           <div className="task-board">
             {BOARD_COLUMNS.map((column) => {
-              const columnTasks = tasks.filter((task) => task.status === column.status || (column.status === 'Pending' && task.status === 'Blocked'));
+              const columnTasks = tasks.filter((task) => task.status === column.status);
               return <section className={`task-column task-column-${column.status.toLowerCase().replace(' ', '-')}`} key={column.status}>
                 <header><span>{column.label}</span><strong>{columnTasks.length}</strong></header>
-                <div>{columnTasks.map((task) => <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch}/>)}</div>
+                <div>{columnTasks.map((task) => <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} onOpen={() => setSelectedTaskId(task._id)}/>)}</div>
                 {!columnTasks.length && <p>No tasks</p>}
               </section>;
             })}
           </div>
         )}
       </div>
+      {selectedTaskId && tasks.find((task) => task._id === selectedTaskId) && <TaskDetailPanel projectId={projectId} task={tasks.find((task) => task._id === selectedTaskId)!} members={members} canManage={canManage} currentUserId={currentUserId} onClose={() => setSelectedTaskId(null)} onChange={refetch}/>}
     </div>
   );
 };

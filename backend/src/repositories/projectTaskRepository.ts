@@ -9,6 +9,7 @@ const TASK_SELECT = `
   assignee:assigned_to(id, name, email, photo),
   creator:created_by(id, name),
   documents:project_task_documents(id, name, storage_path, uploaded_at),
+  comments:project_task_comments(id, body, created_at, author:author_id(id, name, photo)),
   subtasks:project_task_subtasks(*, assignee:assigned_to(id, name, email, photo), documents:project_task_subtask_documents(id, name, storage_path, uploaded_at))
 `;
 
@@ -66,6 +67,11 @@ export const projectTaskRepository = {
     const { error } = await supabase
       .from('project_task_documents')
       .insert(documents.map((doc) => ({ task_id: taskId, ...doc })));
+    if (error) throw error;
+  },
+
+  async addComment(taskId: string, authorId: string, body: string) {
+    const { error } = await supabase.from('project_task_comments').insert({ task_id: taskId, author_id: authorId, body });
     if (error) throw error;
   },
 

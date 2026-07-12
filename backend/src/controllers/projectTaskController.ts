@@ -62,3 +62,11 @@ export const deleteProjectTaskSubtask = asyncHandler(async (req: Request, res: R
   const task = await projectTaskService.removeSubtask(param(req, 'id'), param(req, 'taskId'), param(req, 'subId'), actorOf(req));
   res.json(task);
 });
+
+export const addProjectTaskComment = asyncHandler(async (req: Request, res: Response) => {
+  res.status(201).json(await projectTaskService.addComment(param(req, 'id'), param(req, 'taskId'), req.body.body, actorOf(req)));
+});
+
+export const addProjectTaskDocuments = asyncHandler(async (req: Request, res: Response) => {
+  res.status(201).json(await projectTaskService.addDocuments(param(req, 'id'), param(req, 'taskId'), filesOf(req), actorOf(req)));
+});

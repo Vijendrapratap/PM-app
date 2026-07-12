@@ -153,6 +153,7 @@ export interface ProjectTask {
   project_id: string;
   title: string;
   description: string | null;
+  blocker_reason: string | null;
   due_date: string | null;
   priority: Priority;
   status: TaskStatus;
