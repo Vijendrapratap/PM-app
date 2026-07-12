@@ -14,6 +14,7 @@ import { activityApi, type ActivityEntry } from '../api/activityApi';
 import { ideaApi, type Idea } from '../api/ideaApi';
 import type { ProjectTask } from '../api/projectTaskApi';
 import type { Project } from '../types';
+import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 
 const PRIORITY_BADGE: Record<string, string> = {
   Low: 'badge-neutral',
@@ -46,7 +47,7 @@ const Dashboard = () => {
   const [decisionQueue, setDecisionQueue] = useState({ atRisk: [] as Project[], unassigned: [] as { task: ProjectTask; project: Project }[], plannedIdeas: [] as Idea[] });
   const [portfolioTasks, setPortfolioTasks] = useState<{ project: Project; tasks: ProjectTask[] }[]>([]);
   const [teamMembers, setTeamMembers] = useState<{ _id: string; name: string; availability: 'Available' | 'Busy' | 'On Leave'; status: string }[]>([]);
-  const [workstream, setWorkstream] = useState('All workstreams');
+  const [workstream, setWorkstream] = useState('All portfolios');
   const [loading, setLoading] = useState(true);
 
   const [todaysTodo, setTodaysTodo] = useState<TodaysTodo>({ todos: [], subtasks: [] });
@@ -193,8 +194,8 @@ const Dashboard = () => {
     .map((t) => ({ id: t._id, title: t.title, dueDate: t.dueDate! }))
     .sort((a, b) => a.dueDate.localeCompare(b.dueDate));
 
-  const workstreams = useMemo(() => ['All workstreams', ...Array.from(new Set(portfolioTasks.map(({ project }) => project.category).filter((v): v is string => Boolean(v))))], [portfolioTasks]);
-  const inWorkstream = (project: Project) => workstream === 'All workstreams' || project.category === workstream;
+  const workstreams = ['All portfolios', ...PROJECT_PORTFOLIOS];
+  const inWorkstream = (project: Project) => workstream === 'All portfolios' || getProjectPortfolio(project) === workstream;
   const visibleProjects = recentProjects.filter(inWorkstream);
   const visibleRisks = decisionQueue.atRisk.filter(inWorkstream);
   const visibleUnassigned = decisionQueue.unassigned.filter(({ project }) => inWorkstream(project));
