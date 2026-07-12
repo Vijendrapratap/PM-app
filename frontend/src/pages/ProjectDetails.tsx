@@ -48,12 +48,14 @@ const ProjectDetails = () => {
   const [saveSuccess, setSaveSuccess] = useState(false);
   const [uploadingDocs, setUploadingDocs] = useState(false);
   const documentInputRef = useRef<HTMLInputElement>(null);
+  const documentTypeRef = useRef('project-document');
 
   const uploadProjectDocuments = async (files: FileList | null) => {
     if (!id || !files?.length) return;
     setUploadingDocs(true);
     try {
-      await projectApi.addDocuments(id, Array.from(files).slice(0, 5));
+      const renamed = Array.from(files).slice(0, 5).map((file) => new File([file], `${documentTypeRef.current}-${file.name}`, { type: file.type }));
+      await projectApi.addDocuments(id, renamed);
       await refetch();
     } catch (error) {
       alert(getErrorMessage(error, 'Failed to upload project documents.'));
@@ -61,6 +63,15 @@ const ProjectDetails = () => {
       setUploadingDocs(false);
       if (documentInputRef.current) documentInputRef.current.value = '';
     }
+  };
+
+  const chooseDocument = (type: string) => { documentTypeRef.current = type; documentInputRef.current?.click(); };
+  const updateDeliveryLink = async (kind: 'github' | 'demoVideo', current?: string | null) => {
+    if (!id) return;
+    const label = kind === 'github' ? 'GitHub repository URL' : 'Demo video URL';
+    const value = window.prompt(label, current || '');
+    if (value === null) return;
+    try { await projectApi.update(id, { [kind]: value }); await refetch(); } catch (error) { alert(getErrorMessage(error, `Failed to update ${label}.`)); }
   };
 
   useEffect(() => {
@@ -214,11 +225,11 @@ const ProjectDetails = () => {
   const currentDateReports = dailyReports.filter(report => formatDateKey(new Date(report.workDate || report.reportDate)) === selectedDate);
   const documentNames = (project.documents || []).map((document) => document.name.toLowerCase());
   const documentationChecklist = [
-    { label: 'Project overview', help: 'Explain the problem, users and solution being built', done: Boolean(project.description && project.description.trim().length >= 80), required: true },
-    { label: 'Requirements / BRD', help: 'Upload requirements, scope or acceptance criteria', done: documentNames.some((name) => /brd|requirement|scope|spec|prd/.test(name)), required: true },
-    { label: 'Technical documentation', help: 'Architecture, setup, API or implementation notes', done: documentNames.some((name) => /technical|architecture|readme|api|design|documentation/.test(name)), required: true },
-    { label: 'GitHub repository', help: 'Link the source repository for handover', done: Boolean(project.finalLinks?.github), required: false },
-    { label: 'Demo video', help: 'Optional walkthrough for stakeholders', done: Boolean(project.finalLinks?.demoVideo), required: false },
+    { label: 'BRD', help: 'Business requirements, scope and acceptance criteria', done: documentNames.some((name) => /brd|requirement|scope|spec|prd/.test(name)), required: true, type: 'brd' },
+    { label: 'Project Overview', help: 'Problem, users, proposed solution and expected outcome', done: documentNames.some((name) => /project-overview|overview/.test(name)), required: true, type: 'project-overview' },
+    { label: 'Technical Doc', help: 'Architecture, setup, API and implementation notes', done: documentNames.some((name) => /technical|architecture|readme|api|design|documentation/.test(name)), required: true, type: 'technical-doc' },
+    { label: 'GitHub', help: 'Source repository for collaboration and handover', done: Boolean(project.finalLinks?.github), required: false, type: 'github' },
+    { label: 'Demo video', help: 'Optional walkthrough for stakeholders', done: Boolean(project.finalLinks?.demoVideo), required: false, type: 'demoVideo' },
   ];
   const documentationDone = documentationChecklist.filter((item) => item.done).length;
 
@@ -259,6 +270,11 @@ const ProjectDetails = () => {
             You have read-only access. Only assigned members can edit this project.
           </div>
         )}
+      </div>
+
+      {/* Owner visibility: the live work board is always the first project section. */}
+      <div className="project-board-primary">
+        <ProjectTaskList projectId={project._id} members={project.assignedMembers} canManage={isSuperAdmin(user?.role)} currentUserId={user?._id} />
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
@@ -350,7 +366,7 @@ const ProjectDetails = () => {
             <div className="section-card-header">
               <div className="section-card-title">
                 <Calendar size={16} style={{ color: 'var(--accent-blue)' }} />
-                Daily Work Register
+                Daily Activity
                 <span className="badge badge-neutral" style={{ marginLeft: '0.5rem' }}>{getProjectDates().length}</span>
               </div>
             </div>
@@ -435,7 +451,7 @@ const ProjectDetails = () => {
                         };
 
                         return (
-                          <div key={key} style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.875rem', background: 'var(--surface-1)' }}>
+                          <div key={key} className={`daily-activity-entry ${existingReport ? 'submitted' : ''}`}>
                             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.75rem', marginBottom: '0.75rem' }}>
                               <div style={{ minWidth: 0 }}>
                                 <div style={{ fontSize: '0.875rem', fontWeight: 600, color: 'var(--text-primary)' }}>{member.name}</div>
@@ -458,15 +474,16 @@ const ProjectDetails = () => {
                               />
                             </div>
 
-                            <div className="form-group" style={{ marginBottom: '0.75rem' }}>
-                              <label className="form-label">Document Upload</label>
+                            <div className="form-group daily-attachment" style={{ marginBottom: '0.75rem' }}>
                               <input
+                                id={`report-file-${key}`}
                                 type="file"
-                                className="form-input"
+                                hidden
                                 accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.zip"
                                 onChange={e => handleReportFiles(key, e.target.files)}
                                 disabled={isCompleted || !canEdit}
                               />
+                              {!isCompleted && canEdit && <label className="btn btn-secondary" htmlFor={`report-file-${key}`}><Paperclip size={13}/>{draft.files[0]?.name || 'Attach document'}</label>}
                             </div>
 
                             {existingReport?.documentUrl && (
@@ -724,10 +741,11 @@ const ProjectDetails = () => {
 
           {/* Documents */}
           <div className="section-card documentation-card">
-            <div className="section-card-header"><div className="section-card-title"><FileCheck2 size={15}/>Documentation readiness</div><div className="documentation-actions"><span className="badge badge-neutral">{documentationDone}/{documentationChecklist.length}</span>{canEdit && !isCompleted && <><input ref={documentInputRef} type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.jpg,.jpeg,.png,.txt" hidden onChange={(event) => uploadProjectDocuments(event.target.files)}/><button className="btn btn-secondary" disabled={uploadingDocs} onClick={() => documentInputRef.current?.click()}><Plus size={12}/>{uploadingDocs ? 'Uploading…' : 'Add document'}</button></>}</div></div>
+            <div className="section-card-header"><div className="section-card-title"><FileCheck2 size={15}/>Documents &amp; Links</div><div className="documentation-actions"><span className="badge badge-neutral">{documentationDone}/{documentationChecklist.length}</span></div></div>
+            <input ref={documentInputRef} type="file" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.jpg,.jpeg,.png,.txt" hidden onChange={(event) => uploadProjectDocuments(event.target.files)}/>
             <div className="documentation-list">
               {documentationChecklist.map((item) => <div className={`documentation-item ${item.done ? 'done' : ''}`} key={item.label}>
-                <span className="documentation-check">{item.done ? <CheckCircle2 size={14}/> : <span/>}</span><div><strong>{item.label}</strong><small>{item.help}</small></div><em>{item.required ? 'Required' : 'Optional'}</em>
+                <span className="documentation-check">{item.done ? <CheckCircle2 size={14}/> : <span/>}</span><div><strong>{item.label}</strong><small>{item.help}</small></div><em>{item.required ? 'Required' : 'Optional'}</em>{canEdit && !isCompleted && <button className="documentation-add" disabled={uploadingDocs} title={`Add or update ${item.label}`} onClick={() => item.type === 'github' || item.type === 'demoVideo' ? updateDeliveryLink(item.type as 'github' | 'demoVideo', project.finalLinks?.[item.type as 'github' | 'demoVideo']) : chooseDocument(item.type)}><Plus size={13}/></button>}
               </div>)}
               {(project.finalLinks?.github || project.finalLinks?.demoVideo) && <div className="documentation-links">{project.finalLinks.github && <a href={project.finalLinks.github} target="_blank" rel="noreferrer"><Code2 size={13}/>Repository<ExternalLink size={11}/></a>}{project.finalLinks.demoVideo && <a href={project.finalLinks.demoVideo} target="_blank" rel="noreferrer"><Video size={13}/>Demo video<ExternalLink size={11}/></a>}</div>}
             </div>
@@ -768,16 +786,6 @@ const ProjectDetails = () => {
             </div>
           )}
         </div>
-      </div>
-
-      {/* Project Tasks */}
-      <div style={{ marginTop: '1.5rem' }}>
-        <ProjectTaskList
-          projectId={project._id}
-          members={project.assignedMembers}
-          canManage={isSuperAdmin(user?.role)}
-          currentUserId={user?._id}
-        />
       </div>
 
       {!isCompleted && canEdit && (
