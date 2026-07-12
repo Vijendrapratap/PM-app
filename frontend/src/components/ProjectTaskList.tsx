@@ -1,8 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { CheckSquare, ChevronDown, ChevronRight, Plus, Trash2, Paperclip } from 'lucide-react';
+import { CheckSquare, ChevronDown, ChevronRight, Plus, Trash2, Paperclip, Columns3, List } from 'lucide-react';
 import { projectTaskApi, type ProjectTask, type ProjectTaskSubtask } from '../api/projectTaskApi';
 import { getErrorMessage } from '../utils/errorMessage';
-import type { Member, Priority } from '../types';
+import type { Member, Priority, TaskStatus } from '../types';
+
+const BOARD_COLUMNS: { status: TaskStatus; label: string }[] = [
+  { status: 'Pending', label: 'To Do' },
+  { status: 'In Progress', label: 'In Progress' },
+  { status: 'In Review', label: 'In Review' },
+  { status: 'Completed', label: 'Done' },
+];
 
 const PRIORITY_BADGE: Record<string, string> = {
   Low: 'badge-neutral',
@@ -92,6 +99,11 @@ const TaskCard = ({
     onChange();
   };
 
+  const changeStatus = async (status: TaskStatus) => {
+    await projectTaskApi.update(projectId, task._id, { status }).catch(() => {});
+    onChange();
+  };
+
   const removeTask = async () => {
     await projectTaskApi.remove(projectId, task._id).catch(() => {});
     onChange();
@@ -113,7 +125,7 @@ const TaskCard = ({
   };
 
   return (
-    <div style={{ border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', background: 'var(--surface-1)' }}>
+    <div className="task-card" style={{ borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', background: 'var(--surface-1)' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
         <button className="icon-btn" style={{ width: '20px', height: '20px', marginTop: '0.125rem' }} onClick={() => setOpen((v) => !v)}>
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -125,6 +137,7 @@ const TaskCard = ({
               {task.title}
             </span>
             <span className={`badge ${PRIORITY_BADGE[task.priority]}`}>{task.priority}</span>
+            {task.status === 'Blocked' && <span className="badge badge-danger">Blocked</span>}
             {task.documents?.length > 0 && (
               <span style={{ display: 'flex', alignItems: 'center', gap: '0.2rem', fontSize: '0.7rem', color: 'var(--text-muted)' }}><Paperclip size={11} />{task.documents.length}</span>
             )}
@@ -136,6 +149,10 @@ const TaskCard = ({
             {task.assignedTo && <span>Assigned to {task.assignedTo.name}</span>}
             {task.dueDate && <span>Due {new Date(task.dueDate).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>}
           </div>
+          {canTick && <select className="task-status-select" value={task.status} onChange={(event) => changeStatus(event.target.value as TaskStatus)} aria-label={`Status for ${task.title}`}>
+            {BOARD_COLUMNS.map((column) => <option key={column.status} value={column.status}>{column.label}</option>)}
+            <option value="Blocked">Blocked</option>
+          </select>}
 
           {open && (
             <div style={{ marginTop: '0.625rem', paddingLeft: '1rem', borderLeft: '2px solid var(--border-subtle)' }}>
@@ -183,6 +200,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
   const [files, setFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
+  const [view, setView] = useState<'board' | 'list'>('board');
 
   const refetch = useCallback(async () => {
     try {
@@ -228,11 +246,10 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
           Project Tasks
           <span className="badge badge-neutral" style={{ marginLeft: '0.5rem' }}>{tasks.length}</span>
         </div>
-        {canManage && (
-          <button className="btn btn-secondary" onClick={() => setShowForm((v) => !v)}>
-            <Plus size={14} /> Add Task
-          </button>
-        )}
+        <div className="task-view-actions">
+          <div className="view-switch"><button className={view === 'board' ? 'active' : ''} onClick={() => setView('board')} title="Board view"><Columns3 size={14}/></button><button className={view === 'list' ? 'active' : ''} onClick={() => setView('list')} title="List view"><List size={14}/></button></div>
+          {canManage && <button className="btn btn-secondary" onClick={() => setShowForm((v) => !v)}><Plus size={14} /> Add Task</button>}
+        </div>
       </div>
       <div style={{ padding: '1.25rem', display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
         {error && <p style={{ color: 'var(--danger)', fontSize: '0.8125rem' }}>{error}</p>}
@@ -267,10 +284,21 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
           <div className="skeleton" style={{ height: '60px', borderRadius: '10px' }}></div>
         ) : tasks.length === 0 ? (
           <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>No tasks yet for this project.</p>
-        ) : (
+        ) : view === 'list' ? (
           tasks.map((task) => (
             <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} />
           ))
+        ) : (
+          <div className="task-board">
+            {BOARD_COLUMNS.map((column) => {
+              const columnTasks = tasks.filter((task) => task.status === column.status || (column.status === 'Pending' && task.status === 'Blocked'));
+              return <section className={`task-column task-column-${column.status.toLowerCase().replace(' ', '-')}`} key={column.status}>
+                <header><span>{column.label}</span><strong>{columnTasks.length}</strong></header>
+                <div>{columnTasks.map((task) => <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch}/>)}</div>
+                {!columnTasks.length && <p>No tasks</p>}
+              </section>;
+            })}
+          </div>
         )}
       </div>
     </div>

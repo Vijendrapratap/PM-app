@@ -39,7 +39,7 @@ export const resetPasswordSchema = z.object({
 });
 
 const prioritySchema = z.enum(['Low', 'Medium', 'High', 'Critical']);
-const taskStatusSchema = z.enum(['Pending', 'In Progress', 'Completed', 'Blocked']);
+const taskStatusSchema = z.enum(['Pending', 'In Progress', 'In Review', 'Completed', 'Blocked']);
 
 export const createProjectSchema = z.object({
   name: z.string().min(1),

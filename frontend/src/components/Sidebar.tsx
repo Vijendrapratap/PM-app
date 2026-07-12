@@ -1,11 +1,20 @@
-import { NavLink, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Megaphone, ListChecks, Lightbulb } from 'lucide-react';
+import { useMemo, useState } from 'react';
+import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { LayoutDashboard, FolderKanban, CheckCircle2, Users, LogOut, Megaphone, ListChecks, Lightbulb, ChevronDown, ChevronRight, Clock3, Layers3 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { isSuperAdmin } from '../utils/roles';
+import { useProjects } from '../hooks/useProjects';
+import { useTeam } from '../hooks/useTeam';
 
 const Sidebar = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
+  const { projects } = useProjects();
+  const { members } = useTeam();
+  const [projectsOpen, setProjectsOpen] = useState(location.pathname.startsWith('/projects'));
+  const [teamOpen, setTeamOpen] = useState(location.pathname.startsWith('/team'));
+  const domains = useMemo(() => Array.from(new Set(projects.filter((project) => !project.archived && project.status !== 'Completed').map((project) => project.category || project.department || 'General'))).slice(0, 5), [projects]);
 
   const handleSignOut = () => {
     logout();
@@ -32,15 +41,16 @@ const Sidebar = () => {
           <span>Dashboard</span>
         </NavLink>
 
-        <NavLink to="/projects" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <FolderKanban className="nav-link-icon" size={18} />
-          <span>Active Projects</span>
-        </NavLink>
-
-        <NavLink to="/completed" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <CheckCircle2 className="nav-link-icon" size={18} />
-          <span>Completed</span>
-        </NavLink>
+        <div className="nav-tree">
+          <div className={`nav-link nav-parent ${location.pathname.startsWith('/projects') ? 'active' : ''}`}>
+            <NavLink to="/projects" className="nav-parent-link"><FolderKanban className="nav-link-icon" size={17} /><span>Projects</span><span className="nav-count">{projects.filter((p) => !p.archived && p.status !== 'Completed').length}</span></NavLink>
+            <button className="nav-expand" aria-label="Expand projects" aria-expanded={projectsOpen} onClick={() => setProjectsOpen((value) => !value)}>{projectsOpen ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</button>
+          </div>
+          {projectsOpen && <div className="nav-children">
+            {domains.map((domain) => <NavLink key={domain} to={`/projects?category=${encodeURIComponent(domain)}`}><Layers3 size={12}/><span>{domain}</span></NavLink>)}
+            <NavLink to="/completed"><CheckCircle2 size={12}/><span>Completed</span></NavLink>
+          </div>}
+        </div>
 
         <NavLink to="/daily-todo" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
           <ListChecks className="nav-link-icon" size={18} />
@@ -54,10 +64,20 @@ const Sidebar = () => {
 
         <div className="sidebar-section-label">People</div>
 
-        <NavLink to="/team" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>
-          <Users className="nav-link-icon" size={18} />
-          <span>Team Members</span>
-        </NavLink>
+        <div className="nav-tree">
+          <div className={`nav-link nav-parent ${location.pathname.startsWith('/team') ? 'active' : ''}`}>
+            <NavLink to="/team" className="nav-parent-link"><Users className="nav-link-icon" size={17}/><span>Team</span><span className="nav-count">{members.length}</span></NavLink>
+            <button className="nav-expand" aria-label="Expand team" aria-expanded={teamOpen} onClick={() => setTeamOpen((value) => !value)}>{teamOpen ? <ChevronDown size={14}/> : <ChevronRight size={14}/>}</button>
+          </div>
+          {teamOpen && <div className="nav-children">
+            {members.slice(0, 5).map((member) => <NavLink key={member._id} to={`/team?member=${member._id}`}><span className="nav-person-dot">{member.name.charAt(0)}</span><span>{member.name}</span></NavLink>)}
+            <NavLink to="/daily-todo"><ListChecks size={12}/><span>Team tasks</span></NavLink>
+          </div>}
+        </div>
+
+        <div className="nav-link nav-link-disabled" title="Timesheets will connect tracked time to projects and tasks">
+          <Clock3 className="nav-link-icon" size={17}/><span>Timesheets</span><span className="nav-soon">Soon</span>
+        </div>
 
         {isSuperAdmin(user?.role) && (
           <NavLink to="/messages" className={({ isActive }) => `nav-link ${isActive ? 'active' : ''}`}>

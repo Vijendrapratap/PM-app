@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link } from 'react-router-dom';
-import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2 } from 'lucide-react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
 import CreateProjectModal from '../components/CreateProjectModal';
 import EditProjectModal from '../components/EditProjectModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -13,6 +13,7 @@ import type { Project } from '../types';
 
 const Projects = () => {
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
   const canManage = isSuperAdmin(user?.role);
   const [showArchived, setShowArchived] = useState(false);
   const { projects: allProjects, loading, refetch } = useProjects(showArchived);
@@ -22,12 +23,47 @@ const Projects = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState('All');
+  const categoryFilter = searchParams.get('category') || 'All';
+  const [sortBy, setSortBy] = useState('recent');
 
   const projects = allProjects.filter((p) => p.status !== 'Completed' && (showArchived || !p.archived));
 
-  const filtered = projects.filter(p =>
-    p.name.toLowerCase().includes(search.toLowerCase())
-  );
+  const statuses = Array.from(new Set(projects.map((project) => project.status)));
+  const categories = Array.from(new Set(projects.map((project) => project.category || project.department || 'General')));
+  const filtered = projects
+    .filter((project) => {
+      const query = search.trim().toLowerCase();
+      const matchesSearch = !query || [project.name, project.description, project.category, project.department]
+        .some((value) => value?.toLowerCase().includes(query));
+      const projectCategory = project.category || project.department || 'General';
+      return matchesSearch && (statusFilter === 'All' || project.status === statusFilter) && (categoryFilter === 'All' || projectCategory === categoryFilter);
+    })
+    .sort((a, b) => {
+      if (sortBy === 'deadline') {
+        const aDate = new Date(a.estimatedCompletionDate || a.deadline || '9999-12-31').getTime();
+        const bDate = new Date(b.estimatedCompletionDate || b.deadline || '9999-12-31').getTime();
+        return aDate - bDate;
+      }
+      if (sortBy === 'progress') return b.progress - a.progress;
+      if (sortBy === 'priority') {
+        const rank = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+        return rank[b.priority] - rank[a.priority];
+      }
+      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
+    });
+
+  const formatDeadline = (project: Project) => {
+    const value = project.estimatedCompletionDate || project.deadline;
+    if (!value) return null;
+    const date = new Date(value);
+    const days = Math.ceil((date.getTime() - Date.now()) / 86400000);
+    return {
+      label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+      urgent: days >= 0 && days <= 7,
+      overdue: days < 0,
+    };
+  };
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
@@ -108,38 +144,45 @@ const Projects = () => {
         </div>
       )}
 
-      {/* Search */}
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '0.75rem',
-        background: 'var(--surface-1)',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-md)',
-        padding: '0.625rem 1rem',
-        marginBottom: '1.75rem',
-      }}>
-        <Search size={16} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-        <input
-          type="text"
-          placeholder="Search projects..."
-          value={search}
-          onChange={e => setSearch(e.target.value)}
-          style={{
-            background: 'none',
-            border: 'none',
-            outline: 'none',
-            fontFamily: 'inherit',
-            fontSize: '0.875rem',
-            color: 'var(--text-primary)',
-            width: '100%',
-          }}
-        />
+      {/* Compact portfolio controls: search, filter and sort without changing navigation. */}
+      <div className="project-toolbar">
+        <label className="project-search">
+          <Search size={16} />
+          <input type="search" placeholder="Search name, category or department" value={search} onChange={e => setSearch(e.target.value)} />
+        </label>
+        <label className="project-select"><FolderKanban size={14} /><span>Domain</span>
+          <select value={categoryFilter} onChange={(e) => setSearchParams(e.target.value === 'All' ? {} : { category: e.target.value })}>
+            <option value="All">All domains</option>
+            {categories.map((category) => <option key={category} value={category}>{category}</option>)}
+          </select>
+        </label>
+        <label className="project-select"><SlidersHorizontal size={14} /><span>Status</span>
+          <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
+            <option value="All">All ({projects.length})</option>
+            {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
+          </select>
+        </label>
+        <label className="project-select"><ArrowUpDown size={14} /><span>Sort</span>
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+            <option value="recent">Recently updated</option>
+            <option value="deadline">Due date</option>
+            <option value="priority">Priority</option>
+            <option value="progress">Progress</option>
+          </select>
+        </label>
       </div>
+
+      {categories.length > 1 && <div className="project-domain-strip" aria-label="Project domains">
+        <button className={categoryFilter === 'All' ? 'active' : ''} onClick={() => setSearchParams({})}><span>All work</span><strong>{projects.length}</strong></button>
+        {categories.map((category) => {
+          const count = projects.filter((project) => (project.category || project.department || 'General') === category).length;
+          return <button key={category} className={categoryFilter === category ? 'active' : ''} onClick={() => setSearchParams({ category })}><span>{category}</span><strong>{count}</strong></button>;
+        })}
+      </div>}
 
       {/* Projects Grid */}
       {loading ? (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="project-grid">
           {[1,2,3,4,5,6].map(i => (
             <div key={i} className="skeleton" style={{ height: '220px', borderRadius: '16px' }}></div>
           ))}
@@ -160,7 +203,7 @@ const Projects = () => {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-5">
+        <div className="project-grid">
           {filtered.map((project) => (
             <div key={project._id} style={{ position: 'relative' }}>
               <Link
@@ -168,20 +211,12 @@ const Projects = () => {
                 className={`project-card ${canManage ? 'project-card--managed' : ''}`}
                 style={{ opacity: project.archived ? 0.6 : 1 }}
               >
-                {/* Priority stripe */}
-                <div style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: '3px',
-                  background: getPriorityColor(project.priority),
-                  borderRadius: '16px 16px 0 0',
-                }} />
+                <div className="project-priority-stripe" style={{ background: getPriorityColor(project.priority) }} />
 
-                <div className="project-card-header" style={{ marginTop: '0.5rem' }}>
+                <div className="project-card-header">
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="project-card-title">{project.name}</div>
+                    <div className="project-card-context">{project.category || project.department || project.priority}</div>
                   </div>
                   <span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>
                   {project.archived && <span className="badge badge-neutral">Archived</span>}
@@ -190,10 +225,9 @@ const Projects = () => {
                 <p className="project-card-desc">{project.description || 'No description provided.'}</p>
 
                 {/* Progress */}
-                <div style={{ marginBottom: '1rem' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
-                    <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', fontWeight: 500 }}>Progress</span>
-                    <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-secondary)' }}>{project.progress}%</span>
+                <div className="project-progress">
+                  <div className="project-progress-label">
+                    <span>Progress</span><strong>{project.progress}%</strong>
                   </div>
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${project.progress}%` }}></div>
@@ -206,10 +240,10 @@ const Projects = () => {
                     <Users size={13} />
                     <span>{project.assignedMembers?.length ?? 0} members</span>
                   </div>
-                  {(project.estimatedCompletionDate || project.deadline) && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+                  {formatDeadline(project) && (
+                    <div className={`project-deadline ${formatDeadline(project)?.urgent ? 'is-urgent' : ''} ${formatDeadline(project)?.overdue ? 'is-overdue' : ''}`}>
                       <Calendar size={13} />
-                      <span>{new Date(project.estimatedCompletionDate || project.deadline || '').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                      <span>{formatDeadline(project)?.overdue ? 'Overdue · ' : ''}{formatDeadline(project)?.label}</span>
                     </div>
                   )}
                 </div>

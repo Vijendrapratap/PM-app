@@ -99,7 +99,7 @@ export interface DailyReport {
 }
 
 export type Priority = 'Low' | 'Medium' | 'High' | 'Critical';
-export type TaskStatus = 'Pending' | 'In Progress' | 'Completed' | 'Blocked';
+export type TaskStatus = 'Pending' | 'In Progress' | 'In Review' | 'Completed' | 'Blocked';
 
 export interface TaskPerson {
   _id: string;

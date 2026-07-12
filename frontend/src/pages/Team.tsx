@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Search, Plus, Users, Pencil, UserX, UserCheck, Trash2, KeyRound, ChevronLeft, ChevronRight, FolderKanban, ArrowUpDown } from 'lucide-react';
 import CreateTeamMemberModal from '../components/CreateTeamMemberModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -30,6 +31,8 @@ type SortKey = 'name' | 'role' | 'status' | 'createdAt' | 'lastLoginAt';
 const Team = () => {
   const { members, loading, refetch } = useTeam();
   const { user } = useAuth();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const selectedMember = searchParams.get('member');
   const canManage = isSuperAdmin(user?.role);
 
   const [search, setSearch] = useState('');
@@ -57,7 +60,7 @@ const Team = () => {
         m.phone?.toLowerCase().includes(search.toLowerCase());
       const matchesRole = roleFilter === 'All' || m.role === roleFilter;
       const matchesStatus = statusFilter === 'All' || (m.status ?? 'Active') === statusFilter;
-      return matchesSearch && matchesRole && matchesStatus;
+      return matchesSearch && matchesRole && matchesStatus && (!selectedMember || m._id === selectedMember);
     });
 
     const sorted = [...rows].sort((a, b) => {
@@ -66,7 +69,7 @@ const Team = () => {
       return av.localeCompare(bv) * sort.dir;
     });
     return sorted;
-  }, [members, search, roleFilter, statusFilter, sort]);
+  }, [members, search, roleFilter, statusFilter, sort, selectedMember]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -141,6 +144,7 @@ const Team = () => {
       )}
 
       {/* Search + Filters */}
+      {selectedMember && <div className="team-focus-banner"><span>Showing one team member and their project assignments</span><button onClick={() => setSearchParams({})}>Show full team</button></div>}
       <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: '0.75rem', marginBottom: '1.75rem' }}>
         <div style={{ flex: '1 1 260px', display: 'flex', alignItems: 'center', gap: '0.75rem', background: 'var(--surface-1)', border: '1px solid var(--border-subtle)', borderRadius: 'var(--radius-md)', padding: '0.625rem 1rem' }}>
           <Search size={16} style={{ color: 'var(--text-muted)' }} />
