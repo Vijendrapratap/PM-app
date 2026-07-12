@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown } from 'lucide-react';
+import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown, MoreHorizontal } from 'lucide-react';
 import CreateProjectModal from '../components/CreateProjectModal';
 import EditProjectModal from '../components/EditProjectModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -218,8 +218,7 @@ const Projects = () => {
                     <div className="project-card-title">{project.name}</div>
                     <div className="project-card-context">{project.category || project.department || project.priority}</div>
                   </div>
-                  <span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>
-                  {project.archived && <span className="badge badge-neutral">Archived</span>}
+                  <div className="project-card-badges"><span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>{project.archived && <span className="badge badge-neutral">Archived</span>}</div>
                 </div>
 
                 <p className="project-card-desc">{project.description || 'No description provided.'}</p>
@@ -250,32 +249,14 @@ const Projects = () => {
               </Link>
 
               {canManage && (
-                <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem', display: 'flex', gap: '0.25rem', zIndex: 2 }}>
-                  <button
-                    className="icon-btn"
-                    title="Edit"
-                    style={{ background: 'var(--surface-1)' }}
-                    onClick={(e) => { e.preventDefault(); setEditTarget(project); }}
-                  >
-                    <Pencil size={13} />
-                  </button>
-                  <button
-                    className="icon-btn"
-                    title={project.archived ? 'Restore' : 'Archive'}
-                    style={{ background: 'var(--surface-1)' }}
-                    onClick={(e) => { e.preventDefault(); handleArchiveToggle(project); }}
-                  >
-                    {project.archived ? <ArchiveRestore size={13} /> : <Archive size={13} />}
-                  </button>
-                  <button
-                    className="icon-btn"
-                    title="Delete"
-                    style={{ background: 'var(--surface-1)', color: 'var(--danger)' }}
-                    onClick={(e) => { e.preventDefault(); setDeleteTarget(project); }}
-                  >
-                    <Trash2 size={13} />
-                  </button>
-                </div>
+                <details className="project-actions">
+                  <summary title="Project actions"><MoreHorizontal size={17}/></summary>
+                  <div className="project-actions-menu">
+                    <button onClick={() => setEditTarget(project)}><Pencil size={13}/><span>Edit project</span></button>
+                    <button onClick={() => handleArchiveToggle(project)}>{project.archived ? <ArchiveRestore size={13}/> : <Archive size={13}/>}<span>{project.archived ? 'Restore' : 'Archive'}</span></button>
+                    <button className="danger" onClick={() => setDeleteTarget(project)}><Trash2 size={13}/><span>Delete</span></button>
+                  </div>
+                </details>
               )}
             </div>
           ))}

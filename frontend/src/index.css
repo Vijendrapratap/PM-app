@@ -552,6 +552,7 @@ a:hover { color: var(--accent-cyan); }
   display: flex;
   flex-direction: column;
   min-height: 218px;
+  height: 100%;
   position: relative;
   overflow: hidden;
 }
@@ -576,14 +577,14 @@ a:hover { color: var(--accent-cyan); }
 
 .project-card-header {
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
+  flex-direction: column;
+  align-items: stretch;
   margin: .2rem 0 .65rem;
-  gap: 0.55rem;
+  gap: 0.5rem;
+  padding-right: 2.2rem;
 }
 
-/* Keep the title and status clear of the edit/archive/delete controls. */
-.project-card--managed .project-card-header { padding-right: 106px; }
+.project-card--managed .project-card-header { padding-right: 2.2rem; }
 
 .project-card-title {
   font-family: var(--font-display);
@@ -594,6 +595,11 @@ a:hover { color: var(--accent-cyan); }
   margin-bottom: 0.15rem;
   transition: color var(--transition-fast);
   overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  min-height: 2.6rem;
 }
 
 .project-card:hover .project-card-title { color: var(--accent-blue); }
@@ -622,6 +628,15 @@ a:hover { color: var(--accent-cyan); }
 .project-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); gap: .85rem; align-items: stretch; }
 .project-priority-stripe { position: absolute; inset: 0 auto 0 0; width: 4px; }
 .project-card-context { color: var(--text-muted); font-size: .66rem; font-weight: 650; letter-spacing: .045em; text-transform: uppercase; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.project-card-badges { min-height: 22px; display: flex; align-items: center; gap: .35rem; flex-wrap: wrap; }
+.project-actions { position: absolute; top: .7rem; right: .7rem; z-index: 5; }
+.project-actions summary { width: 30px; height: 30px; display: grid; place-items: center; border: 1px solid var(--border-normal); border-radius: 7px; background: var(--surface-1); color: var(--text-secondary); cursor: pointer; list-style: none; }
+.project-actions summary::-webkit-details-marker { display: none; }
+.project-actions summary:hover, .project-actions[open] summary { border-color: var(--border-accent); color: var(--text-primary); background: var(--surface-2); }
+.project-actions-menu { position: absolute; top: 34px; right: 0; width: 145px; padding: .3rem; border: 1px solid var(--border-card); border-radius: 8px; background: var(--surface-1); box-shadow: var(--shadow-lg); }
+.project-actions-menu button { width: 100%; display: flex; align-items: center; gap: .5rem; padding: .48rem .55rem; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); font: 600 .72rem var(--font-body); cursor: pointer; text-align: left; }
+.project-actions-menu button:hover { background: var(--surface-2); color: var(--text-primary); }
+.project-actions-menu button.danger { color: var(--danger); }
 .project-progress { margin-bottom: .7rem; }
 .project-progress-label { display: flex; justify-content: space-between; align-items: center; margin-bottom: .3rem; color: var(--text-muted); font-size: .7rem; font-weight: 550; }
 .project-progress-label strong { color: var(--text-secondary); font-weight: 700; }
