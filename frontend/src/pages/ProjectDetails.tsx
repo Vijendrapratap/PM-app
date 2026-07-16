@@ -95,9 +95,22 @@ const ProjectDetails = () => {
     const start = new Date(projectData.startDate);
     start.setHours(0, 0, 0, 0);
 
-    const end = projectData.status === 'Completed' && projectData.completionDate
-      ? new Date(projectData.completionDate)
-      : new Date();
+    let end: Date;
+    if (projectData.status === 'Completed' && projectData.completionDate) {
+      end = new Date(projectData.completionDate);
+    } else {
+      // Take the latest of today, the deadline, and the expected completion
+      // date - not "deadline OR estimatedCompletionDate". Only
+      // estimatedCompletionDate is editable from the UI (Edit Project has no
+      // deadline field), so when an admin extends it past an older/stale
+      // deadline value, picking `deadline` first would keep truncating the
+      // report window at the earlier date even though the project was
+      // extended.
+      const candidates = [new Date()];
+      if (projectData.deadline) candidates.push(new Date(projectData.deadline));
+      if (projectData.estimatedCompletionDate) candidates.push(new Date(projectData.estimatedCompletionDate));
+      end = new Date(Math.max(...candidates.map((d) => d.getTime())));
+    }
     end.setHours(0, 0, 0, 0);
 
     if (end < start) return [];
