@@ -207,7 +207,6 @@ const DeliveryLeadershipDemo = () => {
     { id: 'desk', label: 'Delivery desk', icon: Workflow },
     { id: 'projects', label: 'Projects & boards', icon: FolderKanban, count: domainProjects.length },
     { id: 'blockers', label: 'Blockers', icon: AlertTriangle, count: blockers.length },
-    { id: 'ideas', label: 'Ideas', icon: Lightbulb, count: ideas.length },
     { id: 'agents', label: 'Agent controls', icon: Bot, count: 2 },
   ];
 
@@ -230,7 +229,8 @@ const DeliveryLeadershipDemo = () => {
       <nav>{nav.map(({ id, label, icon: Icon, count }) => <button className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={15}/><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}</nav>
       <div className="dl-command-actions">
         <div className="dl-notifications"><button aria-label="Notifications" onClick={() => setNotificationOpen(!notificationOpen)}><Bell size={16}/><i/></button>{notificationOpen && <aside><header><strong>Team broadcast feed</strong><button onClick={() => setNotifications([])}>Clear all</button></header>{notifications.length ? notifications.map((item) => <article key={item.id}><span/><div><strong>{item.title}</strong><p>{item.detail}</p></div><small>{item.time}</small></article>) : <p className="dl-empty">No unread updates.</p>}</aside>}</div>
-        <button className="dl-launch" onClick={() => setModal('launch')}><Sparkles size={15}/>Launch project</button>
+        <button className="dl-blocker-action" onClick={() => setModal('blocker')}><AlertTriangle size={15}/>Report blocker</button>
+        <button className="dl-launch" onClick={() => setModal('launch')}><Plus size={15}/>Add project</button>
         {dayStarted ? <div className="dl-session"><i/><span><small>Started {startTime}</small><strong>{formatTimer(elapsed)}</strong></span><button onClick={() => setModal('finish')}><LogOut size={14}/></button></div> : <button className="dl-start" onClick={() => setModal('start')}><Play size={14}/>Start day</button>}
       </div>
     </section>

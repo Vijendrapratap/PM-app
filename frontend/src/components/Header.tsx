@@ -1,5 +1,5 @@
-import { Lightbulb, Search } from 'lucide-react';
-import { NavLink, useLocation } from 'react-router-dom';
+import { Search } from 'lucide-react';
+import { useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
@@ -35,12 +35,6 @@ const Header = () => {
         <input type="search" placeholder="Search work, people, projects" aria-label="Search" />
         <kbd>⌘ K</kbd>
       </div>
-
-      <nav className="header-quick-nav" aria-label="Quick navigation">
-        <NavLink to="/ideas" className={({ isActive }) => isActive ? 'active' : ''}>
-          <Lightbulb size={15}/><span>Idea bucket</span>
-        </NavLink>
-      </nav>
 
       <div className="header-actions">
         <NotificationBell />

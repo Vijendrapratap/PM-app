@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   FolderKanban, CheckCircle2, Users, Layers,
   ArrowUpRight, TrendingUp, Clock, Zap,
-  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock, AlertTriangle, UserRoundX, Lightbulb, Target, Bot,
+  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock, AlertTriangle, UserRoundX, Target, Bot,
 } from 'lucide-react';
 import { projectApi } from '../api/projectApi';
 import { userApi } from '../api/userApi';
@@ -381,9 +381,6 @@ const Dashboard = () => {
           </Link>
           <Link to="/projects" className="decision-item">
             <UserRoundX size={19} /><div><strong>{visibleUnassigned.length} unassigned task{visibleUnassigned.length === 1 ? '' : 's'}</strong><span>{visibleUnassigned[0] ? `${visibleUnassigned[0].task.title} · ${visibleUnassigned[0].project.name}` : 'Every open task has an owner'}</span></div><ArrowUpRight size={15} />
-          </Link>
-          <Link to="/ideas" className="decision-item">
-            <Lightbulb size={19} /><div><strong>{decisionQueue.plannedIdeas.length} idea{decisionQueue.plannedIdeas.length === 1 ? '' : 's'} ready to plan</strong><span>{decisionQueue.plannedIdeas[0]?.title ?? 'Move evaluated opportunities into a slot'}</span></div><ArrowUpRight size={15} />
           </Link>
         </div>
       </section>

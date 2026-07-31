@@ -154,7 +154,6 @@ const TeamMemberDemo = () => {
     { id: 'work', label: 'Daily workspace', icon: CheckSquare },
     { id: 'projects', label: 'Projects & specs', icon: FolderKanban },
     { id: 'blockers', label: 'Blockers', icon: AlertTriangle, badge: blockers.length },
-    { id: 'ideas', label: 'Idea bucket', icon: Lightbulb, badge: ideas.length },
     { id: 'schedule', label: 'Schedule & logs', icon: CalendarDays },
   ];
 
@@ -186,15 +185,17 @@ const TeamMemberDemo = () => {
           <h1>Good day, Alex</h1>
           <p>Make today clear, keep progress visible, and raise blockers before they slow delivery.</p>
         </div>
-        <div className="tm-session-actions">
-          {dayStarted ? <div className="tm-live-session"><span className="tm-live-dot"/><div><small>Started {startTime}</small><strong>{formatTimer(elapsed)}</strong></div><button type="button" onClick={() => setDialog('finish')}><LogOut size={14}/>End day</button></div> : <button className="tm-start-button" type="button" onClick={() => setDialog('start')}><Play size={14}/>Plan & start my day</button>}
-          <button className="tm-blocker-button" type="button" onClick={() => setDialog('blocker')}><AlertTriangle size={14}/>Report blocker</button>
-        </div>
       </header>
 
-      <nav className="tm-tabs" aria-label="Team member demo sections">
-        {navItems.map(({ id, label, icon: Icon, badge }) => <button type="button" className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={14}/><span>{label}</span>{badge ? <b>{badge}</b> : null}</button>)}
-      </nav>
+      <section className="tm-command-bar">
+        <nav className="tm-tabs" aria-label="Team member demo sections">
+          {navItems.map(({ id, label, icon: Icon, badge }) => <button type="button" className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={14}/><span>{label}</span>{badge ? <b>{badge}</b> : null}</button>)}
+        </nav>
+        <div className="tm-command-actions">
+          <button className="tm-blocker-button" type="button" onClick={() => setDialog('blocker')}><AlertTriangle size={14}/>Report blocker</button>
+          {dayStarted ? <div className="tm-live-session"><span className="tm-live-dot"/><div><small>Started {startTime}</small><strong>{formatTimer(elapsed)}</strong></div><button type="button" onClick={() => setDialog('finish')}><LogOut size={14}/>End day</button></div> : <button className="tm-start-button" type="button" onClick={() => setDialog('start')}><Play size={14}/>Start day</button>}
+        </div>
+      </section>
 
       {savedCloseout && <div className="tm-success-note"><CheckCircle2 size={15}/><span>Today’s closeout was saved. Govind and Anush can now see the summary, blockers and remarks.</span><button type="button" onClick={() => setSavedCloseout(false)}><X size={14}/></button></div>}
 

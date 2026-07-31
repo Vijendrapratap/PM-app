@@ -166,7 +166,7 @@ const CeoExecutiveDemo = () => {
   const nav: Array<{ id: View; label: string; icon: typeof Activity }> = [
     { id: 'overview', label: 'Executive overview', icon: Activity }, { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
     { id: 'people', label: 'People & capacity', icon: Users }, { id: 'risks', label: 'Risks', icon: AlertTriangle },
-    { id: 'ideas', label: 'Ideas', icon: Lightbulb }, { id: 'agents', label: 'Agent governance', icon: Bot },
+    { id: 'agents', label: 'Agent governance', icon: Bot },
   ];
 
   return (
@@ -181,8 +181,9 @@ const CeoExecutiveDemo = () => {
         <div className="ce-command-actions">
           <button className="ce-brief-button" type="button" onClick={generateBriefing} disabled={generatingBriefing}>{generatingBriefing ? <RefreshCw className="spin" size={15}/> : <Sparkles size={15}/>}<span>{generatingBriefing ? 'Analyzing…' : 'Generate CEO briefing'}</span></button>
           <div className="ce-notifications"><button type="button" aria-label="Notifications" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={17}/><i>{notifications.length}</i></button>{notificationsOpen && <aside><header><strong>Company activity</strong><button type="button" onClick={() => { setNotifications([]); setNotificationsOpen(false); }}>Clear</button></header>{notifications.length ? notifications.map((item) => <article key={item.id}><span></span><div><strong>{item.title}</strong><p>{item.detail}</p><small>{item.time}</small></div></article>) : <p className="ce-empty">You are all caught up.</p>}</aside>}</div>
+          <button className="ce-blocker-action" type="button" onClick={() => setModal('risk')}><AlertTriangle size={15}/> Blocker</button>
           {dayStarted ? <div className="ce-session"><span><i></i>{startTime}</span><b>{formatTimer(elapsed)}</b><button type="button" onClick={() => setModal('finish')}><LogOut size={14}/> Wrap up</button></div> : <button className="ce-start" type="button" onClick={() => setModal('start')}><Play size={14}/> Start day</button>}
-          <button className="ce-launch" type="button" onClick={() => setModal('launch')}><Plus size={15}/> Launch project</button>
+          <button className="ce-launch" type="button" onClick={() => setModal('launch')}><Plus size={15}/> Add project</button>
         </div>
       </section>
 
