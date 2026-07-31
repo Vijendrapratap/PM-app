@@ -1,8 +1,7 @@
-import { useState } from 'react';
-import { Code2, Workflow } from 'lucide-react';
 import DemoPersonaBar from '../components/DemoPersonaBar';
 import TeamMemberDemo from '../components/TeamMemberDemo';
-import { CeoDashboard, ProjectManagerDashboard, TechLeadDashboard } from '../components/LeadershipDashboards';
+import DeliveryLeadershipDemo from '../components/DeliveryLeadershipDemo';
+import { CeoDashboard } from '../components/LeadershipDashboards';
 import { useAuth } from '../context/AuthContext';
 import type { Project, ProjectDocument, Priority } from '../types';
 import type { ProjectTask } from '../api/projectTaskApi';
@@ -65,25 +64,12 @@ const shared = { projects, risks: [projects[1]], blockers, unassigned, capacity,
 
 const DemoDashboard = () => {
   const { demoPersona } = useAuth();
-  const [deliveryView, setDeliveryView] = useState<'pm' | 'lead'>('pm');
 
   return (
     <div className="demo-role-workspace">
       <DemoPersonaBar />
       {demoPersona === 'team' && <TeamMemberDemo />}
-      {demoPersona === 'delivery' && <>
-        <div className="delivery-demo-toggle">
-          <div><span>Delivery leadership view</span><small>PM and Tech Lead share the same source of truth with different decision priorities.</small></div>
-          <div>
-            <button type="button" className={deliveryView === 'pm' ? 'active' : ''} onClick={() => setDeliveryView('pm')}><Workflow size={14}/>Govind · PM</button>
-            <button type="button" className={deliveryView === 'lead' ? 'active' : ''} onClick={() => setDeliveryView('lead')}><Code2 size={14}/>Anush · Tech Lead</button>
-          </div>
-        </div>
-        {deliveryView === 'pm'
-          ? <ProjectManagerDashboard name="Govind" {...shared}/>
-          : <TechLeadDashboard name="Anush MK" {...shared} taskGroups={taskGroups}/>
-        }
-      </>}
+      {demoPersona === 'delivery' && <DeliveryLeadershipDemo />}
       {(!demoPersona || demoPersona === 'ceo') && <CeoDashboard name="Pratap" {...shared} totalProjects={9} completedProjects={3} teamSize={12}/>}
     </div>
   );
