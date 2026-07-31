@@ -45,7 +45,7 @@ const mapWorkday = (row: any) => row ? ({
       projectId: item.project_id,
       project: item.project ? { _id: item.project.id, name: item.project.name, status: item.project.status, progress: item.project.progress } : null,
       taskId: item.task_id,
-      task: item.task ? { _id: item.task.id, title: item.task.title, status: item.task.status } : null,
+      task: item.task ? { _id: item.task.id, title: item.task.title, status: item.task.status, priority: item.task.priority } : null,
       title: item.title,
       plannedOutcome: item.planned_outcome,
       status: item.status,

@@ -5,6 +5,7 @@ import {
   ListChecks, LogOut, Play, Plus, RefreshCw, Save, Sparkles, ThumbsUp,
   Timer, UserCheck, Workflow, X,
 } from 'lucide-react';
+import SharedStartDayPlanner, { type DayPlanResult } from './SharedStartDayPlanner';
 
 type Persona = 'pm' | 'lead';
 type Domain = 'ENGINEERING' | 'SALES' | 'MARKETING';
@@ -171,6 +172,22 @@ const DeliveryLeadershipDemo = () => {
     setTaskTitle(''); setModal(null);
   };
 
+  const startPlannedDay = (plan: DayPlanResult) => {
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    setTasks((current) => {
+      const existingIds = new Set(current.map((task) => task.id));
+      const added: DeliveryTask[] = plan.tasks.filter((task) => !existingIds.has(task.id)).map((task) => {
+        const project = projects.find((item) => item.name === task.project) || projects[0];
+        return { id: task.id, title: task.title, projectId: project.id, project: project.name, domain: project.domain, status: 'todo', priority: task.priority === 'Critical' ? 'Urgent' : task.priority, estimate: task.estimate || '1 hr', assignee: currentName, module: 'Daily plan' };
+      });
+      return [...added, ...current];
+    });
+    setDayStarted(true);
+    setStartTime(time);
+    setModal(null);
+    broadcast('Workday started', `${currentName} committed to ${plan.tasks.length} priority tasks.`);
+  };
+
   const reportBlocker = (event: FormEvent) => {
     event.preventDefault();
     if (!blockerText.trim()) return;
@@ -260,7 +277,7 @@ const DeliveryLeadershipDemo = () => {
 
     {view === 'agents' && <section className="dl-page"><header className="dl-page-header"><div><span className="dl-kicker purple"><Bot size={15}/>Governed AI workspace</span><h2>Agent controls</h2><p>PM, Tech Lead and CEO can adjust prompts. Changes should remain versioned and visible.</p></div>{promptSaved && <span className="dl-saved"><Check size={14}/>Draft prompts saved</span>}</header><div className="dl-agent-grid"><article><header><span><Workflow size={17}/>Project Manager Agent</span><b>Active</b></header><p>Creates the initial feature and executable-task plan when a project is added.</p><label><span>System prompt</span><textarea value={pmPrompt} onChange={(event) => setPmPrompt(event.target.value)} rows={8}/></label><footer><small>Last edited by Govind · version 4</small><button onClick={() => { setPromptSaved(true); window.setTimeout(() => setPromptSaved(false), 2200); }}><Save size={14}/>Save new version</button></footer></article><article><header><span><FileText size={17}/>Business Analyst Agent</span><b>Active</b></header><p>Creates and maintains approved project requirements and technical guidance.</p><label><span>System prompt</span><textarea value={baPrompt} onChange={(event) => setBaPrompt(event.target.value)} rows={8}/></label><footer><small>Last edited by Anush · version 3</small><button onClick={() => { setPromptSaved(true); window.setTimeout(() => setPromptSaved(false), 2200); }}><Save size={14}/>Save new version</button></footer></article></div></section>}
 
-    {modal === 'start' && <DeliveryDialog title="Start with a clear management outcome" description="Set the focus before the workday timer begins." icon={<Play size={18}/>} onClose={() => setModal(null)}><div className="dl-simple-dialog"><label><span>Today’s leadership focus</span><textarea rows={3} defaultValue={persona === 'pm' ? 'Clear agent approvals and remove the two delivery blockers.' : 'Complete technical reviews and unblock staging integration.'}/></label><footer><button onClick={() => setModal(null)}>Cancel</button><button className="success" onClick={() => { setDayStarted(true); setStartTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); setModal(null); }}><Play size={14}/>Start workday</button></footer></div></DeliveryDialog>}
+    {modal === 'start' && <DeliveryDialog wide title="Start my day" description="The same priority planning flow is available to PM, Tech Lead, CEO and every team member." icon={<Play size={18}/>} onClose={() => setModal(null)}><SharedStartDayPlanner tasks={domainTasks.filter((task) => task.status !== 'completed').map((task) => ({ id: task.id, title: task.title, project: task.project, priority: task.priority === 'Urgent' ? 'Critical' : task.priority, estimate: task.estimate, carriedOver: task.assignee === currentName && task.status === 'in_progress', selected: task.assignee === currentName }))} projects={domainProjects.map((project) => project.name)} defaultFocus={persona === 'pm' ? 'Clear delivery decisions, approve priority work and remove the most important blocker.' : 'Complete technical reviews and unblock the highest-risk integration work.'} onCancel={() => setModal(null)} onStart={startPlannedDay}/></DeliveryDialog>}
     {modal === 'finish' && <DeliveryDialog title="Close the leadership workday" description="Capture decisions, completed outcomes and handover context." icon={<LogOut size={18}/>} onClose={() => setModal(null)}><div className="dl-simple-dialog"><label><span>Completed outcomes and decisions</span><textarea rows={4} placeholder="What changed because of today’s work?"/></label><label><span>Blockers or remarks</span><textarea rows={3} placeholder="What needs follow-up tomorrow?"/></label><footer><button onClick={() => setModal(null)}>Keep working</button><button onClick={() => { setDayStarted(false); setModal(null); broadcast('Workday closed', `${currentName} published today’s delivery closeout.`); }}>Save & log off</button></footer></div></DeliveryDialog>}
     {modal === 'task' && <DeliveryDialog title="Assign an executable task" description="Every task needs a project, owner and clear finish line." icon={<ListChecks size={18}/>} onClose={() => setModal(null)}><form className="dl-form" onSubmit={addTask}><label><span>Task title</span><input autoFocus value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Describe the expected outcome"/></label><div><label><span>Project</span><select value={taskProjectId} onChange={(event) => setTaskProjectId(event.target.value)}>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label><label><span>Assignee</span><select value={taskAssignee} onChange={(event) => setTaskAssignee(event.target.value)}>{['Alex Rivera', 'Meera Nair', 'Zoya Khan', 'Aarav Shah'].map((name) => <option key={name}>{name}</option>)}</select></label></div><footer><button type="button" onClick={() => setModal(null)}>Cancel</button><button>Assign task</button></footer></form></DeliveryDialog>}
     {modal === 'blocker' && <DeliveryDialog title="Report a delivery blocker" description="The PM and Tech Lead will see this in the same shared queue." icon={<AlertTriangle size={18}/>} onClose={() => setModal(null)}><form className="dl-form" onSubmit={reportBlocker}><label><span>What is blocked?</span><textarea autoFocus rows={4} value={blockerText} onChange={(event) => setBlockerText(event.target.value)} placeholder="State what cannot continue and what is needed"/></label><label><span>Project</span><select value={taskProjectId} onChange={(event) => setTaskProjectId(event.target.value)}>{projects.map((project) => <option value={project.id} key={project.id}>{project.name}</option>)}</select></label><footer><button type="button" onClick={() => setModal(null)}>Cancel</button><button className="danger">Report blocker</button></footer></form></DeliveryDialog>}

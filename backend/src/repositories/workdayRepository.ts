@@ -7,7 +7,7 @@ const WORKDAY_SELECT = `
   items:workday_items(
     *,
     project:project_id(id, name, status, progress),
-    task:task_id(id, title, status, assigned_to)
+    task:task_id(id, title, status, priority, assigned_to)
   )
 `;
 

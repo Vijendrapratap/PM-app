@@ -7,7 +7,7 @@ export interface WorkdayItem {
   projectId: string | null;
   project: { _id: string; name: string; status: string; progress: number } | null;
   taskId: string | null;
-  task: { _id: string; title: string; status: string } | null;
+  task: { _id: string; title: string; status: string; priority: 'Low' | 'Medium' | 'High' | 'Critical' } | null;
   title: string;
   plannedOutcome: string;
   status: WorkdayItemStatus;

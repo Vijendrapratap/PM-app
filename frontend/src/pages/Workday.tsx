@@ -9,10 +9,10 @@ import { useAuth } from '../context/AuthContext';
 import { projectApi } from '../api/projectApi';
 import { projectTaskApi, type AssignedProjectTask } from '../api/projectTaskApi';
 import { workdayApi, type TeamPulseEntry, type Workday as WorkdayRecord, type WorkdayItem, type WorkdayItemStatus } from '../api/workdayApi';
-import type { Project } from '../types';
+import type { Priority, Project } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
 
-type DraftItem = { key: string; projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks: string; carriedOver: boolean };
+type DraftItem = { key: string; projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks: string; carriedOver: boolean; priority: Priority };
 type ItemDraft = { status: WorkdayItemStatus; progressNote: string; blockerReason: string };
 type View = 'my-day' | 'team';
 
@@ -25,6 +25,7 @@ const dateKey = () => {
 const canSeeTeam = (role?: string) => role === 'Super Admin' || role === 'Project Manager';
 const statusClass = (status: string) => status.toLowerCase().replace(/\s+/g, '-');
 const MAX_DAILY_ITEMS = 20;
+const priorityRank: Record<Priority, number> = { Critical: 0, High: 1, Medium: 2, Low: 3 };
 
 const Workday = () => {
   const { user } = useAuth();
@@ -40,6 +41,7 @@ const Workday = () => {
   const [draftItems, setDraftItems] = useState<DraftItem[]>([]);
   const [customProject, setCustomProject] = useState('');
   const [customTitle, setCustomTitle] = useState('');
+  const [customPriority, setCustomPriority] = useState<Priority>('Medium');
   const [itemDrafts, setItemDrafts] = useState<Record<string, ItemDraft>>({});
   const [completedSummary, setCompletedSummary] = useState('');
   const [dayBlockers, setDayBlockers] = useState('');
@@ -100,9 +102,11 @@ const Workday = () => {
               plannedOutcome: item.plannedOutcome || item.title,
               remarks: item.progressNote || '',
               carriedOver: true,
+              priority: item.task?.priority || 'Medium',
             }));
           const assignedDrafts: DraftItem[] = openTasks
-            .filter((task) => task.project && !carriedTaskIds.has(task._id) && !carriedKeys.has(`${task.projectId}:${task.title.toLowerCase()}`))
+            .filter((task) => task.project && ['Critical', 'High'].includes(task.priority) && !carriedTaskIds.has(task._id) && !carriedKeys.has(`${task.projectId}:${task.title.toLowerCase()}`))
+            .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
             .map((task) => ({
               key: task._id,
               projectId: task.projectId,
@@ -111,8 +115,9 @@ const Workday = () => {
               plannedOutcome: task.title,
               remarks: '',
               carriedOver: false,
+              priority: task.priority,
             }));
-          setDraftItems([...carriedDrafts, ...assignedDrafts].slice(0, MAX_DAILY_ITEMS));
+          setDraftItems([...carriedDrafts.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]), ...assignedDrafts].slice(0, MAX_DAILY_ITEMS));
         }
       } catch (loadError) {
         setError(getErrorMessage(loadError, 'We could not load today’s workday.'));
@@ -134,6 +139,9 @@ const Workday = () => {
 
   const selectedTaskIds = useMemo(() => new Set(draftItems.map((item) => item.taskId).filter(Boolean)), [draftItems]);
   const carryoverCount = useMemo(() => draftItems.filter((item) => item.carriedOver).length, [draftItems]);
+  const pendingTasks = useMemo(() => tasks
+    .filter((task) => !selectedTaskIds.has(task._id))
+    .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]), [selectedTaskIds, tasks]);
   const assignedProjects = useMemo(() => {
     const map = new Map<string, string>();
     tasks.forEach((task) => task.project && map.set(task.project._id, task.project.name));
@@ -144,14 +152,14 @@ const Workday = () => {
   const addTask = (task: AssignedProjectTask) => {
     if (!task.project || draftItems.length >= MAX_DAILY_ITEMS || selectedTaskIds.has(task._id)) return;
     setDraftItems((current) => [...current, {
-      key: task._id, projectId: task.projectId, taskId: task._id, title: task.title, plannedOutcome: task.title, remarks: '', carriedOver: false,
+      key: task._id, projectId: task.projectId, taskId: task._id, title: task.title, plannedOutcome: task.title, remarks: '', carriedOver: false, priority: task.priority,
     }]);
   };
 
   const addCustomOutcome = () => {
     if (!customProject || !customTitle.trim() || draftItems.length >= MAX_DAILY_ITEMS) return;
     setDraftItems((current) => [...current, {
-      key: `custom-${Date.now()}`, projectId: customProject, title: customTitle.trim(), plannedOutcome: customTitle.trim(), remarks: '', carriedOver: false,
+      key: `custom-${Date.now()}`, projectId: customProject, title: customTitle.trim(), plannedOutcome: customTitle.trim(), remarks: '', carriedOver: false, priority: customPriority,
     }]);
     setCustomTitle('');
   };
@@ -261,20 +269,19 @@ const Workday = () => {
             <div className="workday-step"><span>01</span><div><h2>Set the finish line</h2><p>One sentence that keeps the day pointed in the right direction.</p></div></div>
             <label className="focus-field"><span>Today will be successful if…</span><textarea value={focus} maxLength={240} onChange={(event) => setFocus(event.target.value)} placeholder="The client can review the new onboarding flow." /></label>
 
-            <div className="workday-step outcomes-step"><span>02</span><div><h2>Review today’s tasks</h2><p>Every unfinished assigned task is already included. Remove anything that is not realistic for today.</p></div><b>{draftItems.length} tasks</b></div>
+            <div className="workday-step outcomes-step"><span>02</span><div><h2>Review today’s priority</h2><p>Unfinished work from yesterday and high-priority assigned tasks are included automatically.</p></div><b>{draftItems.length} tasks</b></div>
             {carryoverCount > 0 && <div className="carryover-note"><RotateCcw size={17} /><div><strong>{carryoverCount} unfinished {carryoverCount === 1 ? 'task was' : 'tasks were'} carried forward</strong><span>Nothing gets lost between workdays. Review the expected result and add any useful context.</span></div></div>}
+            {draftItems.length < MAX_DAILY_ITEMS && <section className="quick-add-task"><div><span><Plus size={15} /> Add task</span><p>Add a missing task directly to today’s plan.</p></div><div className="custom-outcome"><select aria-label="Project" value={customProject} onChange={(event) => setCustomProject(event.target.value)}><option value="">Choose project</option>{assignedProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="Describe a clear, finishable task…" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomOutcome(); } }} /><select aria-label="Priority" value={customPriority} onChange={(event) => setCustomPriority(event.target.value as Priority)}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select><button className="btn btn-primary" disabled={!customProject || !customTitle.trim()} onClick={addCustomOutcome}><Plus size={14} /> Add to today</button></div></section>}
             <div className="selected-outcomes">
-              {draftItems.map((item, index) => <article key={item.key}><span className="outcome-number">{index + 1}</span><div><div className="outcome-title"><span><small>{assignedProjects.find((project) => project.id === item.projectId)?.name}</small><strong>{item.title}</strong></span>{item.carriedOver && <b className="carryover-badge"><RotateCcw size={11} /> Carried over</b>}</div><div className="outcome-fields"><label><span>Expected result</span><textarea aria-label={`Expected outcome for ${item.title}`} value={item.plannedOutcome} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, plannedOutcome: event.target.value } : draft))} placeholder="What should be true when this task is finished?" /></label><label><span>Remarks <small>optional</small></span><textarea aria-label={`Remarks for ${item.title}`} value={item.remarks} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, remarks: event.target.value } : draft))} placeholder="Dependency, handover note, link or context…" /></label></div></div><button aria-label={`Remove ${item.title}`} onClick={() => setDraftItems((current) => current.filter((draft) => draft.key !== item.key))}><X size={15} /></button></article>)}
+              {draftItems.map((item, index) => <article key={item.key}><span className="outcome-number">{index + 1}</span><div><div className="outcome-title"><span><small>{assignedProjects.find((project) => project.id === item.projectId)?.name}</small><strong>{item.title}</strong></span><span className="outcome-badges"><b className={`task-priority ${item.priority.toLowerCase()}`}>{item.priority}</b>{item.carriedOver && <b className="carryover-badge"><RotateCcw size={11} /> Carried over</b>}</span></div><div className="outcome-fields"><label><span>Expected result</span><textarea aria-label={`Expected outcome for ${item.title}`} value={item.plannedOutcome} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, plannedOutcome: event.target.value } : draft))} placeholder="What should be true when this task is finished?" /></label><label><span>Remarks <small>optional</small></span><textarea aria-label={`Remarks for ${item.title}`} value={item.remarks} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, remarks: event.target.value } : draft))} placeholder="Dependency, handover note, link or context…" /></label></div></div><button aria-label={`Remove ${item.title}`} onClick={() => setDraftItems((current) => current.filter((draft) => draft.key !== item.key))}><X size={15} /></button></article>)}
               {!draftItems.length && <div className="outcome-empty"><Layers3 size={20} /><span>Select assigned work below or add a project outcome.</span></div>}
             </div>
-
-            {draftItems.length < MAX_DAILY_ITEMS && <div className="custom-outcome"><select aria-label="Project" value={customProject} onChange={(event) => setCustomProject(event.target.value)}><option value="">Choose project</option>{assignedProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="Add another task or project outcome…" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomOutcome(); } }} /><button className="btn btn-secondary" disabled={!customProject || !customTitle.trim()} onClick={addCustomOutcome}><Plus size={14} /> Add task</button></div>}
 
             <div className="workday-step remarks-step"><span>03</span><div><h2>Add context for the team</h2><p>Optional notes that Govind, Anush or the next person should know before work begins.</p></div></div>
             <label className="planning-remarks"><span>Overall remarks <small>optional</small></span><textarea value={remarks} maxLength={2000} onChange={(event) => setRemarks(event.target.value)} placeholder="Priorities, dependencies, meetings, handover context or decisions needed…" /></label>
           </div>
 
-          <aside className="assigned-work-panel"><div><h2>Open task pool</h2><span>{tasks.length} assigned</span></div><p className="assigned-work-help">Open tasks are selected automatically. If you remove one, you can add it back here.</p>{tasks.length ? <div className="assigned-task-list">{tasks.map((task) => <button key={task._id} disabled={!task.project || selectedTaskIds.has(task._id) || draftItems.length >= MAX_DAILY_ITEMS} onClick={() => addTask(task)}><span><small>{task.project?.name}</small><strong>{task.title}</strong></span>{selectedTaskIds.has(task._id) ? <Check size={15} /> : <Plus size={15} />}</button>)}</div> : <p className="assigned-empty">No open tasks are assigned to you. Add a project outcome instead.</p>}</aside>
+          <aside className="assigned-work-panel"><div><h2>Other pending tasks</h2><span>{pendingTasks.length} remaining</span></div><p className="assigned-work-help">Critical, high-priority and carried work starts in your plan. Add other pending work only when today has room.</p>{pendingTasks.length ? <div className="assigned-task-list">{pendingTasks.map((task) => <button key={task._id} disabled={!task.project || draftItems.length >= MAX_DAILY_ITEMS} onClick={() => addTask(task)}><span><small>{task.project?.name}</small><strong>{task.title}</strong><em className={`task-priority ${task.priority.toLowerCase()}`}>{task.priority}</em></span><Plus size={15} /></button>)}</div> : <p className="assigned-empty">All open tasks are already in today’s plan.</p>}</aside>
 
           <div className="start-day-action"><div><Sparkles size={17} /><span><strong>Your plan is ready.</strong> Unfinished work is included automatically; adjust the list to a realistic day before starting.</span></div><button className="btn btn-primary" disabled={saving || !focus.trim() || !draftItems.length || draftItems.some((item) => !item.plannedOutcome.trim())} onClick={startDay}>{saving ? 'Starting…' : 'Start my day'}<ArrowRight size={15} /></button></div>
         </section>

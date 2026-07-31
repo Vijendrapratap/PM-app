@@ -5,6 +5,7 @@ import {
   Lightbulb, List, LogOut, Paperclip, Play, Plus, Sparkles, ThumbsUp,
   Timer, UserCheck, X, Zap,
 } from 'lucide-react';
+import SharedStartDayPlanner, { type DayPlanResult } from './SharedStartDayPlanner';
 
 type DemoView = 'work' | 'projects' | 'blockers' | 'ideas' | 'schedule';
 type TaskStatus = 'todo' | 'in_progress' | 'completed' | 'blocked';
@@ -84,7 +85,6 @@ const TeamMemberDemo = () => {
   const [taskEstimate, setTaskEstimate] = useState('1.5 hrs');
   const [taskPriority, setTaskPriority] = useState<Priority>('Medium');
   const [taskRemarks, setTaskRemarks] = useState('');
-  const [startRemarks, setStartRemarks] = useState('');
   const [blockerTitle, setBlockerTitle] = useState('');
   const [blockers, setBlockers] = useState([
     { id: 'b1', title: 'Waiting for staging CORS configuration from DevOps', project: 'Customer Portal V2', severity: 'Critical', owner: 'DevOps', time: 'Today, 10:15' },
@@ -116,8 +116,6 @@ const TeamMemberDemo = () => {
   const totalEstimate = useMemo(() => todayTasks.reduce((total, task) => total + (Number.parseFloat(task.estimate) || 0), 0), [todayTasks]);
 
   const toggleTask = (id: string) => setTasks((current) => current.map((task) => task.id === id ? { ...task, status: task.status === 'completed' ? 'in_progress' : 'completed' } : task));
-  const toggleFocus = (id: string) => setTasks((current) => current.map((task) => task.id === id ? { ...task, today: !task.today } : task));
-
   const addTask = (event: FormEvent, startImmediately = false) => {
     event.preventDefault();
     if (!taskTitle.trim()) return;
@@ -132,7 +130,6 @@ const TeamMemberDemo = () => {
   };
 
   const openStartDay = () => {
-    setTasks((current) => current.map((task) => task.status === 'completed' ? task : { ...task, today: true }));
     setDialog('start');
   };
 
@@ -141,6 +138,22 @@ const TeamMemberDemo = () => {
     setDayStarted(true);
     setSavedCloseout(false);
     setDialog(null);
+  };
+
+  const beginDayFromPlan = (plan: DayPlanResult) => {
+    const selectedIds = new Set(plan.tasks.map((task) => task.id));
+    setTasks((current) => {
+      const currentIds = new Set(current.map((task) => task.id));
+      const updated = current.map((task) => ({ ...task, today: selectedIds.has(task.id) }));
+      const added: DemoTask[] = plan.tasks.filter((task) => !currentIds.has(task.id)).map((task) => ({
+        id: task.id, title: task.title, project: task.project, status: 'todo',
+        priority: task.priority === 'Critical' ? 'Urgent' : task.priority,
+        estimate: task.estimate || '1 hr', today: true, assignedBy: 'Self', leadAssigned: false, remarks: task.remarks,
+      }));
+      return [...added, ...updated];
+    });
+    setFinishRemarks(plan.remarks);
+    beginDay();
   };
 
   const reportBlocker = (event: FormEvent) => {
@@ -242,9 +255,9 @@ const TeamMemberDemo = () => {
 
       {view === 'schedule' && <section className="tm-page-section"><header><div><span className="tm-kicker"><CalendarDays size={14}/>Time and rhythm</span><h2>Schedule and workday history</h2><p>Hours support planning; outcomes and blockers explain the day.</p></div></header><div className="tm-schedule-grid"><section><header><CalendarDays size={15}/>Today’s calendar</header>{schedule.map((item) => <article key={item.time}><time>{item.time}</time><span/><div><strong>{item.title}</strong><small>{item.kind} · {item.duration}</small></div></article>)}</section><section><header><Clock3 size={15}/>Recent workdays</header>{[{ date: 'Thursday, July 30', time: '09:00–17:30', duration: '8h 30m', tasks: 4 }, { date: 'Wednesday, July 29', time: '08:55–17:15', duration: '8h 20m', tasks: 5 }].map((log) => <article className="tm-log-row" key={log.date}><div><strong>{log.date}</strong><small>{log.time} · {log.duration}</small></div><span>{log.tasks} tasks completed</span></article>)}</section></div></section>}
 
-      {dialog === 'start' && <Dialog wide title="Plan today before the timer starts" description="All unfinished work is included automatically. Review the list, add context and adjust what is realistic." icon={<Sparkles size={18}/>} onClose={() => setDialog(null)}><div className="tm-start-plan"><section><header><span>1. Review today’s tasks</span><b>{todayTasks.length} selected</b></header><p className="tm-carryover-message"><Clock3 size={14}/>Unfinished tasks have been carried into today automatically.</p><div>{tasks.map((task) => <button type="button" className={task.today ? 'selected' : ''} onClick={() => toggleFocus(task.id)} key={task.id}><span>{task.today && <Check size={12}/>}</span><div><strong>{task.title}</strong><small>{task.project} · {task.estimate}{task.leadAssigned ? ` · assigned by ${task.assignedBy}` : ''}</small>{task.remarks && <small className="tm-task-remark">Remark: {task.remarks}</small>}</div><b>{task.today ? 'Selected' : 'Add'}</b></button>)}</div></section><div className="tm-start-context"><form onSubmit={(event) => addTask(event, true)}><span>2. Add a task that is missing</span><input value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="Describe a clear, finishable task"/><div><select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>{projects.map((project) => <option key={project.id}>{project.name}</option>)}</select><select value={taskEstimate} onChange={(event) => setTaskEstimate(event.target.value)}>{['30 mins', '1 hr', '1.5 hrs', '2 hrs', '3 hrs'].map((value) => <option key={value}>{value}</option>)}</select><button type="submit" disabled={!taskTitle.trim()}><Plus size={13}/>Add</button></div><textarea value={taskRemarks} onChange={(event) => setTaskRemarks(event.target.value)} placeholder="Task remarks, dependency or useful link (optional)" rows={3}/></form><label className="tm-day-remarks"><span>3. Overall remarks for Govind or Anush <small>optional</small></span><textarea value={startRemarks} onChange={(event) => setStartRemarks(event.target.value)} placeholder="Priorities, meetings, dependencies or handover context…" rows={5}/></label></div></div><footer className="tm-dialog-actions"><span>{todayTasks.length} focus tasks · {totalEstimate.toFixed(1)} estimated hours</span><div><button type="button" onClick={() => setDialog(null)}>Cancel</button><button type="button" className="primary success" onClick={beginDay}><Play size={13}/>Confirm plan & start</button></div></footer></Dialog>}
+      {dialog === 'start' && <Dialog wide title="Start my day" description="The same planning flow is used by every team member and leader." icon={<Sparkles size={18}/>} onClose={() => setDialog(null)}><SharedStartDayPlanner tasks={tasks.filter((task) => task.status !== 'completed').map((task) => ({ id: task.id, title: task.title, project: task.project, priority: task.priority === 'Urgent' ? 'Critical' : task.priority, estimate: task.estimate, selected: task.today, carriedOver: task.id === '3', remarks: task.remarks }))} projects={projects.map((project) => project.name)} defaultFocus="Complete the highest-priority delivery work and leave a clear handover." onCancel={() => setDialog(null)} onStart={beginDayFromPlan}/></Dialog>}
 
-      {dialog === 'task' && <Dialog title="Add a task for today" description="Keep the title specific enough to close or hand over." icon={<Plus size={18}/>} onClose={() => setDialog(null)}><form className="tm-form" onSubmit={addTask}><label><span>Task</span><input autoFocus value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="e.g. Connect approval history to project page"/></label><div><label><span>Project</span><select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>{projects.map((project) => <option key={project.id}>{project.name}</option>)}</select></label><label><span>Priority</span><select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value as Priority)}>{['Low', 'Medium', 'High', 'Urgent'].map((value) => <option key={value}>{value}</option>)}</select></label></div><label><span>Estimated time</span><select value={taskEstimate} onChange={(event) => setTaskEstimate(event.target.value)}>{['30 mins', '1 hr', '1.5 hrs', '2 hrs', '3 hrs'].map((value) => <option key={value}>{value}</option>)}</select></label><footer><button type="button" onClick={() => setDialog(null)}>Cancel</button><button className="primary" type="submit">Add to today</button></footer></form></Dialog>}
+      {dialog === 'task' && <Dialog title="Add a task for today" description="Keep the title specific enough to close or hand over." icon={<Plus size={18}/>} onClose={() => setDialog(null)}><form className="tm-form" onSubmit={addTask}><label><span>Task</span><input autoFocus value={taskTitle} onChange={(event) => setTaskTitle(event.target.value)} placeholder="e.g. Connect approval history to project page"/></label><div><label><span>Project</span><select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>{projects.map((project) => <option key={project.id}>{project.name}</option>)}</select></label><label><span>Priority</span><select value={taskPriority} onChange={(event) => setTaskPriority(event.target.value as Priority)}>{['Low', 'Medium', 'High', 'Urgent'].map((value) => <option key={value}>{value}</option>)}</select></label></div><label><span>Estimated time</span><select value={taskEstimate} onChange={(event) => setTaskEstimate(event.target.value)}>{['30 mins', '1 hr', '1.5 hrs', '2 hrs', '3 hrs'].map((value) => <option key={value}>{value}</option>)}</select></label><label><span>Remarks</span><textarea value={taskRemarks} onChange={(event) => setTaskRemarks(event.target.value)} placeholder="Dependency, handover note or useful link" rows={3}/></label><footer><button type="button" onClick={() => setDialog(null)}>Cancel</button><button className="primary" type="submit">Add to today</button></footer></form></Dialog>}
 
       {dialog === 'blocker' && <Dialog title="Report a work blocker" description="This immediately becomes visible to Govind and Anush." icon={<AlertTriangle size={18}/>} onClose={() => setDialog(null)}><form className="tm-form" onSubmit={reportBlocker}><label><span>What is preventing progress?</span><textarea autoFocus value={blockerTitle} onChange={(event) => setBlockerTitle(event.target.value)} placeholder="State what is blocked and what you need to continue" rows={4}/></label><label><span>Project</span><select value={taskProject} onChange={(event) => setTaskProject(event.target.value)}>{projects.map((project) => <option key={project.id}>{project.name}</option>)}</select></label><div className="tm-escalation-note"><Flag size={14}/><span>Escalates to PM / Tech Lead with high priority.</span></div><footer><button type="button" onClick={() => setDialog(null)}>Cancel</button><button className="primary danger" type="submit">Report blocker</button></footer></form></Dialog>}
 

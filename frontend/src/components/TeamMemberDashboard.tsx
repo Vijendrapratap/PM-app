@@ -74,7 +74,7 @@ const TeamMemberDashboard = ({ name, workday, tasks, projects, messages }: TeamM
       {error && <div className="member-inline-error" role="alert"><AlertTriangle size={15}/>{error}</div>}
       <header className="member-hero">
         <div><span className="member-eyebrow">My workspace</span><h1>Welcome back, {name.split(' ')[0]}</h1><p>Choose the next outcome, update the work, and raise blockers early.</p></div>
-        <Link to="/workday" className="member-day-action"><span>{workday ? <Target size={18}/> : <CircleDot size={18}/>}</span><div><small>{workday?.status === 'Completed' ? 'Workday closed' : workday ? 'Today’s focus' : 'Plan your day'}</small><strong>{workday?.focus || 'Choose up to three outcomes'}</strong></div><ChevronRight size={17}/></Link>
+        <Link to="/workday" className="member-day-action"><span>{workday ? <Target size={18}/> : <CircleDot size={18}/>}</span><div><small>{workday?.status === 'Completed' ? 'Workday closed' : workday ? 'Today’s focus' : 'Start my day'}</small><strong>{workday?.focus || 'Review priority and carried tasks'}</strong></div><ChevronRight size={17}/></Link>
       </header>
 
       <section className="member-summary" aria-label="My work summary">
