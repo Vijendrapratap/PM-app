@@ -2298,3 +2298,108 @@ body::before { opacity:.045; }
 
 :where(button,a,input,select,textarea):focus-visible{outline:3px solid rgba(245,158,11,.38);outline-offset:2px}
 .badge-success{background:#ecfdf5;color:#047857}.badge-warning{background:#fffbeb;color:#b45309}.badge-danger{background:#fff1f2;color:#be123c}.badge-info{background:#eff6ff;color:#1d4ed8}.badge-primary{background:#fffbeb;color:#b45309}.badge-purple{background:#f5f3ff;color:#6d28d9}.badge-neutral{background:#f1f0ee;color:#57534e}
+
+/* Readability floor: supporting text must remain legible at normal zoom. */
+.page-content small,
+.header small,
+.sidebar .rail-tooltip,
+.demo-auth-card small {
+  font-size:clamp(.72rem,.68vw,.78rem) !important;
+  line-height:1.45;
+}
+.page-content p {
+  font-size:.84rem;
+  line-height:1.6;
+}
+.page-content button,
+.page-content select,
+.page-content input,
+.page-content textarea,
+.page-content label {
+  font-size:.76rem !important;
+}
+.page-content .badge { font-size:.72rem; }
+.page-content :is(th,td) { font-size:.78rem; }
+
+.demo-persona-bar>div:first-child span { font-size:.78rem; }
+.demo-persona-switch strong { font-size:.72rem; }
+.delivery-demo-toggle>div:first-child span { font-size:.8rem; }
+
+.role-dashboard :is(.role-hero p,.role-empty) { font-size:.84rem !important; }
+.role-dashboard :is(.role-metric small,.role-focus-panel header small,.role-surface header small,.role-day-card header small,.role-release-card header small) { color:#78716c; }
+.role-focus-panel :is(small,p),.ceo-decisions :is(small,p) { color:#dbe4ff; }
+.role-agent-list strong,.role-review-list strong { margin-top:.18rem;font-size:.76rem;line-height:1.35;white-space:normal; }
+.role-agent-list>a,.role-review-list>a { padding:.72rem; }
+.role-project-rows>a { padding:.7rem 0; }
+.role-project-name strong { font-size:.78rem;line-height:1.35;white-space:normal; }
+.role-project-name small { margin-top:.14rem;white-space:normal; }
+.role-capacity-rows>a { padding:.55rem 0; }
+.role-capacity-rows strong { font-size:.75rem; }
+.role-capacity-rows b { font-size:.68rem; }
+.role-blocker-list>a { padding:.7rem 0; }
+.role-blocker-list strong { font-size:.76rem;line-height:1.35;white-space:normal; }
+.role-blocker-list small { margin-top:.14rem;white-space:normal; }
+.ceo-decisions strong { font-size:.76rem; }
+.release-signals span,.ceo-health>footer { font-size:.72rem; }
+
+.tm-kicker { font-size:.76rem; }
+.tm-hero p { font-size:.94rem; }
+.tm-tabs button { font-size:.76rem !important; }
+.tm-metrics small { font-size:.75rem !important; }
+.tm-metrics strong { font-size:1.25rem; }
+.tm-metrics p { font-size:.7rem !important; }
+.tm-schedule-strip>header div { font-size:.85rem; }
+.tm-schedule-strip time { font-size:.72rem; }
+.tm-schedule-strip strong { font-size:.76rem;white-space:normal;line-height:1.35; }
+.tm-schedule-strip article { align-items:start; }
+.tm-task-panel>header>div>span,.tm-project-rail>header>div { font-size:.94rem; }
+.tm-task-panel>header small { font-size:.72rem !important; }
+.tm-task-tools button { font-size:.7rem !important; }
+.tm-task { align-items:start;padding:.8rem; }
+.tm-task-copy>strong { overflow:visible;font-size:.84rem;line-height:1.4;white-space:normal; }
+.tm-task-tags { flex-wrap:wrap;overflow:visible;gap:.36rem;margin-top:.4rem; }
+.tm-task-tags>span { font-size:.66rem; }
+.tm-task-tags>span:first-child { max-width:none; }
+.tm-task>select { margin-top:.05rem;font-size:.68rem !important; }
+.tm-project-title strong { overflow:visible;font-size:.8rem;line-height:1.35;white-space:normal; }
+.tm-project-title small { font-size:.68rem !important; }
+.tm-project-title>b { font-size:.64rem; }
+.tm-progress small { font-size:.66rem !important; }
+.tm-project-rail>article>p { font-size:.68rem !important; }
+.tm-doc-mini span { font-size:.67rem;line-height:1.4;white-space:normal; }
+.tm-page-section>header p { font-size:.86rem !important; }
+.tm-project-grid>article>header strong { font-size:.88rem; }
+.tm-project-grid>article>header small { font-size:.7rem !important; }
+.tm-project-grid>article>header>b { font-size:.66rem; }
+.tm-project-facts small { font-size:.67rem !important; }
+.tm-project-facts strong { font-size:.76rem; }
+.tm-project-grid h3 { font-size:.76rem; }
+.tm-project-grid>article>section>button strong { font-size:.75rem; }
+.tm-project-grid>article>section>button small { font-size:.67rem !important; }
+.tm-blocker-list article>div>div b { font-size:.66rem; }
+.tm-blocker-list article>div>strong { font-size:.86rem;line-height:1.4; }
+.tm-blocker-list article p { font-size:.7rem !important; }
+.tm-ideas-grid>article>div:first-child span { font-size:.65rem; }
+.tm-ideas-grid h3 { font-size:1rem; }
+.tm-ideas-grid p { font-size:.8rem !important; }
+.tm-ideas-grid footer small { font-size:.68rem !important; }
+.tm-schedule-grid>section>header { font-size:.88rem; }
+.tm-schedule-grid time { font-size:.7rem; }
+.tm-schedule-grid article strong { font-size:.78rem; }
+.tm-log-row>span { font-size:.68rem; }
+.tm-dialog>header p { font-size:.72rem !important; }
+.tm-form label>span,.tm-start-plan form>span { font-size:.72rem; }
+.tm-form input,.tm-form select,.tm-form textarea,.tm-start-plan input,.tm-start-plan select { font-size:.78rem !important; }
+.tm-escalation-note { font-size:.72rem; }
+.tm-closeout-stats small { font-size:.68rem !important; }
+.tm-start-plan>section>header { font-size:.74rem; }
+.tm-start-plan>section>header b { font-size:.66rem; }
+.tm-start-plan>section>div>button strong { font-size:.76rem;line-height:1.35; }
+.tm-start-plan>section>div>button small { margin-top:.12rem;font-size:.68rem !important;white-space:normal; }
+.tm-dialog-actions>span { font-size:.7rem; }
+
+@media(max-width:760px){
+  .page-content small,.header small,.sidebar .rail-tooltip,.demo-auth-card small{font-size:.72rem !important}
+  .tm-task{grid-template-columns:24px minmax(0,1fr)}
+  .tm-task>select{grid-column:2;width:100%;max-width:150px}
+}
