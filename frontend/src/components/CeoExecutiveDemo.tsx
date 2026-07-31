@@ -177,7 +177,7 @@ const CeoExecutiveDemo = () => {
       </section>
 
       <section className="ce-command">
-        <nav>{nav.map((item) => { const Icon = item.icon; return <button type="button" className={view === item.id ? 'active' : ''} onClick={() => setView(item.id)} key={item.id}><Icon size={15}/><span>{item.label}</span>{item.id === 'risks' && <b>{risks.length}</b>}</button>; })}</nav>
+        <nav>{nav.map((item) => { const Icon = item.icon; return <button type="button" className={`${view === item.id ? 'active' : ''} ${item.id === 'risks' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(item.id)} key={item.id}><Icon size={15}/><span>{item.label}</span>{item.id === 'risks' && <b>{risks.length}</b>}</button>; })}</nav>
         <div className="ce-command-actions">
           <button className="ce-brief-button" type="button" onClick={generateBriefing} disabled={generatingBriefing}>{generatingBriefing ? <RefreshCw className="spin" size={15}/> : <Sparkles size={15}/>}<span>{generatingBriefing ? 'Analyzing…' : 'Generate CEO briefing'}</span></button>
           <div className="ce-notifications"><button type="button" aria-label="Notifications" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={17}/><i>{notifications.length}</i></button>{notificationsOpen && <aside><header><strong>Company activity</strong><button type="button" onClick={() => { setNotifications([]); setNotificationsOpen(false); }}>Clear</button></header>{notifications.length ? notifications.map((item) => <article key={item.id}><span></span><div><strong>{item.title}</strong><p>{item.detail}</p><small>{item.time}</small></div></article>) : <p className="ce-empty">You are all caught up.</p>}</aside>}</div>

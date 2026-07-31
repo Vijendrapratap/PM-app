@@ -46,10 +46,10 @@ const Sidebar = () => {
         <NavLink to="/workday" className={() => `rail-link ${location.pathname === '/workday' && workdayView !== 'team' ? 'active' : ''}`} aria-label="My workday"><Target size={19}/><span className="rail-tooltip">My workday</span></NavLink>
         <NavLink to="/daily-todo" className={linkClass} aria-label="Daily tasks"><ListChecks size={19}/><span className="rail-tooltip">Daily tasks</span></NavLink>
 
-        {canCoordinate && <span className="sidebar-section-label">Company</span>}
+        <span className="sidebar-section-label">{canCoordinate ? 'Company' : 'Explore'}</span>
         {canCoordinate && <NavLink to="/team" className={linkClass} aria-label="Team"><Users size={19}/><span className="rail-tooltip">Team</span></NavLink>}
         {canCoordinate && <NavLink to="/workday?view=team" className={() => `rail-link ${location.pathname === '/workday' && workdayView === 'team' ? 'active' : ''}`} aria-label="Team pulse"><Waypoints size={19}/><span className="rail-tooltip">Team pulse</span></NavLink>}
-        {canCoordinate && <NavLink to="/ideas" className={linkClass} aria-label="Ideas"><Lightbulb size={19}/><span className="rail-tooltip">Ideas</span></NavLink>}
+        <NavLink to="/ideas" className={linkClass} aria-label="Idea bucket"><Lightbulb size={19}/><span className="rail-tooltip">Idea bucket</span></NavLink>
         {canCoordinate && <NavLink to="/agents" className={linkClass} aria-label="Agent Studio"><Bot size={19}/><span className="rail-tooltip">Agent Studio</span></NavLink>}
         <NavLink to="/completed" className={linkClass} aria-label="Completed projects"><Archive size={19}/><span className="rail-tooltip">Completed</span></NavLink>
         {isSuperAdmin(user?.role) && <NavLink to="/messages" className={linkClass} aria-label="Important messages"><Megaphone size={19}/><span className="rail-tooltip">Messages</span></NavLink>}

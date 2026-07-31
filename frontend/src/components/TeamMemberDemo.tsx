@@ -193,7 +193,7 @@ const TeamMemberDemo = () => {
       </header>
 
       <nav className="tm-tabs" aria-label="Team member demo sections">
-        {navItems.map(({ id, label, icon: Icon, badge }) => <button type="button" className={view === id ? 'active' : ''} onClick={() => setView(id)} key={id}><Icon size={14}/><span>{label}</span>{badge ? <b>{badge}</b> : null}</button>)}
+        {navItems.map(({ id, label, icon: Icon, badge }) => <button type="button" className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={14}/><span>{label}</span>{badge ? <b>{badge}</b> : null}</button>)}
       </nav>
 
       {savedCloseout && <div className="tm-success-note"><CheckCircle2 size={15}/><span>Today’s closeout was saved. Govind and Anush can now see the summary, blockers and remarks.</span><button type="button" onClick={() => setSavedCloseout(false)}><X size={14}/></button></div>}

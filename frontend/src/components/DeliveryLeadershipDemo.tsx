@@ -227,7 +227,7 @@ const DeliveryLeadershipDemo = () => {
     </header>
 
     <section className="dl-command-bar">
-      <nav>{nav.map(({ id, label, icon: Icon, count }) => <button className={view === id ? 'active' : ''} onClick={() => setView(id)} key={id}><Icon size={15}/><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}</nav>
+      <nav>{nav.map(({ id, label, icon: Icon, count }) => <button className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={15}/><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}</nav>
       <div className="dl-command-actions">
         <div className="dl-notifications"><button aria-label="Notifications" onClick={() => setNotificationOpen(!notificationOpen)}><Bell size={16}/><i/></button>{notificationOpen && <aside><header><strong>Team broadcast feed</strong><button onClick={() => setNotifications([])}>Clear all</button></header>{notifications.length ? notifications.map((item) => <article key={item.id}><span/><div><strong>{item.title}</strong><p>{item.detail}</p></div><small>{item.time}</small></article>) : <p className="dl-empty">No unread updates.</p>}</aside>}</div>
         <button className="dl-launch" onClick={() => setModal('launch')}><Sparkles size={15}/>Launch project</button>

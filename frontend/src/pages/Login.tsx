@@ -48,11 +48,12 @@ const Login = () => {
   return (
     <div className="auth-page">
       <div className="auth-card demo-auth-card animate-fade-in">
-        <div className="auth-header">
-          <div className="sidebar-logo-icon">
+        <div className="auth-header auth-brand-header">
+          <div className="auth-brand-mark">
             <img src="/brand/pratap-ai-mark.png" alt="Pratap AI" />
           </div>
           <div>
+            <div className="auth-brand-eyebrow">AI delivery operating system</div>
             <div className="auth-logo-title">Pratap AI Innovation</div>
             <div className="auth-logo-sub">Project Hub</div>
           </div>
