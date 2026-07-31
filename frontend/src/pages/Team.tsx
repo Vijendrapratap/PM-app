@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Search, Plus, Users, Pencil, UserX, UserCheck, Trash2, KeyRound, ChevronLeft, ChevronRight, FolderKanban, MoreHorizontal, Mail } from 'lucide-react';
+import { Search, Plus, Users, Pencil, UserX, UserCheck, Trash2, KeyRound, ChevronLeft, ChevronRight, FolderKanban, MoreHorizontal, Mail, Building2 } from 'lucide-react';
 import CreateTeamMemberModal from '../components/CreateTeamMemberModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import ResetPasswordModal from '../components/ResetPasswordModal';
@@ -11,6 +11,7 @@ import { userApi } from '../api/userApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import { isSuperAdmin } from '../utils/roles';
 import type { User } from '../types';
+import { departmentLabel } from '../utils/departments';
 
 const PAGE_SIZE = 8;
 
@@ -27,7 +28,7 @@ const getRoleColor = (role: string) => {
 const formatDate = (value?: string | null) =>
   value ? new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
 
-type SortKey = 'name' | 'role' | 'status' | 'createdAt' | 'lastLoginAt';
+type SortKey = 'name' | 'role' | 'department' | 'status' | 'createdAt' | 'lastLoginAt';
 
 const Team = () => {
   const { members, loading, refetch } = useTeam();
@@ -39,6 +40,7 @@ const Team = () => {
   const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('All');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [departmentFilter, setDepartmentFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ key: SortKey; dir: 1 | -1 }>({ key: 'name', dir: 1 });
 
@@ -51,6 +53,7 @@ const Team = () => {
   const [actionError, setActionError] = useState('');
 
   const roles = useMemo(() => Array.from(new Set(members.map((m) => m.role).filter(Boolean))).sort(), [members]);
+  const departments = useMemo(() => Array.from(new Set(members.map((m) => departmentLabel(m.department))).values()).sort(), [members]);
 
   const filtered = useMemo(() => {
     const rows = members.filter((m) => {
@@ -58,10 +61,12 @@ const Team = () => {
         m.name?.toLowerCase().includes(search.toLowerCase()) ||
         m.email?.toLowerCase().includes(search.toLowerCase()) ||
         m.role?.toLowerCase().includes(search.toLowerCase()) ||
+        m.department?.toLowerCase().includes(search.toLowerCase()) ||
         m.phone?.toLowerCase().includes(search.toLowerCase());
       const matchesRole = roleFilter === 'All' || m.role === roleFilter;
+      const matchesDepartment = departmentFilter === 'All' || departmentLabel(m.department) === departmentFilter;
       const matchesStatus = statusFilter === 'All' || (m.status ?? 'Active') === statusFilter;
-      return matchesSearch && matchesRole && matchesStatus && (!selectedMember || m._id === selectedMember);
+      return matchesSearch && matchesRole && matchesDepartment && matchesStatus && (!selectedMember || m._id === selectedMember);
     });
 
     const sorted = [...rows].sort((a, b) => {
@@ -70,7 +75,7 @@ const Team = () => {
       return av.localeCompare(bv) * sort.dir;
     });
     return sorted;
-  }, [members, search, roleFilter, statusFilter, sort, selectedMember]);
+  }, [members, search, roleFilter, departmentFilter, statusFilter, sort, selectedMember]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(page, totalPages);
@@ -138,7 +143,7 @@ const Team = () => {
           <Search size={16} style={{ color: 'var(--text-muted)' }} />
           <input
             type="text"
-            placeholder="Search by name, email, role..."
+            placeholder="Search by name, email, role or department..."
             value={search}
             onChange={(e) => resetPageAnd(setSearch)(e.target.value)}
             style={{ background: 'none', border: 'none', outline: 'none', fontFamily: 'inherit', fontSize: '0.875rem', color: 'var(--text-primary)', width: '100%' }}
@@ -148,13 +153,17 @@ const Team = () => {
           <option value="All">All Roles</option>
           {roles.map((r) => <option key={r} value={r}>{r}</option>)}
         </select>
+        <select className="form-select" style={{ maxWidth: '220px' }} value={departmentFilter} onChange={(e) => resetPageAnd(setDepartmentFilter)(e.target.value)}>
+          <option value="All">All Departments</option>
+          {departments.map((department) => <option key={department} value={department}>{department}</option>)}
+        </select>
         <select className="form-select" style={{ maxWidth: '160px' }} value={statusFilter} onChange={(e) => resetPageAnd(setStatusFilter)(e.target.value)}>
           <option value="All">All Statuses</option>
           <option value="Active">Active</option>
           <option value="Inactive">Inactive</option>
         </select>
         <select className="form-select" style={{ maxWidth: '180px' }} value={sort.key} onChange={(e) => setSort({ key: e.target.value as SortKey, dir: 1 })}>
-          <option value="name">Sort by name</option><option value="role">Sort by role</option><option value="status">Sort by status</option><option value="lastLoginAt">Sort by recent login</option>
+          <option value="name">Sort by name</option><option value="role">Sort by role</option><option value="department">Sort by department</option><option value="status">Sort by status</option><option value="lastLoginAt">Sort by recent login</option>
         </select>
       </div>
 
@@ -169,9 +178,9 @@ const Team = () => {
         <div className="section-card">
           <div className="empty-state">
             <div className="empty-state-icon"><Users size={28} /></div>
-            <div className="empty-state-title">{search || roleFilter !== 'All' || statusFilter !== 'All' ? 'No results' : 'No Team Members'}</div>
-            <div className="empty-state-desc">{search || roleFilter !== 'All' || statusFilter !== 'All' ? 'Try different search or filter criteria.' : 'Add your first team member.'}</div>
-            {canManage && !search && roleFilter === 'All' && statusFilter === 'All' && (
+            <div className="empty-state-title">{search || roleFilter !== 'All' || departmentFilter !== 'All' || statusFilter !== 'All' ? 'No results' : 'No Team Members'}</div>
+            <div className="empty-state-desc">{search || roleFilter !== 'All' || departmentFilter !== 'All' || statusFilter !== 'All' ? 'Try different search or filter criteria.' : 'Add your first team member.'}</div>
+            {canManage && !search && roleFilter === 'All' && departmentFilter === 'All' && statusFilter === 'All' && (
               <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
                 <Plus size={15} /> Add Member
               </button>
@@ -193,11 +202,12 @@ const Team = () => {
                   <button className="danger" onClick={() => setDeleteTarget(member)}><Trash2 size={13}/>Delete</button>
                 </div></details>}
               </header>
+              <div className="team-card-department"><Building2 size={13}/><span>{departmentLabel(member.department)}</span></div>
               <div className="team-card-status"><span className={`badge ${getRoleColor(member.role)}`}>{member.role || 'Team Member'}</span><span className={`availability-dot availability-${(member.availability || 'Available').toLowerCase().replace(' ', '-')}`}>{member.availability || member.status || 'Available'}</span></div>
               <div className="team-card-work"><div><span>Assigned work</span><strong>{member.assignedProjects?.length || 0} project{member.assignedProjects?.length === 1 ? '' : 's'}</strong></div>
                 <div className="team-project-chips">{member.assignedProjects?.length ? <>{member.assignedProjects.slice(0, 2).map((project) => <span key={project.id}>{project.name}</span>)}{member.assignedProjects.length > 2 && <span>+{member.assignedProjects.length - 2} more</span>}</> : <em>No projects assigned</em>}</div>
               </div>
-              <footer><span>{member.department || 'General team'}</span><span>Last login {formatDate(member.lastLoginAt)}</span></footer>
+              <footer><span>{member.skills?.slice(0, 2).join(' · ') || 'Skills not added'}</span><span>Last login {formatDate(member.lastLoginAt)}</span></footer>
             </article>)}
           </div>
 

@@ -71,6 +71,7 @@ export const hostedAgentDraftProvider = {
     const response = await provider.client.responses.create({
       model: provider.model,
       store: false,
+      max_output_tokens: 4500,
       instructions: [
         systemPrompt,
         'You are a senior startup project manager. Convert a project brief into a practical delivery plan for human review.',
@@ -94,6 +95,7 @@ export const hostedAgentDraftProvider = {
     const response = await provider.client.responses.create({
       model: provider.model,
       store: false,
+      max_output_tokens: 4500,
       instructions: [
         systemPrompt,
         'You are a senior business analyst. Produce a concise, complete Business Requirements Document in Markdown.',
@@ -113,3 +115,10 @@ export const hostedAgentDraftProvider = {
 };
 
 export const getAgentDraftProvider = () => hostedProvider ? hostedAgentDraftProvider : localAgentDraftProvider;
+
+export const getAgentDraftProviderStatus = () => ({
+  mode: hostedProvider ? 'Hosted' as const : 'Local fallback' as const,
+  configured: Boolean(hostedProvider),
+  provider: hostedProvider?.name || localAgentDraftProvider.name,
+  model: hostedProvider?.model || null,
+});

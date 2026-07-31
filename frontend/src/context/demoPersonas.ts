@@ -4,6 +4,7 @@ export interface AuthUser {
   email: string;
   role: string;
   department?: string | null;
+  photo?: string | null;
 }
 
 export type DemoPersona = 'ceo' | 'delivery' | 'team';

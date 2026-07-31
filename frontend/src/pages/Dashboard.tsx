@@ -65,7 +65,7 @@ const Dashboard = () => {
   const [allProjects, setAllProjects] = useState<Project[]>([]);
   const [decisionQueue, setDecisionQueue] = useState({ atRisk: [] as Project[], unassigned: [] as { task: ProjectTask; project: Project }[], plannedIdeas: [] as Idea[] });
   const [portfolioTasks, setPortfolioTasks] = useState<{ project: Project; tasks: ProjectTask[] }[]>([]);
-  const [teamMembers, setTeamMembers] = useState<{ _id: string; name: string; availability: 'Available' | 'Busy' | 'On Leave'; status: string }[]>([]);
+  const [teamMembers, setTeamMembers] = useState<{ _id: string; name: string; department?: string | null; availability: 'Available' | 'Busy' | 'On Leave'; status: string }[]>([]);
   const [workstream, setWorkstream] = useState('All portfolios');
   const [loading, setLoading] = useState(true);
 

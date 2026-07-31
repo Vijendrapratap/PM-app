@@ -13,6 +13,10 @@ export const getAgentReviewQueue = asyncHandler(async (req: Request, res: Respon
   res.json(await agentWorkflowService.getReviewQueue(actorOf(req)));
 });
 
+export const getAgentStatus = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await agentWorkflowService.getStatus(actorOf(req)));
+});
+
 export const getAgentDefinitions = asyncHandler(async (req: Request, res: Response) => {
   res.json(await agentWorkflowService.getDefinitions(actorOf(req)));
 });

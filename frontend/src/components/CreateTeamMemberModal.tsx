@@ -5,6 +5,7 @@ import { authApi } from '../api/authApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import { SUPER_ADMIN_ROLE } from '../utils/roles';
 import type { User } from '../types';
+import { DEPARTMENTS } from '../utils/departments';
 
 const BASE_ROLE_OPTIONS = ['Team Member', 'Lead', 'Project Manager'];
 
@@ -27,7 +28,7 @@ const CreateTeamMemberModal = ({
     phone: '',
     password: '',
     role: ROLE_OPTIONS[0],
-    department: 'General',
+    department: 'Engineering',
     status: 'Active',
     skills: '',
   });
@@ -41,7 +42,7 @@ const CreateTeamMemberModal = ({
         phone: member.phone ?? '',
         password: '',
         role: member.role ?? ROLE_OPTIONS[0],
-        department: member.department ?? 'General',
+        department: member.department ?? 'Engineering',
         status: member.status ?? 'Active',
         skills: Array.isArray(member.skills) ? member.skills.join(', ') : '',
       });
@@ -116,7 +117,9 @@ const CreateTeamMemberModal = ({
               </div>
               <div className="form-group">
                 <label className="form-label">Department / Team</label>
-                <input type="text" className="form-input" placeholder="Design, Backend..." value={form.department} onChange={set('department')} />
+                <select className="form-select" value={form.department} onChange={set('department')}>
+                  {DEPARTMENTS.map((department) => <option value={department} key={department}>{department}</option>)}
+                </select>
               </div>
             </div>
             {isEdit && (

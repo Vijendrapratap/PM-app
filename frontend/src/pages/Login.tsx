@@ -15,6 +15,7 @@ const Login = () => {
   const [error, setError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [showDemoHint, setShowDemoHint] = useState(false);
+  const demoEnabled = import.meta.env.DEV;
 
   const launchDemo = (persona: DemoPersona) => {
     startDemo(persona);
@@ -31,7 +32,7 @@ const Login = () => {
     setError('');
     setSubmitting(true);
     try {
-      if (email.trim().toLowerCase() === 'demo@pratap.ai' && password === 'Demo@123') {
+      if (demoEnabled && email.trim().toLowerCase() === 'demo@pratap.ai' && password === 'Demo@123') {
         startDemo('ceo');
         navigate((location.state as { from?: string } | null)?.from || '/', { replace: true });
         return;
@@ -125,7 +126,7 @@ const Login = () => {
           </button>
         </form>
 
-        <section className="demo-login-section" aria-labelledby="demo-login-title">
+        {demoEnabled && <section className="demo-login-section" aria-labelledby="demo-login-title">
           <div className="demo-login-heading">
             <span>Or preview the platform</span>
             <small>No password required</small>
@@ -148,7 +149,7 @@ const Login = () => {
               <ArrowRight size={15}/>
             </button>
           </div>
-        </section>
+        </section>}
 
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.5rem', marginBottom: 0 }}>
           Don't have an account?{' '}
@@ -157,7 +158,7 @@ const Login = () => {
           </Link>
         </p>
 
-        <div style={{ textAlign: 'center', marginTop: '1rem' }}>
+        {demoEnabled && <div style={{ textAlign: 'center', marginTop: '1rem' }}>
           <button
             type="button"
             className="btn btn-ghost"
@@ -173,7 +174,7 @@ const Login = () => {
               <small>Use the role buttons above for PM or Team Member previews.</small>
             </div>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

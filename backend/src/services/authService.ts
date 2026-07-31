@@ -15,11 +15,13 @@ interface RegisterInput {
   skills?: string[];
 }
 
-const toAuthResponse = (user: { id: string; name: string; email: string; role: string }) => ({
+const toAuthResponse = (user: { id: string; name: string; email: string; role: string; department?: string | null; photo?: string | null }) => ({
   _id: user.id,
   name: user.name,
   email: user.email,
   role: user.role,
+  department: user.department ?? null,
+  photo: user.photo ?? null,
   token: generateToken({ id: user.id, role: user.role }),
 });
 

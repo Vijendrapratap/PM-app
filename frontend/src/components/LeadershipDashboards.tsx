@@ -8,7 +8,7 @@ import type { ProjectTask } from '../api/projectTaskApi';
 import type { Workday } from '../api/workdayApi';
 import type { Project } from '../types';
 
-interface CapacityMember { _id: string; name: string; availability: string; openTasks: number; overdueTasks: number }
+interface CapacityMember { _id: string; name: string; department?: string | null; availability: string; openTasks: number; overdueTasks: number }
 interface Blocker { project: Project; task: ProjectTask }
 interface Unassigned { project: Project; task: ProjectTask }
 interface DashboardData {
@@ -41,7 +41,7 @@ const ProjectRows = ({ projects }: { projects: Project[] }) => (
 );
 
 const CapacityRows = ({ people }: { people: CapacityMember[] }) => (
-  <div className="role-capacity-rows">{people.slice(0, 6).map((person) => <Link to={`/team?member=${person._id}`} key={person._id}><span>{person.name.charAt(0)}</span><div><strong>{person.name}</strong><small>{person.availability} · {person.openTasks} open</small></div><b className={person.overdueTasks ? 'late' : ''}>{person.overdueTasks ? `${person.overdueTasks} late` : 'On track'}</b></Link>)}{!people.length && <p className="role-empty">No team load available.</p>}</div>
+  <div className="role-capacity-rows">{people.slice(0, 6).map((person) => <Link to={`/team?member=${person._id}`} key={person._id}><span>{person.name.charAt(0)}</span><div><strong>{person.name}</strong><small>{person.department || 'General team'} · {person.availability} · {person.openTasks} open</small></div><b className={person.overdueTasks ? 'late' : ''}>{person.overdueTasks ? `${person.overdueTasks} late` : 'On track'}</b></Link>)}{!people.length && <p className="role-empty">No team load available.</p>}</div>
 );
 
 export const ProjectManagerDashboard = (data: DashboardData) => (

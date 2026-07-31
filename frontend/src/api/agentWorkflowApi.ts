@@ -133,8 +133,17 @@ export interface AgentDefinition {
   versions: Array<{ _id: string; version: number; changeNote: string | null; createdAt: string; createdBy: { _id: string; name: string } | null }>;
 }
 
+export interface AgentProviderStatus {
+  mode: 'Hosted' | 'Local fallback';
+  configured: boolean;
+  provider: string;
+  model: string | null;
+  agents: Array<{ agentKey: 'project-manager' | 'business-analyst'; name: string; active: boolean }>;
+}
+
 export const agentWorkflowApi = {
   reviewQueue: () => api.get<AgentReviewQueueItem[]>('/agent-workflow/review-queue').then((response) => response.data),
+  status: () => api.get<AgentProviderStatus>('/agent-workflow/status').then((response) => response.data),
   definitions: () => api.get<AgentDefinition[]>('/agent-workflow/definitions').then((response) => response.data),
   updateDefinition: (definitionId: string, systemPrompt: string, changeNote?: string) => api.put<AgentDefinition[]>(`/agent-workflow/definitions/${definitionId}`, { systemPrompt, changeNote }).then((response) => response.data),
   get: (projectId: string) => api.get<AgentWorkspace>(`/projects/${projectId}/agent-workflow`).then((response) => response.data),

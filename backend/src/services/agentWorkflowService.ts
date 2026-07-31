@@ -3,7 +3,7 @@ import { activityLogRepository } from '../repositories/activityLogRepository';
 import { projectRepository } from '../repositories/projectRepository';
 import { userRepository } from '../repositories/userRepository';
 import { notificationService } from './notificationService';
-import { getAgentDraftProvider } from './openAIAgentDraftProvider';
+import { getAgentDraftProvider, getAgentDraftProviderStatus } from './openAIAgentDraftProvider';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { canApproveAgentWork, canViewAllProjects, isLead } from '../utils/roles';
 import { ProjectPlanContent } from '../types/models';
@@ -90,6 +90,19 @@ const notifyUsers = async (ids: string[], type: string, title: string, message: 
 };
 
 export const agentWorkflowService = {
+  async getStatus(actor: Actor) {
+    if (!canApproveAgentWork(actor.role) && !isLead(actor.role)) throw forbidden('Agent Studio is available to Project Managers, Leads, and Super Admins');
+    const definitions = await agentWorkflowRepository.listDefinitions();
+    return {
+      ...getAgentDraftProviderStatus(),
+      agents: definitions.map((definition: any) => ({
+        agentKey: definition.agent_key,
+        name: definition.name,
+        active: definition.active,
+      })),
+    };
+  },
+
   async getDefinitions(actor: Actor) {
     if (!canApproveAgentWork(actor.role) && !isLead(actor.role)) throw forbidden('Agent Studio is available to Project Managers, Leads, and Super Admins');
     return (await agentWorkflowRepository.listDefinitions()).map((definition: any) => ({
@@ -136,6 +149,8 @@ export const agentWorkflowService = {
 
   async runProjectManagerAgent(projectId: string, actor: Actor, force = false) {
     const project = await assertDraftEdit(projectId, actor);
+    const definition = await agentWorkflowRepository.findDefinition('project-manager');
+    if (definition && !definition.active) throw badRequest('The Project Manager Agent is paused');
     const latest = await agentWorkflowRepository.findLatestRun(projectId, 'Project Manager');
     if (!force && latest && ['Queued', 'Working', 'Ready for review'].includes(latest.status)) {
       return mapWorkspace(await agentWorkflowRepository.listWorkspace(projectId));
@@ -148,7 +163,6 @@ export const agentWorkflowService = {
     });
     try {
       const provider = getAgentDraftProvider();
-      const definition = await agentWorkflowRepository.findDefinition('project-manager');
       await agentWorkflowRepository.updateRun(run.id, { status: 'Working', started_at: new Date().toISOString() });
       const content = await provider.createProjectPlan(snapshot, definition?.system_prompt);
       const version = await agentWorkflowRepository.nextPlanVersion(projectId);
@@ -218,6 +232,8 @@ export const agentWorkflowService = {
     const project = await assertDraftEdit(projectId, actor);
     const plan = await agentWorkflowRepository.findPlanById(planId);
     if (!plan || plan.project_id !== projectId || plan.status !== 'Approved') throw badRequest('Approve the project plan before generating business documentation');
+    const definition = await agentWorkflowRepository.findDefinition('business-analyst');
+    if (definition && !definition.active) throw badRequest('The Business Analyst Agent is paused');
     const latest = await agentWorkflowRepository.findLatestRun(projectId, 'Business Analyst');
     if (!force && latest && ['Queued', 'Working', 'Ready for review'].includes(latest.status)) {
       return mapWorkspace(await agentWorkflowRepository.listWorkspace(projectId));
@@ -229,7 +245,6 @@ export const agentWorkflowService = {
     });
     try {
       const provider = getAgentDraftProvider();
-      const definition = await agentWorkflowRepository.findDefinition('business-analyst');
       await agentWorkflowRepository.updateRun(run.id, { status: 'Working', started_at: new Date().toISOString() });
       const draft = await provider.createBusinessRequirementsDocument(projectSnapshot(project), plan.content as ProjectPlanContent, definition?.system_prompt);
       const document = await agentWorkflowRepository.findOrCreateDocument(projectId, 'BRD', 'Business Requirements Document', actor.id);

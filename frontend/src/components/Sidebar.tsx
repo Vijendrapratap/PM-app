@@ -58,7 +58,7 @@ const Sidebar = () => {
       <div className="sidebar-footer">
         <div className="rail-user" aria-label={`${user?.name || 'User'}, ${user?.role || ''}`}>
           <span className="rail-user-avatar">{user?.name?.charAt(0)?.toUpperCase() ?? '?'}</span>
-          <span className="rail-tooltip">{user?.name || 'Account'} · {user?.role || ''}</span>
+          <span className="rail-tooltip">{user?.name || 'Account'} · {user?.role || ''}{user?.department ? ` · ${user.department}` : ''}</span>
         </div>
         <button onClick={handleSignOut} className="rail-link rail-signout" aria-label="Sign out"><LogOut size={18}/><span className="rail-tooltip">Sign out</span></button>
       </div>

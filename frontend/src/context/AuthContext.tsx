@@ -36,6 +36,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       return;
     }
     if (token === DEMO_SESSION_TOKEN) {
+      if (!import.meta.env.DEV) {
+        localStorage.removeItem('token');
+        localStorage.removeItem(DEMO_PERSONA_KEY);
+        setLoading(false);
+        return;
+      }
       const storedPersona = localStorage.getItem(DEMO_PERSONA_KEY) as DemoPersona | null;
       const persona = storedPersona && DEMO_PERSONAS[storedPersona] ? storedPersona : 'ceo';
       setUser(DEMO_PERSONAS[persona]);
@@ -61,10 +67,18 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setIsDemo(false);
     setDemoPersona(null);
     sessionStorage.removeItem(ACK_STORAGE_KEY);
-    setUser({ _id: result._id, name: result.name, email: result.email, role: result.role });
+    setUser({
+      _id: result._id,
+      name: result.name,
+      email: result.email,
+      role: result.role,
+      department: result.department,
+      photo: result.photo,
+    });
   }, []);
 
   const startDemo = useCallback((persona: DemoPersona = 'ceo') => {
+    if (!import.meta.env.DEV) return;
     localStorage.setItem('token', DEMO_SESSION_TOKEN);
     localStorage.setItem(DEMO_PERSONA_KEY, persona);
     sessionStorage.removeItem(ACK_STORAGE_KEY);

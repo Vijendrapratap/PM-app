@@ -38,7 +38,7 @@ const Header = () => {
 
       <div className="header-actions">
         <NotificationBell />
-        <div className="header-identity"><div className="avatar">{user?.name?.charAt(0)?.toUpperCase() ?? '?'}</div><span><strong>{user?.name || 'Account'}</strong><small>{user?.role}</small></span></div>
+        <div className="header-identity"><div className="avatar">{user?.name?.charAt(0)?.toUpperCase() ?? '?'}</div><span><strong>{user?.name || 'Account'}</strong><small>{user?.role}{user?.department ? ` · ${user.department}` : ''}</small></span></div>
       </div>
     </header>
   );
