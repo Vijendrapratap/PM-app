@@ -16,6 +16,7 @@ import activityLogRoutes from './routes/activityLogRoutes';
 import myTasksRoutes from './routes/myTasksRoutes';
 import workdayRoutes from './routes/workdayRoutes';
 import agentWorkflowRoutes from './routes/agentWorkflowRoutes';
+import { getAgentDraftProviderStatus } from './services/openAIAgentDraftProvider';
 
 const app = express();
 
@@ -36,7 +37,10 @@ app.use(express.json());
 app.use(apiRateLimiter);
 
 app.get('/', (_req, res) => res.json({ status: 'ok', message: 'API is running' }));
-app.get('/api/health', (_req, res) => res.json({ status: 'ok' }));
+app.get('/api/health', (_req, res) => res.json({
+  status: 'ok',
+  agents: getAgentDraftProviderStatus(),
+}));
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
