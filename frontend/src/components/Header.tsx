@@ -10,6 +10,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/team': 'Team Members',
   '/messages': 'Important Messages',
   '/daily-todo': 'Daily To-Do',
+  '/workday': 'Workday',
   '/ideas': 'Ideas',
 };
 
@@ -23,24 +24,20 @@ const Header = () => {
 
   return (
     <header className="header">
-      {/* Breadcrumb */}
-      <div className="header-breadcrumb">
-        <span>Pratap AI Innovation</span>
-        <span className="breadcrumb-sep">/</span>
-        <span className="breadcrumb-current">{current}</span>
+      <div className="header-context">
+        <span>Pratap AI</span>
+        <strong>{current}</strong>
       </div>
 
-      {/* Search */}
       <div className="header-search">
-        <Search size={15} style={{ color: 'var(--text-muted)', flexShrink: 0 }} />
-        <input type="text" placeholder="Search projects, members..." />
-        <span style={{ fontSize: '0.6875rem', color: 'var(--text-muted)', flexShrink: 0 }}>⌘K</span>
+        <Search size={15}/>
+        <input type="search" placeholder="Search work, people, projects" aria-label="Search" />
+        <kbd>⌘ K</kbd>
       </div>
 
-      {/* Actions */}
       <div className="header-actions">
         <NotificationBell />
-        <div className="avatar" style={{ cursor: 'pointer' }}>{user?.name?.charAt(0)?.toUpperCase() ?? '?'}</div>
+        <div className="header-identity"><div className="avatar">{user?.name?.charAt(0)?.toUpperCase() ?? '?'}</div><span><strong>{user?.name || 'Account'}</strong><small>{user?.role}</small></span></div>
       </div>
     </header>
   );

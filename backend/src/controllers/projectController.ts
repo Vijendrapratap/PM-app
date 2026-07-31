@@ -15,13 +15,14 @@ export const createProject = asyncHandler(async (req: Request, res: Response) =>
   const project = await projectService.createProject({
     ...req.body,
     actorId: req.user?.id,
+    actorRole: req.user?.role,
     files: filesOf(req),
   });
   res.status(201).json(project);
 });
 
 export const getProjects = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await projectService.getProjects(req.query.includeArchived === 'true'));
+  res.json(await projectService.getProjects(req.query.includeArchived === 'true', actorOf(req)));
 });
 
 export const getProjectById = asyncHandler(async (req: Request, res: Response) => {

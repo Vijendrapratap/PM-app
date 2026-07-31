@@ -13,6 +13,7 @@ import Messages from './pages/Messages';
 import DailyPlanner from './pages/DailyPlanner';
 import Ideas from './pages/Ideas';
 import DemoDashboard from './pages/DemoDashboard';
+import Workday from './pages/Workday';
 import { useAuth } from './context/AuthContext';
 
 const Home = () => {
@@ -45,6 +46,7 @@ function App() {
             <Route path="team" element={<Team />} />
             <Route path="messages" element={<Messages />} />
             <Route path="daily-todo" element={<DailyPlanner />} />
+            <Route path="workday" element={<Workday />} />
             <Route path="ideas" element={<Ideas />} />
             <Route path="*" element={<div>Page Not Found</div>} />
           </Route>

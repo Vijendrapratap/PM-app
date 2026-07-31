@@ -16,6 +16,7 @@ import axios from 'axios';
 // so every request silently hit the frontend's own static host instead of
 // the backend. Normalizing both here removes this whole class of mistake.
 const normalizeApiUrl = (url: string): string => {
+  if (url.startsWith('/')) return url.replace(/\/+$/, '') || '/api';
   const withScheme = /^https?:\/\//i.test(url) ? url : `https://${url}`;
   const trimmed = withScheme.replace(/\/+$/, '');
   return trimmed.endsWith('/api') ? trimmed : `${trimmed}/api`;

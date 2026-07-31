@@ -202,3 +202,66 @@ export const updateIdeaSchema = z.object({
   impact: z.enum(['Low', 'Medium', 'High']).optional(),
   effort: z.enum(['Small', 'Medium', 'Large']).optional(),
 });
+
+const workdayItemStatusSchema = z.enum(['Planned', 'In Progress', 'Completed', 'Blocked', 'Deferred']);
+
+export const startWorkdaySchema = z.object({
+  focus: z.string().trim().min(3).max(240),
+  items: z.array(z.object({
+    projectId: z.string().uuid(),
+    taskId: z.string().uuid().optional(),
+    title: z.string().trim().min(1).max(180),
+    plannedOutcome: z.string().trim().min(3).max(500),
+  })).min(1).max(3),
+});
+
+export const updateWorkdayItemSchema = z.object({
+  status: workdayItemStatusSchema.optional(),
+  progressNote: z.string().max(1000).optional(),
+  blockerReason: z.string().max(1000).optional(),
+});
+
+export const finishWorkdaySchema = z.object({
+  completedSummary: z.string().trim().min(3).max(3000),
+  blockers: z.string().max(2000).optional(),
+  remarks: z.string().max(2000).optional(),
+  items: z.array(z.object({
+    id: z.string().uuid(),
+    status: workdayItemStatusSchema,
+    progressNote: z.string().max(1000).optional(),
+    blockerReason: z.string().max(1000).optional(),
+  })).min(1).max(3),
+});
+
+const planTaskDraftSchema = z.object({
+  key: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(240),
+  description: z.string().trim().min(1).max(3000),
+  estimateDays: z.coerce.number().min(0.25).max(365),
+  priority: prioritySchema,
+  acceptanceCriteria: z.array(z.string().trim().min(1).max(500)).min(1).max(20),
+});
+
+const planFeatureDraftSchema = z.object({
+  key: z.string().trim().min(1).max(100),
+  title: z.string().trim().min(1).max(240),
+  outcome: z.string().trim().min(1).max(2000),
+  description: z.string().trim().min(1).max(4000),
+  acceptanceCriteria: z.array(z.string().trim().min(1).max(500)).min(1).max(30),
+  priority: prioritySchema,
+  estimateDays: z.coerce.number().min(0.25).max(1000),
+  confidence: z.enum(['Low', 'Medium', 'High']),
+  tasks: z.array(planTaskDraftSchema).min(1).max(50),
+});
+
+export const projectPlanContentSchema = z.object({
+  summary: z.string().trim().min(3).max(5000),
+  assumptions: z.array(z.string().trim().min(1).max(1000)).max(50),
+  risks: z.array(z.string().trim().min(1).max(1000)).max(50),
+  questions: z.array(z.string().trim().min(1).max(1000)).max(50),
+  features: z.array(planFeatureDraftSchema).min(1).max(30),
+});
+
+export const updatePlanDraftSchema = z.object({ content: projectPlanContentSchema });
+export const runAgentSchema = z.object({ force: z.boolean().optional() });
+export const updateKnowledgeDocumentSchema = z.object({ content: z.string().trim().min(20).max(100000) });

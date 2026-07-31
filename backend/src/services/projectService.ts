@@ -8,7 +8,9 @@ import { uploadFiles } from '../lib/storage';
 import { notificationService } from './notificationService';
 import { mapProject, mapUpdate, mapDailyReport } from './mappers';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
-import { isSuperAdmin } from '../utils/roles';
+import { canApproveAgentWork, canViewAllProjects, isSuperAdmin } from '../utils/roles';
+import { agentWorkflowService } from './agentWorkflowService';
+import { logger } from '../config/logger';
 
 interface Actor {
   id: string;
@@ -41,16 +43,17 @@ interface CreateProjectInput {
   tags?: unknown;
   status?: string;
   actorId?: string;
+  actorRole?: string;
   files: Express.Multer.File[];
 }
 
 export const projectService = {
-  // Every authenticated user can view every project (the portal is
-  // transparent by design), but only a Super Admin or an assigned member may
-  // change it. This is the single gate every project-mutating endpoint below
-  // routes through - never rely on the frontend hiding a button.
+  // Managers can coordinate every project. Leads and team members can edit a
+  // project only when they are assigned to it. This is the single gate every
+  // project-mutating endpoint below routes through - never rely on the
+  // frontend hiding a button.
   async assertProjectEditAccess(projectId: string, actor: Actor) {
-    if (isSuperAdmin(actor.role)) return;
+    if (canApproveAgentWork(actor.role)) return;
     const assigned = await projectRepository.isMemberAssigned(projectId, actor.id);
     if (!assigned) throw forbidden('Only assigned members can edit this project');
   },
@@ -109,12 +112,25 @@ export const projectService = {
       details: `Project ${project.name} was created.`,
     });
 
+    // A project remains valid even if the drafting side effect fails (for
+    // example before the additive migration is applied). The failed run can
+    // be retried from the project workspace without duplicating the project.
+    try {
+      await agentWorkflowService.runProjectManagerAgent(project.id, { id: ownerId, role: input.actorRole || 'Super Admin' });
+    } catch (error) {
+      logger.error('Failed to trigger Project Manager Agent', {
+        projectId: project.id, error: error instanceof Error ? error.message : error,
+      });
+    }
+
     const full = await projectRepository.findById(project.id);
     return mapProject(full);
   },
 
-  async getProjects(includeArchived = false) {
-    const rows = await projectRepository.findAll(includeArchived);
+  async getProjects(includeArchived = false, actor?: Actor) {
+    const rows = actor && !canViewAllProjects(actor.role)
+      ? await projectRepository.findForUser(actor.id, includeArchived)
+      : await projectRepository.findAll(includeArchived);
     return rows.map(mapProject);
   },
 

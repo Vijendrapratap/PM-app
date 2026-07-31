@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Clock, Paperclip, CheckCircle2, Plus,
-  ExternalLink, Users, Calendar, TrendingUp, Send, ChevronRight, Download, Lock, FileCheck2, Code2, Video
+  ExternalLink, Users, Calendar, TrendingUp, Send, ChevronRight, Download, Lock, FileCheck2, Code2, Video, Bot, LayoutDashboard
 } from 'lucide-react';
 import AddUpdateModal from '../components/AddUpdateModal';
 import FinishProjectModal from '../components/FinishProjectModal';
@@ -11,7 +11,8 @@ import { useProjectDetails } from '../hooks/useProjectDetails';
 import { projectApi } from '../api/projectApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import { useAuth } from '../context/AuthContext';
-import { isSuperAdmin } from '../utils/roles';
+import { canApproveAgentWork, isLead } from '../utils/roles';
+import AgentWorkflowPanel from '../components/AgentWorkflowPanel';
 
 const STATUSES = ['Planning', 'In Progress', 'Review', 'Testing', 'Blocked', 'On Hold'];
 
@@ -32,6 +33,7 @@ const getStatusBadge = (status: string) => {
 const ProjectDetails = () => {
   const { id } = useParams();
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
   const { project, updates, dailyReports, loading, error, refetch } = useProjectDetails(id);
   const [isAddUpdateOpen, setIsAddUpdateOpen] = useState(false);
@@ -230,11 +232,9 @@ const ProjectDetails = () => {
   );
 
   const isCompleted = project.status === 'Completed';
-  // Every authenticated user can view every project (transparent portal) -
-  // only a Super Admin or an assigned member may edit it. The backend
-  // enforces this too (projectService.assertProjectEditAccess) - this is
-  // just for the UI, never the only gate.
-  const canEdit = isSuperAdmin(user?.role) || project.assignedMembers?.some((m) => m._id === user?._id);
+  // Project managers coordinate all work; assigned leads and team members can
+  // update their own project. The backend enforces the same policy.
+  const canEdit = canApproveAgentWork(user?.role) || project.assignedMembers?.some((m) => m._id === user?._id);
   const currentDateReports = dailyReports.filter(report => formatDateKey(new Date(report.workDate || report.reportDate)) === selectedDate);
   const documentNames = (project.documents || []).map((document) => document.name.toLowerCase());
   const documentationChecklist = [
@@ -245,6 +245,15 @@ const ProjectDetails = () => {
     { label: 'Demo video', help: 'Optional walkthrough for stakeholders', done: Boolean(project.finalLinks?.demoVideo), required: false, type: 'demoVideo' },
   ];
   const documentationDone = documentationChecklist.filter((item) => item.done).length;
+  const workspace = ['overview', 'plan', 'documents'].includes(searchParams.get('workspace') || '')
+    ? searchParams.get('workspace') as 'overview' | 'plan' | 'documents'
+    : 'overview';
+  const changeWorkspace = (next: 'overview' | 'plan' | 'documents') => {
+    const params = new URLSearchParams(searchParams);
+    if (next === 'overview') params.delete('workspace');
+    else params.set('workspace', next);
+    setSearchParams(params, { replace: true });
+  };
 
   return (
     <div className="animate-fade-in">
@@ -285,9 +294,17 @@ const ProjectDetails = () => {
         )}
       </div>
 
+      <nav className="project-workspace-tabs" aria-label="Project workspace">
+        <button className={workspace === 'overview' ? 'active' : ''} onClick={() => changeWorkspace('overview')}><LayoutDashboard size={15}/>Overview &amp; board</button>
+        <button className={workspace === 'plan' ? 'active' : ''} onClick={() => changeWorkspace('plan')}><Bot size={15}/>Plan &amp; agents</button>
+        <button className={workspace === 'documents' ? 'active' : ''} onClick={() => changeWorkspace('documents')}><FileCheck2 size={15}/>Documents</button>
+      </nav>
+
+      {workspace === 'overview' ? <>
+
       {/* Owner visibility: the live work board is always the first project section. */}
       <div className="project-board-primary">
-        <ProjectTaskList projectId={project._id} members={project.assignedMembers} canManage={isSuperAdmin(user?.role)} currentUserId={user?._id} />
+        <ProjectTaskList projectId={project._id} members={project.assignedMembers} canManage={canApproveAgentWork(user?.role) || (isLead(user?.role) && project.assignedMembers.some((member) => member._id === user?._id))} currentUserId={user?._id} />
       </div>
 
       <div className="grid" style={{ gridTemplateColumns: '1fr 340px', gap: '1.5rem' }}>
@@ -819,6 +836,9 @@ const ProjectDetails = () => {
             </button>
           </div>
         </div>
+      )}
+      </> : (
+        <AgentWorkflowPanel projectId={project._id} view={workspace} />
       )}
 
       {/* Modals */}

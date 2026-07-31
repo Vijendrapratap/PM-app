@@ -6,12 +6,13 @@ import ImportantMessageModal from './ImportantMessageModal';
 const Layout = () => {
   return (
     <div className="app-shell">
+      <a className="skip-link" href="#main-content">Skip to content</a>
       <Sidebar />
       <div className="main-content">
         <Header />
-        <div className="page-content">
+        <main className="page-content" id="main-content">
           <Outlet />
-        </div>
+        </main>
       </div>
       <ImportantMessageModal />
     </div>

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import {
   FolderKanban, CheckCircle2, Users, Layers,
   ArrowUpRight, TrendingUp, Clock, Zap,
-  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock, AlertTriangle, UserRoundX, Lightbulb,
+  ListTodo, ListChecks, Megaphone, AlarmClock, CheckCheck, Pin, Activity, CalendarClock, AlertTriangle, UserRoundX, Lightbulb, Target, Bot,
 } from 'lucide-react';
 import { projectApi } from '../api/projectApi';
 import { userApi } from '../api/userApi';
@@ -16,8 +16,10 @@ import type { ProjectTask } from '../api/projectTaskApi';
 import type { Project } from '../types';
 import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 import { useAuth } from '../context/AuthContext';
-import { isSuperAdmin } from '../utils/roles';
+import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
 import DeadlineTimer from '../components/DeadlineTimer';
+import { workdayApi, type Workday } from '../api/workdayApi';
+import { agentWorkflowApi, type AgentReviewQueueItem } from '../api/agentWorkflowApi';
 
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -72,6 +74,23 @@ const Dashboard = () => {
   const [assignedProjectTasks, setAssignedProjectTasks] = useState<AssignedProjectTask[]>([]);
   const [recentActivity, setRecentActivity] = useState<ActivityEntry[]>([]);
   const [planLoading, setPlanLoading] = useState(true);
+  const [dailyWorkday, setDailyWorkday] = useState<Workday | null>(null);
+  const [agentReviewQueue, setAgentReviewQueue] = useState<AgentReviewQueueItem[]>([]);
+
+  useEffect(() => {
+    workdayApi.today().then(setDailyWorkday).catch(() => {
+      // The rest of the dashboard remains useful if the daily rhythm endpoint
+      // is temporarily unavailable.
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!canApproveAgentWork(user?.role) && !isLead(user?.role)) return;
+    agentWorkflowApi.reviewQueue().then(setAgentReviewQueue).catch(() => {
+      // Agent workflow is additive; keep the operational dashboard available
+      // if its migration or endpoint is not live yet.
+    });
+  }, [user?.role]);
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -267,69 +286,63 @@ const Dashboard = () => {
 
   return (
     <div className="animate-fade-in dashboard-compact">
-      {/* Page Header */}
-      <div className="dashboard-welcome-header">
-        <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.375rem' }}>
-            <Zap size={18} style={{ color: 'var(--accent-cyan)' }} />
-            <span style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--accent-cyan)', letterSpacing: '0.1em', textTransform: 'uppercase' }}>Pratap AI Innovation</span>
+      <section className="dashboard-top-grid">
+        <header className="dashboard-welcome-header">
+          <div className="dashboard-kicker"><Zap size={14}/><span>Operations studio</span></div>
+          <div className="dashboard-welcome-copy">
+            <h1 className="dashboard-welcome-title">{greetingText}</h1>
+            <p className="dashboard-welcome-subtitle">Keep decisions, delivery and today’s outcomes in one calm view.</p>
           </div>
-          <h1 className="dashboard-welcome-title">{greetingText}</h1>
-          <p className="dashboard-welcome-subtitle">What needs a decision, who owns the work, and where delivery needs attention.</p>
-        </div>
-        <div style={{ textAlign: 'right' }}>
-          <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Today</p>
-          <p style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-secondary)', marginTop: '0.125rem' }}>
-            {new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}
-          </p>
-        </div>
-      </div>
+          <div className="dashboard-date">
+            <small>Today</small>
+            <strong>{new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })}</strong>
+          </div>
+        </header>
 
-      {/* Live deadline-timer banner - kept visually distinct (blue) from the
-          gold decision-panel below so it reads as its own signal. */}
-      <section
-        style={{
-          marginBottom: '1.5rem',
-          padding: '1rem 1.15rem 1.1rem',
-          border: '1px solid rgba(37, 99, 235, 0.35)',
-          borderRadius: 'var(--radius-lg)',
-          background: 'linear-gradient(105deg, rgba(37, 99, 235, 0.14), rgba(255, 253, 248, 0.97) 55%)',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.8rem' }}>
-          <AlarmClock size={18} style={{ color: '#2563eb' }} />
-          <span style={{ font: '650 0.9rem var(--font-display)', color: 'var(--text-primary)' }}>
-            {isAdmin ? 'All Assigned Projects' : 'My Assigned Projects'}
-          </span>
-          <small style={{ color: 'var(--text-muted)', fontSize: '0.7rem' }}>Live deadline countdown</small>
+        <aside className="portfolio-pulse" aria-label="Portfolio overview">
+          <div className="portfolio-pulse-head"><span>Portfolio pulse</span><small>Live workspace</small></div>
+          <div className="portfolio-pulse-grid">
+            {statCards.map((card) => <Link to={card.to} key={card.label}><span><card.icon size={15}/></span><strong>{card.value}</strong><small>{card.label}</small></Link>)}
+          </div>
+          <div className="portfolio-pulse-foot"><i/><span>{stats.activeProjects} active · {decisionQueue.atRisk.length} need attention</span></div>
+        </aside>
+      </section>
+
+      <Link to="/workday" className={`dashboard-workday-strip ${dailyWorkday?.status === 'Completed' ? 'closed' : dailyWorkday ? 'open' : 'not-started'}`}>
+        <div className="dashboard-workday-icon"><Target size={17} /></div>
+        <div>
+          <small>{dailyWorkday?.status === 'Completed' ? 'Workday closed' : dailyWorkday ? 'Workday in progress' : 'Start with a clear finish line'}</small>
+          <strong>{dailyWorkday?.focus || 'Choose up to three outcomes for today'}</strong>
+        </div>
+        <span>{dailyWorkday?.status === 'Completed' ? 'Review today' : dailyWorkday ? `${dailyWorkday.items.filter((item) => item.status === 'Completed').length}/${dailyWorkday.items.length} outcomes done` : 'Plan my day'}<ArrowUpRight size={14} /></span>
+      </Link>
+
+      {(canApproveAgentWork(user?.role) || isLead(user?.role)) && (
+        <section className="agent-decision-queue">
+          <header><div><span><Bot size={15}/>Agent review queue</span><small>Drafts stay private until a named reviewer publishes them.</small></div><b>{agentReviewQueue.length}</b></header>
+          {agentReviewQueue.length ? <div className="agent-decision-list">{agentReviewQueue.slice(0, 4).map((item) => <Link key={item._id} to={`/projects/${item.project?._id}?workspace=${item.workspace}`}><span className="agent-mini-mark">{item.agentType === 'Project Manager' ? 'PM' : 'BA'}</span><div><small>{item.agentType} Agent · ready for review</small><strong>{item.project?.name || 'Project unavailable'}</strong></div><span>Review<ArrowUpRight size={13}/></span></Link>)}</div> : <div className="agent-queue-clear"><CheckCircle2 size={15}/><span>No agent drafts are waiting for review.</span></div>}
+        </section>
+      )}
+
+      <section className="deadline-studio">
+        <div className="deadline-studio-head">
+          <span><AlarmClock size={17}/>{isAdmin ? 'Assigned delivery' : 'My delivery'}</span>
+          <small>Live deadline countdown</small>
         </div>
         {deadlineTimerProjects.length === 0 ? (
-          <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)' }}>
+          <p className="deadline-empty">
             {isAdmin ? 'No projects currently have assigned members.' : 'You are not assigned to any active projects.'}
           </p>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.75rem' }}>
+          <div className="deadline-project-grid">
             {deadlineTimerProjects.map((project) => (
-              <Link
-                key={project._id}
-                to={`/projects/${project._id}`}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '0.25rem',
-                  padding: '0.7rem 0.85rem',
-                  borderRadius: 'var(--radius-md)',
-                  border: '1px solid rgba(37, 99, 235, 0.25)',
-                  background: 'rgba(255, 253, 248, 0.85)',
-                  textDecoration: 'none',
-                }}
-              >
-                <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
+              <Link key={project._id} to={`/projects/${project._id}`} className="deadline-project">
+                <span>
                   {isAdmin
                     ? project.assignedMembers.map((m) => m.name).join(', ')
                     : 'You are assigned to this work'}
                 </span>
-                <strong style={{ fontSize: '0.875rem', color: 'var(--text-primary)' }}>{project.name}</strong>
+                <strong>{project.name}</strong>
                 <DeadlineTimer deadline={project.deadline || project.estimatedCompletionDate} completed={project.status === 'Completed'} />
               </Link>
             ))}
@@ -352,21 +365,6 @@ const Dashboard = () => {
           </Link>
         </div>
       </section>
-
-      {/* Stat Cards */}
-      <div className="grid grid-cols-4 gap-4 mb-8">
-        {statCards.map((card) => (
-          <Link to={card.to} key={card.label} className={`stat-card ${card.color}`}>
-            <div className={`stat-icon ${card.color}`}>
-              <card.icon size={22} />
-            </div>
-            <div className="stat-value">{card.value}</div>
-            <div className="stat-label">{card.label}</div>
-            <div className="stat-desc">{card.desc}</div>
-            <ArrowUpRight className="stat-arrow" size={16} />
-          </Link>
-        ))}
-      </div>
 
       <section className="attention-card section-card"><div className="section-card-header"><div className="section-card-title"><AlertTriangle size={15}/>Attention Needed</div><span>Missed work, blockers and delivery pressure</span></div><div className="dashboard-signal-grid">
         <section className="signal-card danger"><header><AlarmClock size={15}/><span>Missed daily tasks</span><strong>{overdueTodos.length}</strong></header><div>{overdueTodos.slice(0, 3).map((task) => <Link to="/daily-todo" key={task._id}><span>{task.title}</span><em>{task.daysOverdue}d overdue</em></Link>)}{!overdueTodos.length && <p>No missed daily tasks.</p>}</div></section>

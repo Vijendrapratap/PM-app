@@ -76,6 +76,18 @@ export const userRepository = {
     return data;
   },
 
+  async findActiveByRoles(roles: string[]): Promise<User[]> {
+    if (!roles.length) return [];
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select('*')
+      .in('role', roles)
+      .eq('status', 'Active')
+      .is('deleted_at', null);
+    if (error) throw error;
+    return data;
+  },
+
   async update(id: string, patch: Partial<User>): Promise<User | null> {
     const { data, error } = await supabase.from(TABLE).update(patch).eq('id', id).select('*').maybeSingle();
     if (error) throw error;

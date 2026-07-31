@@ -14,6 +14,8 @@ import ideaRoutes from './routes/ideaRoutes';
 import notificationRoutes from './routes/notificationRoutes';
 import activityLogRoutes from './routes/activityLogRoutes';
 import myTasksRoutes from './routes/myTasksRoutes';
+import workdayRoutes from './routes/workdayRoutes';
+import agentWorkflowRoutes from './routes/agentWorkflowRoutes';
 
 const app = express();
 
@@ -45,6 +47,8 @@ app.use('/api/ideas', ideaRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/my-assigned-tasks', myTasksRoutes);
+app.use('/api/workdays', workdayRoutes);
+app.use('/api/agent-workflow', agentWorkflowRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

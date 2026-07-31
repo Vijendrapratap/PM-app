@@ -1,6 +1,6 @@
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ path: ['.env.local', '.env'] });
 
 const required = (name: string): string => {
   const value = process.env[name];
@@ -30,4 +30,11 @@ export const env = {
   // everyone else, so this is the only way the very first admin gets created.
   adminEmail: process.env.ADMIN_EMAIL,
   adminPassword: process.env.ADMIN_PASSWORD,
+  // Optional. Without a key the agent workflow remains fully functional via
+  // the deterministic local provider, which is useful for development and
+  // guarantees that project creation never depends on an external model.
+  openAIApiKey: process.env.OPENAI_API_KEY,
+  openAIAgentModel: process.env.OPENAI_AGENT_MODEL || 'gpt-5.5',
+  openRouterApiKey: process.env.OPENROUTER_API_KEY,
+  openRouterAgentModel: process.env.OPENROUTER_AGENT_MODEL || 'deepseek/deepseek-v4-flash',
 };

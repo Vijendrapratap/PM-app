@@ -29,6 +29,18 @@ export const projectRepository = {
     return data;
   },
 
+  async findForUser(userId: string, includeArchived = false) {
+    let query = supabase
+      .from('projects')
+      .select(`${PROJECT_SELECT}, project_access:project_members!inner(user_id)`)
+      .eq('project_access.user_id', userId)
+      .order('created_at', { ascending: false });
+    if (!includeArchived) query = query.eq('archived', false);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
   async create(input: Partial<Project>): Promise<Project> {
     const { data, error } = await supabase.from('projects').insert(input).select('*').single();
     if (error) throw error;

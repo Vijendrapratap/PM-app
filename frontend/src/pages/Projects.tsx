@@ -6,7 +6,7 @@ import EditProjectModal from '../components/EditProjectModal';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useProjects } from '../hooks/useProjects';
 import { useAuth } from '../context/AuthContext';
-import { isSuperAdmin } from '../utils/roles';
+import { canApproveAgentWork } from '../utils/roles';
 import { projectApi } from '../api/projectApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { Project } from '../types';
@@ -15,7 +15,7 @@ import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonom
 const Projects = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const canManage = isSuperAdmin(user?.role);
+  const canManage = canApproveAgentWork(user?.role);
   const [showArchived, setShowArchived] = useState(false);
   const { projects: allProjects, loading, refetch } = useProjects(showArchived);
   const [isModalOpen, setIsModalOpen] = useState(false);

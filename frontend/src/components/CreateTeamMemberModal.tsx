@@ -6,7 +6,7 @@ import { getErrorMessage } from '../utils/errorMessage';
 import { SUPER_ADMIN_ROLE } from '../utils/roles';
 import type { User } from '../types';
 
-const BASE_ROLE_OPTIONS = ['Team Member', 'Project Manager'];
+const BASE_ROLE_OPTIONS = ['Team Member', 'Lead', 'Project Manager'];
 
 const CreateTeamMemberModal = ({
   onClose,

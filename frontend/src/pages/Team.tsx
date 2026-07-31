@@ -18,6 +18,7 @@ const getRoleColor = (role: string) => {
   const map: Record<string, string> = {
     'Super Admin': 'badge-purple',
     'Project Manager': 'badge-danger',
+    'Lead': 'badge-warning',
     'Team Member': 'badge-primary',
   };
   return map[role] ?? 'badge-neutral';

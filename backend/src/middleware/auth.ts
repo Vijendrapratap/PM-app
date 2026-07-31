@@ -1,7 +1,9 @@
 import { NextFunction, Request, Response } from 'express';
 import { verifyToken } from '../utils/jwt';
-import { isSuperAdmin } from '../utils/roles';
+import { canApproveAgentWork, canViewAllProjects, isSuperAdmin } from '../utils/roles';
+import { projectRepository } from '../repositories/projectRepository';
 import { userRepository } from '../repositories/userRepository';
+import { param } from '../utils/params';
 
 // Re-checks the user's current status on every request (not just at login) so
 // that deactivating/deleting a user revokes access immediately instead of
@@ -20,7 +22,9 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
       res.status(401).json({ message: 'Not authorized, account is inactive' });
       return;
     }
-    req.user = decoded;
+    // Use the database role rather than the role embedded in a potentially
+    // month-old token. Role changes must take effect on the next request.
+    req.user = { id: user.id, role: user.role };
     next();
   } catch {
     res.status(401).json({ message: 'Not authorized, token failed' });
@@ -59,4 +63,32 @@ export const requireSuperAdmin = (req: Request, res: Response, next: NextFunctio
     return;
   }
   next();
+};
+
+export const requireManager = (req: Request, res: Response, next: NextFunction): void => {
+  if (!req.user || !canApproveAgentWork(req.user.role)) {
+    res.status(403).json({ message: 'Only a Project Manager or Super Admin can perform this action' });
+    return;
+  }
+  next();
+};
+
+export const requireProjectAccess = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) {
+    res.status(401).json({ message: 'Not authorized' });
+    return;
+  }
+  if (canViewAllProjects(req.user.role)) {
+    next();
+    return;
+  }
+  try {
+    if (await projectRepository.isMemberAssigned(param(req, 'id'), req.user.id)) {
+      next();
+      return;
+    }
+    res.status(403).json({ message: 'This project is not assigned to you' });
+  } catch (error) {
+    next(error);
+  }
 };

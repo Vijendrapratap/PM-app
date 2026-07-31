@@ -201,3 +201,88 @@ export interface AppNotification {
   read: boolean;
   created_at: string;
 }
+
+export type WorkdayStatus = 'Open' | 'Completed';
+export type WorkdayItemStatus = 'Planned' | 'In Progress' | 'Completed' | 'Blocked' | 'Deferred';
+
+export interface Workday {
+  id: string;
+  user_id: string;
+  work_date: string;
+  status: WorkdayStatus;
+  focus: string;
+  check_in_at: string;
+  check_out_at: string | null;
+  completed_summary: string | null;
+  blockers: string | null;
+  remarks: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkdayItem {
+  id: string;
+  workday_id: string;
+  project_id: string | null;
+  task_id: string | null;
+  title: string;
+  planned_outcome: string;
+  status: WorkdayItemStatus;
+  progress_note: string | null;
+  blocker_reason: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AgentType = 'Project Manager' | 'Business Analyst';
+export type AgentRunStatus = 'Queued' | 'Working' | 'Ready for review' | 'Approved' | 'Changes requested' | 'Failed';
+export type ReviewStatus = 'Draft' | 'In review' | 'Approved' | 'Superseded';
+
+export interface AgentRun {
+  id: string;
+  project_id: string;
+  agent_type: AgentType;
+  status: AgentRunStatus;
+  trigger_event: string;
+  provider: string;
+  input_snapshot: Record<string, unknown>;
+  output: Record<string, unknown> | null;
+  error: string | null;
+  created_by: string;
+  reviewed_by: string | null;
+  review_note: string | null;
+  started_at: string | null;
+  completed_at: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface PlanTaskDraft {
+  key: string;
+  title: string;
+  description: string;
+  estimateDays: number;
+  priority: Priority;
+  acceptanceCriteria: string[];
+}
+
+export interface PlanFeatureDraft {
+  key: string;
+  title: string;
+  outcome: string;
+  description: string;
+  acceptanceCriteria: string[];
+  priority: Priority;
+  estimateDays: number;
+  confidence: 'Low' | 'Medium' | 'High';
+  tasks: PlanTaskDraft[];
+}
+
+export interface ProjectPlanContent {
+  summary: string;
+  assumptions: string[];
+  risks: string[];
+  questions: string[];
+  features: PlanFeatureDraft[];
+}
