@@ -4,7 +4,7 @@
 
 Design a role-aware project operating system for Pratap AI where human team members and controlled AI agents collaborate on one shared project model. The first target artifact is a responsive web application redesign covering role dashboards, a canonical project workspace, agent review flows, notifications, and team-day scheduling.
 
-Primary audiences are Pratap as CEO/Super Admin, Govind as Project Manager and accountable approver, project Leads, and assigned Team Members.
+Primary audiences are Pratap as CEO/Super Admin, Govind as Project Manager and accountable approver, Anush MK as Tech Lead, and assigned Team Members.
 
 ## Core need
 
@@ -23,9 +23,10 @@ The system therefore optimizes for five outcomes:
 | Evidence | Confidence | Finding |
 |---|---|---|
 | User’s role and agent workflow description | Provided | Two agents are required; Govind approves or edits outputs; CEO, PM, and Lead can edit; Team Members are project-scoped. |
-| Supplied dashboard screenshot | Observed | Warm shell, dark rail, dark calendar, yellow signal accent, asymmetric bento layout, compact repeated rows, soft surfaces. |
+| Reference 1: Taskify dashboard | Observed | Labeled left navigation, compact utility header, summary strip, view switcher, task-first kanban, dense readable work cards. |
+| Reference 2: warm fitness dashboard | Observed | Inset warm shell, compact rail, dark calendar, yellow signal accent, asymmetric bento layout, repeated progress rows, soft surfaces. |
 | Existing repository | Observed | React/Vite frontend, Express/Supabase backend, authentication, three roles, projects, tasks/subtasks, uploaded documents, point notifications, activity logs, and newly added workday flow already exist. |
-| Current role utilities | Observed | Only Team Member, Project Manager, and Super Admin exist; Lead is not modeled. Many management permissions currently rely only on Super Admin or assignment. |
+| Current role utilities | Observed | Team Member, Lead, Project Manager, and Super Admin are modeled; role dashboards still share too much presentation and need distinct information priorities. |
 | Current project screen | Observed | Project information, updates, tasks, uploads, documentation checklist, and daily reports exist in one long page but lack a stable tabbed workspace and versioned approvals. |
 | Single-company operation | Inferred | Initial release can remain single-organization unless multi-company support is planned. |
 | Govind is the default project-plan/document approver | Provided / inferred boundary | Govind approves by default; Super Admin may override. Leads review but do not publish agent drafts unless explicitly delegated. |
@@ -34,8 +35,9 @@ The system therefore optimizes for five outcomes:
 
 | Keep | Change | Do not copy |
 |---|---|---|
-| Warm neutral canvas and soft inset application shell | Replace fitness content with project health, approvals, agent runs, blockers, and delivery work | Exact layout proportions and card placement |
-| Slim dark navigation rail | Use the existing Pratap AI identity and information architecture | Be.run logo, name, icons, and profile imagery |
+| Warm neutral canvas and soft inset application shell from Reference 2 | Replace fitness content with project health, approvals, agent runs, blockers, and delivery work | Exact layout proportions and card placement |
+| Labeled navigation and task-first board from Reference 1 | Make navigation role-aware and use existing Pratap AI task data | Taskify logo, copy, IDs, card composition, and brand assets |
+| Collapsible navigation behavior across both references | Default to labeled light sidebar; collapse to icon rail on demand | Either reference's navigation icons or exact spacing |
 | Near-black calendar/attention module | Build person-by-day delivery calendar and approval modules | Training-day calendar semantics and dates |
 | One vivid yellow signal color and coral exception color | Align the yellow with the existing bronze/champagne brand | Calorie colors, metrics, labels, and bubble sizes |
 | Asymmetric high/low density composition | Make project workspace tabs canonical rather than showing everything at once | Workout bubble visualization as a literal project chart |
@@ -109,7 +111,8 @@ Low-priority edits are grouped into an activity digest. Notifications describe t
 | Edit project scope, dates, team | Yes | Yes | Assigned projects | No | No |
 | Create/edit features and tasks | Yes | Yes | Assigned projects | Own task status/comment only | Draft output only |
 | Approve agent plan/documents | Override | Yes | Review/request change | No | No |
-| Manage roles and agent settings | Yes | No | No | No | No |
+| Manage roles | Yes | No | No | No | No |
+| Edit/version agent system prompts | Yes | Yes | Assigned/project agents | No | No |
 | View documents | All | All | Assigned projects | Approved docs for assigned projects | Run-scoped context |
 | Daily work and blockers | Own + overview | Own + team overview | Own + assigned-team overview | Own | No |
 | Delete/restore project records | Yes | Policy-controlled | No | No | No |
@@ -126,9 +129,9 @@ Portfolio health is primary. Show delivery confidence, approvals waiting, scope/
 
 The first screen is a decision queue: agent drafts awaiting review, blockers needing escalation, projects drifting from forecast, unassigned work, and today’s team commitments. Govind should be able to approve or open a review in one click.
 
-### Lead
+### Tech Lead — Anush MK
 
-Focus on assigned-project health, feature progress, tasks in review, team blockers, and upcoming milestones. Provide editing within scope, not organization administration.
+Focus on assigned-project health, feature progress, technical tasks in review, team blockers, release readiness, and upcoming milestones. Anush can edit project-scoped agent prompts and request/regenerate drafts, but final plan/document publication remains with Govind or Pratap.
 
 ### Team Member
 
@@ -172,7 +175,7 @@ Agents should execute in a background worker/queue, use structured JSON contract
 
 ## Final design stance
 
-Build a calm, warm, decision-first operations studio. The reference’s yellow-on-charcoal contrast and asymmetric soft surfaces become the visual language for approvals, project health, and team scheduling. The product remains unmistakably Pratap AI by retaining the existing carbon, bronze, champagne, and bone identity. Automation stays visible but quiet: agents appear as accountable draft authors inside normal project workflows, not as a separate chatbot universe.
+Build a warm task cockpit: Taskify's immediate navigation and board clarity combined with Reference 2's inset shell, asymmetric bento rhythm, and yellow-on-charcoal focus surfaces. Team Members land directly on simple task updates; Govind, Anush, and Pratap progressively gain decisions, team visibility, portfolio scope, and Agent Studio access. Automation stays visible but quiet: agents appear as accountable draft authors and configurable services, not a separate chatbot universe.
 
 ## Risks and explicit unknowns
 

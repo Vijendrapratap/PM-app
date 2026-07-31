@@ -12,6 +12,7 @@ const BREADCRUMB_MAP: Record<string, string> = {
   '/daily-todo': 'Daily To-Do',
   '/workday': 'Workday',
   '/ideas': 'Ideas',
+  '/agents': 'Agent Studio',
 };
 
 const Header = () => {

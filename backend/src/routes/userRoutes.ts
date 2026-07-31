@@ -8,7 +8,7 @@ import {
   deleteUser,
   resetPassword,
 } from '../controllers/userController';
-import { protect, requireSuperAdmin } from '../middleware/auth';
+import { protect, requireRole, requireSuperAdmin } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { updateUserSchema, resetPasswordSchema } from '../utils/validators';
 
@@ -16,8 +16,8 @@ const router = express.Router();
 
 router.use(protect);
 
-router.route('/').get(getUsers);
-router.route('/:id').get(getUserById).put(requireSuperAdmin, validateBody(updateUserSchema), updateUser);
+router.route('/').get(requireRole('Lead', 'Project Manager', 'Super Admin'), getUsers);
+router.route('/:id').get(requireRole('Lead', 'Project Manager', 'Super Admin'), getUserById).put(requireSuperAdmin, validateBody(updateUserSchema), updateUser);
 router.delete('/:id', requireSuperAdmin, deleteUser);
 router.post('/:id/deactivate', requireSuperAdmin, deactivateUser);
 router.post('/:id/activate', requireSuperAdmin, activateUser);

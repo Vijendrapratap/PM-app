@@ -14,6 +14,7 @@ import DailyPlanner from './pages/DailyPlanner';
 import Ideas from './pages/Ideas';
 import DemoDashboard from './pages/DemoDashboard';
 import Workday from './pages/Workday';
+import AgentStudio from './pages/AgentStudio';
 import { useAuth } from './context/AuthContext';
 
 const Home = () => {
@@ -48,6 +49,7 @@ function App() {
             <Route path="daily-todo" element={<DailyPlanner />} />
             <Route path="workday" element={<Workday />} />
             <Route path="ideas" element={<Ideas />} />
+            <Route path="agents" element={<AgentStudio />} />
             <Route path="*" element={<div>Page Not Found</div>} />
           </Route>
         </Routes>

@@ -66,17 +66,18 @@ const requireHostedProvider = () => {
 export const hostedAgentDraftProvider = {
   get name() { return requireHostedProvider().name; },
 
-  async createProjectPlan(project: ProjectContext): Promise<ProjectPlanContent> {
+  async createProjectPlan(project: ProjectContext, systemPrompt?: string): Promise<ProjectPlanContent> {
     const provider = requireHostedProvider();
     const response = await provider.client.responses.create({
       model: provider.model,
       store: false,
       instructions: [
+        systemPrompt,
         'You are a senior startup project manager. Convert a project brief into a practical delivery plan for human review.',
         'Create outcome-based features and small executable tasks. Estimates are working-day estimates, never commitments.',
         'Do not invent customer facts, integrations, deadlines, or compliance requirements. Put uncertainty into assumptions, risks, or questions.',
         'Use stable kebab-case keys unique within this plan. Every acceptance criterion must be observable and testable.',
-      ].join(' '),
+      ].filter(Boolean).join(' '),
       input: JSON.stringify(project),
       text: {
         format: {
@@ -88,18 +89,19 @@ export const hostedAgentDraftProvider = {
     return projectPlanContentSchema.parse(JSON.parse(response.output_text));
   },
 
-  async createBusinessRequirementsDocument(project: ProjectContext, plan: ProjectPlanContent) {
+  async createBusinessRequirementsDocument(project: ProjectContext, plan: ProjectPlanContent, systemPrompt?: string) {
     const provider = requireHostedProvider();
     const response = await provider.client.responses.create({
       model: provider.model,
       store: false,
       instructions: [
+        systemPrompt,
         'You are a senior business analyst. Produce a concise, complete Business Requirements Document in Markdown.',
         'Base every requirement on the supplied project and approved plan. Do not invent facts; label uncertainty as an assumption or open question.',
         'Include: document status, project overview, goals, users/stakeholders where known, scope and exclusions, functional requirements by feature,',
         'non-functional requirements, acceptance criteria, dependencies, risks, open questions, and an approval section.',
         'The first lines must clearly say Agent draft and that Govind / Project Manager approval is required.',
-      ].join(' '),
+      ].filter(Boolean).join(' '),
       input: JSON.stringify({ project, approvedPlan: plan }),
     });
     if (!response.output_text) throw new Error('The model returned an empty business requirements document');

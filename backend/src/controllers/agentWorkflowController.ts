@@ -13,6 +13,14 @@ export const getAgentReviewQueue = asyncHandler(async (req: Request, res: Respon
   res.json(await agentWorkflowService.getReviewQueue(actorOf(req)));
 });
 
+export const getAgentDefinitions = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await agentWorkflowService.getDefinitions(actorOf(req)));
+});
+
+export const updateAgentDefinition = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await agentWorkflowService.updateDefinition(param(req, 'definitionId'), req.body.systemPrompt, req.body.changeNote, actorOf(req)));
+});
+
 export const getAgentWorkspace = asyncHandler(async (req: Request, res: Response) => {
   res.json(await agentWorkflowService.getWorkspace(param(req, 'id'), actorOf(req)));
 });

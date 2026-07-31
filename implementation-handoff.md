@@ -12,7 +12,7 @@
 
 ### Activation
 
-1. Apply `backend/supabase/migrations/0007_daily_workflow.sql` and `0008_agent_workflow.sql` in order.
+1. Apply `backend/supabase/migrations/0007_daily_workflow.sql`, `0008_agent_workflow.sql`, and `0009_agent_definitions.sql` in order.
 2. Deploy the backend with the existing required environment variables. Add `OPENAI_API_KEY` only when hosted model drafting is wanted; never expose it to the frontend.
 3. Deploy the frontend against that backend, then create a test project and approve its generated plan and BRD.
 4. Before high-volume production use, move hosted model runs from the project-create request into a durable background queue. The current synchronous trigger is appropriate for this first slice and the instant local provider, but a queue is needed for durable retries across server restarts/timeouts.
@@ -22,16 +22,16 @@
 1. `DESIGN.md`
 2. `design-contract.md`
 3. Existing role utilities, project service, task service, notifications, activity logs, workdays, and `ProjectDetails.tsx`
+4. `role-experience-map.md`
 
-## Build order
+## Role-first redesign order
 
-1. **Governance foundation:** add Lead, capability checks, project-scoped access, audit events, notification recipients/watchers.
-2. **Canonical project model:** add features, plan versions, task estimates/dependencies, approval requests, and derived progress.
-3. **Project workspace:** replace the long project page with Overview, Plan, Board, Documents, Team, Activity, and Calendar tabs.
-4. **Agent infrastructure:** background jobs, structured output validation, agent runs, retries, draft persistence, review diff.
-5. **PM Agent:** trigger on project creation; produce plan draft; Govind edits/approves; publish atomically.
-6. **BA Agent:** trigger on plan approval; produce versioned documentation; Govind edits/approves.
-7. **Role dashboards and calendar:** read from the shared project/task/workday/event model.
+1. **Team Member:** My Work, assigned kanban, inline task progress/blocker updates, personal week, project decisions and approved docs.
+2. **Govind / Project Manager:** approval queue, all projects, team-day timeline, risks, assignment gaps, prompt editor access.
+3. **Anush / Tech Lead:** assigned delivery, technical review, blockers, release readiness, project-scoped prompt editor access.
+4. **Pratap / CEO:** portfolio health, forecasts, scope/date movement, company blockers, agent governance and role management.
+5. **Shared project workspace:** Overview, Plan, Board, Documents, Team, Activity and Calendar using one task model.
+6. **Agent Studio:** versioned system prompts, test runs, publish/rollback and audit history for authorized roles.
 
 ## Binding constraints
 
@@ -40,7 +40,7 @@
 - One project/feature/task record powers board, calendar, workday, progress, and dashboards.
 - Use event-driven notifications after successful writes; group low-value edits.
 - Preserve the existing React, Express, and Supabase stack.
-- Use Space Grotesk + Inter, warm neutrals, charcoal, yellow-gold, coral, and green from `DESIGN.md`.
+- Use a labeled light sidebar, compact utility header, Space Grotesk + Inter, warm neutrals, charcoal, yellow-gold, coral, and green from `DESIGN.md`.
 - No purple/blue AI gradients, robot imagery, generic chat-first agent UI, or equal-card dashboard grids.
 
 ## First artifact should prove

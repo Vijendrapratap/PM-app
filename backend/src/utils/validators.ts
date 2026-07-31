@@ -265,3 +265,4 @@ export const projectPlanContentSchema = z.object({
 export const updatePlanDraftSchema = z.object({ content: projectPlanContentSchema });
 export const runAgentSchema = z.object({ force: z.boolean().optional() });
 export const updateKnowledgeDocumentSchema = z.object({ content: z.string().trim().min(20).max(100000) });
+export const updateAgentDefinitionSchema = z.object({ systemPrompt: z.string().trim().min(80).max(30000), changeNote: z.string().trim().max(500).optional() });

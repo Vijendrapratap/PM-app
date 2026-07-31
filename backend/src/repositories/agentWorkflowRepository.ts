@@ -13,6 +13,29 @@ const DOCUMENT_SELECT = `
 `;
 
 export const agentWorkflowRepository = {
+  async listDefinitions() {
+    const { data, error } = await supabase.from('agent_definitions').select('*, updater:updated_by(id, name), versions:agent_prompt_versions(id, version, change_note, created_at, creator:created_by(id, name))').order('name');
+    if (error) throw error;
+    return data || [];
+  },
+
+  async findDefinition(agentKey: 'project-manager' | 'business-analyst') {
+    const { data, error } = await supabase.from('agent_definitions').select('*').eq('agent_key', agentKey).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateDefinitionPrompt(id: string, systemPrompt: string, changeNote: string | undefined, actorId: string) {
+    const { data: latest, error: versionError } = await supabase.from('agent_prompt_versions').select('version').eq('agent_definition_id', id).order('version', { ascending: false }).limit(1).maybeSingle();
+    if (versionError) throw versionError;
+    const version = (latest?.version || 0) + 1;
+    const { error: insertError } = await supabase.from('agent_prompt_versions').insert({ agent_definition_id: id, version, system_prompt: systemPrompt, change_note: changeNote || null, created_by: actorId });
+    if (insertError) throw insertError;
+    const { data, error } = await supabase.from('agent_definitions').update({ system_prompt: systemPrompt, updated_by: actorId, updated_at: new Date().toISOString() }).eq('id', id).select('*, updater:updated_by(id, name)').single();
+    if (error) throw error;
+    return { ...data, version };
+  },
+
   async createRun(input: {
     project_id: string;
     agent_type: AgentType;

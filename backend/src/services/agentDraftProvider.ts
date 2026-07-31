@@ -16,7 +16,7 @@ const task = (key: string, title: string, description: string, estimateDays: num
 export const localAgentDraftProvider = {
   name: 'Local structured provider',
 
-  createProjectPlan(project: ProjectContext): ProjectPlanContent {
+  createProjectPlan(project: ProjectContext, _systemPrompt?: string): ProjectPlanContent {
     const product = project.name;
     const description = project.description?.trim() || `Deliver the agreed outcome for ${product}.`;
     const isWeb = /web|site|portal|dashboard|saas|app/i.test(`${project.category || ''} ${description}`);
@@ -90,7 +90,7 @@ export const localAgentDraftProvider = {
     };
   },
 
-  createBusinessRequirementsDocument(project: ProjectContext, plan: ProjectPlanContent) {
+  createBusinessRequirementsDocument(project: ProjectContext, plan: ProjectPlanContent, _systemPrompt?: string) {
     const featureSections = plan.features.map((feature, index) => [
       `## ${index + 1}. ${feature.title}`,
       '',

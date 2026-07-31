@@ -90,6 +90,27 @@ const notifyUsers = async (ids: string[], type: string, title: string, message: 
 };
 
 export const agentWorkflowService = {
+  async getDefinitions(actor: Actor) {
+    if (!canApproveAgentWork(actor.role) && !isLead(actor.role)) throw forbidden('Agent Studio is available to Project Managers, Leads, and Super Admins');
+    return (await agentWorkflowRepository.listDefinitions()).map((definition: any) => ({
+      _id: definition.id, agentKey: definition.agent_key, name: definition.name, description: definition.description,
+      systemPrompt: definition.system_prompt, active: definition.active, updatedAt: definition.updated_at,
+      updatedBy: mapPerson(definition.updater), versions: (definition.versions || []).sort((a: any, b: any) => b.version - a.version).map((version: any) => ({
+        _id: version.id, version: version.version, changeNote: version.change_note, createdAt: version.created_at, createdBy: mapPerson(version.creator),
+      })),
+    }));
+  },
+
+  async updateDefinition(id: string, systemPrompt: string, changeNote: string | undefined, actor: Actor) {
+    if (!canApproveAgentWork(actor.role) && !isLead(actor.role)) throw forbidden('Agent Studio is available to Project Managers, Leads, and Super Admins');
+    const definitions = await agentWorkflowRepository.listDefinitions();
+    const definition = definitions.find((item: any) => item.id === id);
+    if (!definition) throw notFound('Agent definition not found');
+    const updated = await agentWorkflowRepository.updateDefinitionPrompt(id, systemPrompt, changeNote, actor.id);
+    await activityLogRepository.create({ action: 'Agent Prompt Updated', user_id: actor.id, details: `${definition.name} system prompt was updated as version ${updated.version}.` });
+    return this.getDefinitions(actor);
+  },
+
   async getReviewQueue(actor: Actor) {
     if (!canApproveAgentWork(actor.role) && !isLead(actor.role)) return [];
     const rows = await agentWorkflowRepository.listReviewQueue();
@@ -127,8 +148,9 @@ export const agentWorkflowService = {
     });
     try {
       const provider = getAgentDraftProvider();
+      const definition = await agentWorkflowRepository.findDefinition('project-manager');
       await agentWorkflowRepository.updateRun(run.id, { status: 'Working', started_at: new Date().toISOString() });
-      const content = await provider.createProjectPlan(snapshot);
+      const content = await provider.createProjectPlan(snapshot, definition?.system_prompt);
       const version = await agentWorkflowRepository.nextPlanVersion(projectId);
       const plan = await agentWorkflowRepository.createPlan({
         project_id: projectId, agent_run_id: run.id, version, content, created_by: actor.id,
@@ -207,8 +229,9 @@ export const agentWorkflowService = {
     });
     try {
       const provider = getAgentDraftProvider();
+      const definition = await agentWorkflowRepository.findDefinition('business-analyst');
       await agentWorkflowRepository.updateRun(run.id, { status: 'Working', started_at: new Date().toISOString() });
-      const draft = await provider.createBusinessRequirementsDocument(projectSnapshot(project), plan.content as ProjectPlanContent);
+      const draft = await provider.createBusinessRequirementsDocument(projectSnapshot(project), plan.content as ProjectPlanContent, definition?.system_prompt);
       const document = await agentWorkflowRepository.findOrCreateDocument(projectId, 'BRD', 'Business Requirements Document', actor.id);
       const version = await agentWorkflowRepository.nextDocumentVersion(document.id);
       const documentVersion = await agentWorkflowRepository.createDocumentVersion({

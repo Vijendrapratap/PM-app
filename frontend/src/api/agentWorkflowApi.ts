@@ -121,8 +121,22 @@ export interface AgentReviewQueueItem {
   project: { _id: string; name: string; priority: Priority; deadline: string | null } | null;
 }
 
+export interface AgentDefinition {
+  _id: string;
+  agentKey: 'project-manager' | 'business-analyst';
+  name: string;
+  description: string;
+  systemPrompt: string;
+  active: boolean;
+  updatedAt: string;
+  updatedBy: { _id: string; name: string } | null;
+  versions: Array<{ _id: string; version: number; changeNote: string | null; createdAt: string; createdBy: { _id: string; name: string } | null }>;
+}
+
 export const agentWorkflowApi = {
   reviewQueue: () => api.get<AgentReviewQueueItem[]>('/agent-workflow/review-queue').then((response) => response.data),
+  definitions: () => api.get<AgentDefinition[]>('/agent-workflow/definitions').then((response) => response.data),
+  updateDefinition: (definitionId: string, systemPrompt: string, changeNote?: string) => api.put<AgentDefinition[]>(`/agent-workflow/definitions/${definitionId}`, { systemPrompt, changeNote }).then((response) => response.data),
   get: (projectId: string) => api.get<AgentWorkspace>(`/projects/${projectId}/agent-workflow`).then((response) => response.data),
   runProjectManager: (projectId: string, force = false) => api.post<AgentWorkspace>(`/projects/${projectId}/agents/project-manager/run`, { force }).then((response) => response.data),
   savePlan: (projectId: string, planId: string, content: ProjectPlanContent) => api.put<PlanVersion>(`/projects/${projectId}/plans/${planId}`, { content }).then((response) => response.data),

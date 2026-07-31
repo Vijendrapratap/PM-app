@@ -2,9 +2,9 @@
 
 ## 1. Visual Theme & Atmosphere
 
-**Direction: Calm operations studio.** The product should feel focused, capable, and human: a quiet warm canvas, crisp work surfaces, dark high-attention panels, and one yellow-gold signal color. It should help a team understand work in seconds without looking like surveillance software or a generic analytics dashboard.
+**Direction: Warm task cockpit.** The product should feel focused, capable, and human: Taskify-like clarity for navigation and boards inside the warm, asymmetric bento shell of the second reference. A quiet neutral canvas, crisp work surfaces, one charcoal focus surface, and one yellow-gold signal color make routine task updates fast without making the product feel like surveillance software.
 
-The reference image contributes its compact navigation rail, asymmetric bento composition, warm neutral palette, near-black calendar surface, generous internal spacing, and small areas of vivid signal color. The product must not copy the fitness subject matter, exact card arrangement, brand, icons, or bubble visualization.
+Reference 1 contributes a labeled collapsible sidebar, utility header, compact task summaries, prominent kanban controls, and dense readable work cards. Reference 2 contributes the inset warm shell, asymmetric bento composition, near-black calendar/decision surface, generous internal spacing, and small areas of vivid signal color. The product must not copy either reference's brand, exact card arrangement, icons, copy, or domain-specific visualizations.
 
 Every screen should have one dominant decision area. Supporting information should be quieter and progressively disclosed. Dense operational screens may contain significant data, but never as an undifferentiated wall of cards.
 
@@ -49,7 +49,7 @@ Rules:
 
 - Base spacing unit: 4px. Default rhythm: 8, 12, 16, 24, 32, 48.
 - Desktop shell: max-width 1480px with 18–24px outer inset.
-- Navigation rail: 72px collapsed; 224px expanded only when needed.
+- Navigation: 220px labeled sidebar by default; 72px collapsed mode; bottom dock on mobile.
 - Header: 68–76px.
 - Project workspace grid: 12 columns; primary content spans 8, decision rail spans 4.
 - Dashboard modules use asymmetric spans such as 7/5 or 4/8. Avoid repeated equal three-card rows.
@@ -60,13 +60,13 @@ Rules:
 
 ### Global shell
 
-A slim dark icon rail anchors the product. The main shell sits on the warm canvas with a soft 24px radius. The top bar contains contextual title/breadcrumbs, command search, notifications, and identity. Role changes alter content priority, not the navigation model.
+A light, labeled navigation sidebar anchors the product and can collapse to an icon rail. The main shell sits on the warm canvas with a soft 24px radius. The top bar contains breadcrumbs, command search, notifications, quick creation where authorized, and identity. Role changes both content priority and available navigation, so Team Members never see organization-admin destinations.
 
 ### Role dashboards
 
 - **CEO / Super Admin:** portfolio health, approval queue, active blockers, delivery forecast, team capacity, agent activity.
 - **Project Manager:** items awaiting Govind’s approval, projects at risk, unassigned/overdue tasks, agent drafts, team-day calendar.
-- **Lead:** assigned project health, team blockers, task review queue, upcoming milestones.
+- **Tech Lead / Lead:** assigned project health, technical delivery, review queue, team blockers, upcoming milestones, and project-scoped agent settings.
 - **Team Member:** current workday, assigned tasks, blockers, project updates, personal calendar, relevant documents.
 
 ### Project workspace
@@ -78,6 +78,14 @@ The Overview tab provides the project story and health; it does not duplicate ev
 ### Team calendar
 
 Use a dark scheduling surface inspired by the reference calendar. Desktop defaults to a person-by-day timeline; personal view defaults to day/week. It derives its contents from approved tasks, workday commitments, deadlines, and leave—never from a second manual calendar database.
+
+### Team Member home
+
+The primary surface is `My work`: today's selected outcomes followed by a kanban/list switch for assigned tasks. A compact week strip, current blockers, approved project decisions, and required documents sit beside it. Team Members update status, progress note, blocker, comment, attachment, and workday closeout inline; they cannot change scope, dates, assignments, approvals, agent prompts, or unrelated projects.
+
+### Agent Studio
+
+Project Manager, Tech Lead, and CEO can open a dedicated Agent Studio. It lists the Project Manager and Business Analyst agents, current model, last run, prompt version, and health. System prompts use a versioned editor with `Save draft`, `Test with sample project`, `Publish prompt`, and `Rollback`; Team Members never see this navigation. Prompt changes do not alter already-approved project artifacts.
 
 ## 6. Components
 
@@ -148,3 +156,4 @@ The voice is direct, specific, and supportive. It should make ownership clear wi
 - Do not hide project information across unrelated pages; the project workspace is the canonical home.
 - Do not calculate employee value from logged hours. Highlight completed outcomes, aging blockers, scope stability, and forecast confidence.
 - Do not copy the reference’s exact fitness layout, calorie bubbles, brand, copy, or imagery.
+- Do not copy Taskify's logo, task identifiers, labels, card arrangement, or proprietary workflow language.

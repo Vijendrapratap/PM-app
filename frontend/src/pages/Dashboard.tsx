@@ -20,6 +20,8 @@ import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
 import DeadlineTimer from '../components/DeadlineTimer';
 import { workdayApi, type Workday } from '../api/workdayApi';
 import { agentWorkflowApi, type AgentReviewQueueItem } from '../api/agentWorkflowApi';
+import TeamMemberDashboard from '../components/TeamMemberDashboard';
+import { CeoDashboard, ProjectManagerDashboard, TechLeadDashboard } from '../components/LeadershipDashboards';
 
 
 const PRIORITY_BADGE: Record<string, string> = {
@@ -43,6 +45,7 @@ const daysFromNow = (n: number) => {
 
 const Dashboard = () => {
   const { user } = useAuth();
+  const isTeamMember = user?.role === 'Team Member';
   const getGreeting = () => {
     const hour = new Date().getHours();
     if (hour < 12) return 'Good morning';
@@ -95,7 +98,8 @@ const Dashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [projects, users, ideas] = await Promise.all([projectApi.list(), userApi.list(), ideaApi.list()]);
+        const projects = await projectApi.list();
+        const [users, ideas] = isTeamMember ? [[], []] : await Promise.all([userApi.list(), ideaApi.list()]);
         setAllProjects(projects);
         setStats({
           totalProjects: projects.length,
@@ -116,6 +120,11 @@ const Dashboard = () => {
           })
           .slice(0, 7));
         setTeamMembers(users);
+        if (isTeamMember) {
+          setPortfolioTasks([]);
+          setDecisionQueue({ atRisk: [], unassigned: [], plannedIdeas: [] });
+          return;
+        }
         const activeProjects = projects.filter((project) => project.status !== 'Completed' && !project.archived);
         const taskGroups = await Promise.all(activeProjects.map(async (project) => ({ project, tasks: await projectTaskApi.list(project._id) })));
         setPortfolioTasks(taskGroups);
@@ -136,23 +145,23 @@ const Dashboard = () => {
       }
     };
     fetchStats();
-  }, []);
+  }, [isTeamMember]);
 
   useEffect(() => {
     const fetchPlanner = async () => {
       try {
-        const [today, subtasks, messages, mine, myTasks, activity] = await Promise.all([
+        const [today, subtasks, messages, mine, myTasks] = await Promise.all([
           todoApi.today(),
           todoApi.assignedSubtasks(),
           messageApi.listActive(),
           todoApi.listMine(),
           projectTaskApi.assignedToMe(),
-          activityApi.recent(8),
         ]);
+        const activity = isTeamMember ? [] : await activityApi.recent(8);
         setTodaysTodo(today);
         setAssignedSubtasks(subtasks);
         setPinnedMessages(messages.filter((m) => m.pinned));
-        setAssignedProjectTasks(myTasks.filter((t) => t.status !== 'Completed').slice(0, 6));
+        setAssignedProjectTasks(isTeamMember ? myTasks : myTasks.filter((t) => t.status !== 'Completed').slice(0, 6));
         setRecentActivity(activity);
 
         const todayStr = new Date().toISOString().slice(0, 10);
@@ -174,7 +183,7 @@ const Dashboard = () => {
       }
     };
     fetchPlanner();
-  }, []);
+  }, [isTeamMember]);
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
@@ -283,6 +292,19 @@ const Dashboard = () => {
       </div>
     );
   }
+
+  if (isTeamMember) {
+    return <TeamMemberDashboard name={user?.name || 'Team member'} workday={dailyWorkday} tasks={assignedProjectTasks} projects={recentProjects} messages={pinnedMessages}/>;
+  }
+
+  const roleDashboardData = {
+    name: user?.name || 'Leader', projects: visibleProjects, risks: visibleRisks,
+    blockers: visibleBlockers, unassigned: visibleUnassigned, capacity,
+    agentQueue: agentReviewQueue, workday: dailyWorkday,
+  };
+  if (user?.role === 'Project Manager') return <ProjectManagerDashboard {...roleDashboardData}/>;
+  if (isLead(user?.role)) return <TechLeadDashboard {...roleDashboardData} taskGroups={portfolioTasks.filter(({ project }) => inWorkstream(project))}/>;
+  if (isSuperAdmin(user?.role)) return <CeoDashboard {...roleDashboardData} totalProjects={stats.totalProjects} completedProjects={stats.completedProjects} teamSize={stats.totalMembers}/>;
 
   return (
     <div className="animate-fade-in dashboard-compact">
