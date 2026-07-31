@@ -71,13 +71,25 @@ export const workdayService = {
     return mapWorkday(await workdayRepository.findForUserAndDate(actor.id, dubaiDate()));
   },
 
+  async getCarryover(actor: Actor) {
+    const previous = mapWorkday(await workdayRepository.findLatestBeforeDate(actor.id, dubaiDate()));
+    if (!previous) return [];
+    return previous.items.filter((item: any) =>
+      Boolean(item.project) &&
+      item.status !== 'Completed' &&
+      item.task?.status !== 'Completed' &&
+      item.project?.status !== 'Completed'
+    );
+  },
+
   async start(input: {
     focus: string;
-    items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string }>;
+    remarks?: string;
+    items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string }>;
   }, actor: Actor) {
     const existing = await workdayRepository.findForUserAndDate(actor.id, dubaiDate());
     if (existing) return mapWorkday(existing);
-    if (input.items.length < 1 || input.items.length > 3) throw badRequest('Choose between one and three outcomes for today');
+    if (input.items.length < 1 || input.items.length > 20) throw badRequest('Choose between one and twenty tasks for today');
 
     for (const item of input.items) {
       const project = await projectRepository.findById(item.projectId);
@@ -96,12 +108,14 @@ export const workdayService = {
       user_id: actor.id,
       work_date: dubaiDate(),
       focus: input.focus.trim(),
+      remarks: input.remarks?.trim() || null,
     });
     await workdayRepository.addItems(workday.id, input.items.map((item) => ({
       project_id: item.projectId,
       task_id: item.taskId || null,
       title: item.title.trim(),
       planned_outcome: item.plannedOutcome.trim(),
+      progress_note: item.remarks?.trim() || null,
     })));
     await activityLogRepository.create({
       action: 'Workday Started', user_id: actor.id, project_id: input.items[0]?.projectId,

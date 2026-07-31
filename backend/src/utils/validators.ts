@@ -207,12 +207,14 @@ const workdayItemStatusSchema = z.enum(['Planned', 'In Progress', 'Completed', '
 
 export const startWorkdaySchema = z.object({
   focus: z.string().trim().min(3).max(240),
+  remarks: z.string().max(2000).optional(),
   items: z.array(z.object({
     projectId: z.string().uuid(),
     taskId: z.string().uuid().optional(),
     title: z.string().trim().min(1).max(180),
     plannedOutcome: z.string().trim().min(3).max(500),
-  })).min(1).max(3),
+    remarks: z.string().max(1000).optional(),
+  })).min(1).max(20),
 });
 
 export const updateWorkdayItemSchema = z.object({
@@ -230,7 +232,7 @@ export const finishWorkdaySchema = z.object({
     status: workdayItemStatusSchema,
     progressNote: z.string().max(1000).optional(),
     blockerReason: z.string().max(1000).optional(),
-  })).min(1).max(3),
+  })).min(1).max(20),
 });
 
 const planTaskDraftSchema = z.object({

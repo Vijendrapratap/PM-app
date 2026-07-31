@@ -43,11 +43,13 @@ export interface TeamPulseEntry {
 
 export interface StartWorkdayPayload {
   focus: string;
-  items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string }>;
+  remarks?: string;
+  items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string }>;
 }
 
 export const workdayApi = {
   today: () => api.get<Workday | null>('/workdays/today').then((response) => response.data),
+  carryover: () => api.get<WorkdayItem[]>('/workdays/carryover').then((response) => expectArray<WorkdayItem>(response.data)),
   start: (payload: StartWorkdayPayload) => api.post<Workday>('/workdays/start', payload).then((response) => response.data),
   updateItem: (itemId: string, payload: { status?: WorkdayItemStatus; progressNote?: string; blockerReason?: string }) =>
     api.patch<Workday>(`/workdays/items/${itemId}`, payload).then((response) => response.data),

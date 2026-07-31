@@ -13,6 +13,10 @@ export const getToday = asyncHandler(async (req: Request, res: Response) => {
   res.json(await workdayService.getToday(actorOf(req)));
 });
 
+export const getCarryover = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await workdayService.getCarryover(actorOf(req)));
+});
+
 export const startWorkday = asyncHandler(async (req: Request, res: Response) => {
   res.status(201).json(await workdayService.start(req.body, actorOf(req)));
 });
