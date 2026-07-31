@@ -25,6 +25,7 @@ The system therefore optimizes for five outcomes:
 | User’s role and agent workflow description | Provided | Two agents are required; Govind approves or edits outputs; CEO, PM, and Lead can edit; Team Members are project-scoped. |
 | Reference 1: Taskify dashboard | Observed | Labeled left navigation, compact utility header, summary strip, view switcher, task-first kanban, dense readable work cards. |
 | Reference 2: warm fitness dashboard | Observed | Inset warm shell, compact rail, dark calendar, yellow signal accent, asymmetric bento layout, repeated progress rows, soft surfaces. |
+| Reference 3: “Black and Gold Elegance” palette | Provided / observed | White `#FFFFFF`, light gray `#E5E5E5`, orange-gold `#FCA311`, navy `#14213D`, and black `#000000`; user explicitly requested light gold and bone in place of yellow/orange and cool gray. |
 | Existing repository | Observed | React/Vite frontend, Express/Supabase backend, authentication, three roles, projects, tasks/subtasks, uploaded documents, point notifications, activity logs, and newly added workday flow already exist. |
 | Current role utilities | Observed | Team Member, Lead, Project Manager, and Super Admin are modeled; role dashboards still share too much presentation and need distinct information priorities. |
 | Current project screen | Observed | Project information, updates, tasks, uploads, documentation checklist, and daily reports exist in one long page but lack a stable tabbed workspace and versioned approvals. |
@@ -37,11 +38,12 @@ The system therefore optimizes for five outcomes:
 |---|---|---|
 | Warm neutral canvas and soft inset application shell from Reference 2 | Replace fitness content with project health, approvals, agent runs, blockers, and delivery work | Exact layout proportions and card placement |
 | Labeled navigation and task-first board from Reference 1 | Make navigation role-aware and use existing Pratap AI task data | Taskify logo, copy, IDs, card composition, and brand assets |
-| Collapsible navigation behavior across both references | Default to labeled light sidebar; collapse to icon rail on demand | Either reference's navigation icons or exact spacing |
+| Collapsible navigation behavior across both references | Default to labeled midnight-navy sidebar; collapse to icon rail on demand | Either reference's navigation icons or exact spacing |
 | Near-black calendar/attention module | Build person-by-day delivery calendar and approval modules | Training-day calendar semantics and dates |
-| One vivid yellow signal color and coral exception color | Align the yellow with the existing bronze/champagne brand | Calorie colors, metrics, labels, and bubble sizes |
+| One warm signal accent and a separate exception color | Use restrained light gold for selection and vermilion only for blockers | Calorie colors, metrics, labels, and bubble sizes |
 | Asymmetric high/low density composition | Make project workspace tabs canonical rather than showing everything at once | Workout bubble visualization as a literal project chart |
 | Compact repeated progress rows | Use for features, tasks, team-day outcomes, and approval items | Habit/trainer content and row copy |
+| Strong navy/black anchoring and crisp white contrast from Reference 3 | Warm the cool gray into bone and soften orange into light gold; retain vermilion only for blockers | The reference image, exact swatch composition, furniture imagery, title treatment, and saturated orange |
 
 ## Product model and workflow
 
@@ -153,7 +155,7 @@ The calendar is a projection, not a separate planning tool.
 
 - Manager desktop view: team members as rows, days as columns; outcomes and tasks as compact blocks.
 - Member view: personal day/week with planned outcomes, deadlines, and meetings if later integrated.
-- Blocked work is coral, completed work is green, approved scheduled work is yellow-gold, absence is muted hatch.
+- Blocked work is vermilion, completed work is green, approved scheduled work is light gold, absence is muted hatch.
 - Clicking a block opens a side panel with project, task, acceptance criteria, status, blocker, owner, and edit permissions.
 - Filters: project, person, status, department, and work type.
 - Never use it to reward long hours; show outcome load, overlap, and aged blockers.
@@ -175,7 +177,7 @@ Agents should execute in a background worker/queue, use structured JSON contract
 
 ## Final design stance
 
-Build a warm task cockpit: Taskify's immediate navigation and board clarity combined with Reference 2's inset shell, asymmetric bento rhythm, and yellow-on-charcoal focus surfaces. Team Members land directly on simple task updates; Govind, Anush, and Pratap progressively gain decisions, team visibility, portfolio scope, and Agent Studio access. Automation stays visible but quiet: agents appear as accountable draft authors and configurable services, not a separate chatbot universe.
+Build a midnight bone operations studio: Taskify's immediate navigation and board clarity combined with an inset bone shell, asymmetric bento rhythm, deep navy navigation, black focus actions, crisp white work surfaces and restrained light-gold signals. Team Members land directly on simple task updates; Govind, Anush, and Pratap progressively gain decisions, team visibility, portfolio scope, and Agent Studio access. Automation stays visible but quiet: agents appear as accountable draft authors and configurable services, not a separate chatbot universe.
 
 ## Risks and explicit unknowns
 
@@ -199,3 +201,4 @@ Build a warm task cockpit: Taskify's immediate navigation and board clarity comb
 - [ ] Calendar highlights load and blockers without ranking people by hours.
 - [ ] Responsive and keyboard workflows cover planning review, document review, and task updates.
 - [ ] The UI follows the reference qualities without copying its protected content or exact composition.
+- [ ] Core UI uses navy, black, white, bone and light gold; saturated orange/yellow is absent outside semantic warning states.

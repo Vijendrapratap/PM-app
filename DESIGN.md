@@ -2,9 +2,9 @@
 
 ## 1. Visual Theme & Atmosphere
 
-**Direction: Warm task cockpit.** The product should feel focused, capable, and human: Taskify-like clarity for navigation and boards inside the warm, asymmetric bento shell of the second reference. A quiet neutral canvas, crisp work surfaces, one charcoal focus surface, and one yellow-gold signal color make routine task updates fast without making the product feel like surveillance software.
+**Direction: Midnight bone operations studio.** The product should feel focused, capable, and quietly premium: task-first clarity inside a bone application shell, anchored by deep navy navigation and black primary actions. White work surfaces keep dense information readable, while a soft light-gold accent adds warmth without the visual loudness of saturated yellow.
 
-Reference 1 contributes a labeled collapsible sidebar, utility header, compact task summaries, prominent kanban controls, and dense readable work cards. Reference 2 contributes the inset warm shell, asymmetric bento composition, near-black calendar/decision surface, generous internal spacing, and small areas of vivid signal color. The product must not copy either reference's brand, exact card arrangement, icons, copy, or domain-specific visualizations.
+Reference 1 contributes a labeled collapsible sidebar, utility header, compact task summaries, prominent kanban controls, and dense readable work cards. Reference 2 contributes the inset shell, asymmetric bento composition, dark calendar/decision surface, generous internal spacing, and small areas of signal color. Reference 3 contributes the black, navy, white and light-neutral contrast structure; its orange is deliberately softened into light gold and its cool gray is warmed into bone. The product must not copy any reference's brand, exact card arrangement, icons, copy, or domain-specific visualizations.
 
 Every screen should have one dominant decision area. Supporting information should be quieter and progressively disclosed. Dense operational screens may contain significant data, but never as an undifferentiated wall of cards.
 
@@ -14,30 +14,30 @@ Use color by meaning, not decoration.
 
 | Token | Value | Use |
 |---|---:|---|
-| Canvas | `#E8E4DC` | App background outside the primary shell |
-| Shell | `#F8F6F1` | Main application frame |
-| Surface | `#FFFDF8` | Primary work surfaces and forms |
-| Warm surface | `#D6CEBC` | Featured summaries and calm data regions |
-| Ink | `#1C1D22` | Primary text and dark panels |
-| Ink raised | `#25272E` | Hovered dark surfaces |
-| Secondary text | `#69665F` | Explanations and metadata |
-| Muted text | `#918B81` | Timestamps and low-priority labels |
-| Signal yellow | `#E6C24A` | Primary action, active day, selected dates |
-| Completion green | `#78956D` | Approved, completed, healthy |
-| Blocker coral | `#D96855` | Blocked, failed, destructive actions |
-| Review amber | `#B88A35` | Awaiting approval, at risk |
+| Bone canvas | `#EDE8DC` | App background outside the primary shell |
+| Bone shell | `#F5F1E7` | Main application frame and quiet panels |
+| White surface | `#FFFFFF` | Primary work surfaces and forms |
+| Light neutral | `#E5E5E5` | Dividers, disabled controls and secondary fills |
+| Midnight navy | `#14213D` | Navigation, featured panels and primary text |
+| Black | `#000000` | Highest-emphasis actions and compact focus surfaces |
+| Secondary text | `#4F586A` | Explanations and metadata |
+| Muted text | `#777E89` | Timestamps and low-priority labels |
+| Light gold | `#D8C27A` | Selected states, active indicators and warm highlights |
+| Deep gold | `#9B7D35` | Accessible links, labels and focus borders on light surfaces |
+| Completion green | `#2F7D5B` | Approved, completed and healthy |
+| Blocker vermilion | `#D9533F` | Blocked, failed and destructive actions only |
 
 Rules:
 
-- Yellow-gold is the single product accent; do not introduce purple or electric-blue gradients.
-- Coral is reserved for exceptions and blockers, never generic decoration.
-- Use near-black panels for calendar, approval queue, and decision-focused modules—not random page sections.
-- Meet WCAG AA contrast for text and controls. Never put small white text on signal yellow.
+- Light gold is the single decorative accent; do not use saturated yellow/orange, purple, or electric-blue gradients.
+- Vermilion is reserved for exceptions and blockers, never generic decoration.
+- Use midnight navy or black for navigation, calendar, approval queues and decision-focused modules—not random page sections.
+- Meet WCAG AA contrast for text and controls. Light gold carries navy text, never small white text.
 
 ## 3. Typography
 
-- Display and navigation: `Space Grotesk`, weights 600–700.
-- Body and controls: `Inter`, weights 400–650.
+- Display and navigation: `Outfit`, weights 600–750.
+- Body and controls: `Manrope`, weights 400–700.
 - Data: use tabular numerals via `font-variant-numeric: tabular-nums`.
 - Page title: 32–44px desktop, 28–34px tablet/mobile; tracking `-0.04em`.
 - Section title: 18–22px; compact line height.
@@ -60,7 +60,7 @@ Rules:
 
 ### Global shell
 
-A light, labeled navigation sidebar anchors the product and can collapse to an icon rail. The main shell sits on the warm canvas with a soft 24px radius. The top bar contains breadcrumbs, command search, notifications, quick creation where authorized, and identity. Role changes both content priority and available navigation, so Team Members never see organization-admin destinations.
+A midnight-navy labeled navigation sidebar anchors the product and can collapse to an icon rail. The main shell sits on the bone canvas with a soft 24px radius. The top bar remains white and contains breadcrumbs, command search, notifications, quick creation where authorized, and identity. Role changes both content priority and available navigation, so Team Members never see organization-admin destinations.
 
 ### Role dashboards
 
@@ -152,7 +152,7 @@ The voice is direct, specific, and supportive. It should make ownership clear wi
 - Do not show all organizational data to Team Members.
 - Do not notify everyone for each keystroke; emit meaningful saved-change events and batch low-priority activity.
 - Do not make dashboards collections of equal white cards with decorative icons.
-- Do not use purple-blue AI gradients, glowing robot avatars, chat bubbles as the primary workflow, or “Ask AI” buttons everywhere.
+- Do not use saturated yellow/orange, purple-blue AI gradients, glowing robot avatars, chat bubbles as the primary workflow, or “Ask AI” buttons everywhere.
 - Do not hide project information across unrelated pages; the project workspace is the canonical home.
 - Do not calculate employee value from logged hours. Highlight completed outcomes, aging blockers, scope stability, and forecast confidence.
 - Do not copy the reference’s exact fitness layout, calorie bubbles, brand, copy, or imagery.

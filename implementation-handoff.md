@@ -40,7 +40,8 @@
 - One project/feature/task record powers board, calendar, workday, progress, and dashboards.
 - Use event-driven notifications after successful writes; group low-value edits.
 - Preserve the existing React, Express, and Supabase stack.
-- Use a labeled light sidebar, compact utility header, Space Grotesk + Inter, warm neutrals, charcoal, yellow-gold, coral, and green from `DESIGN.md`.
+- Use a labeled midnight-navy sidebar, compact white utility header, Outfit + Manrope, bone canvas, white surfaces, black primary actions, and light-gold highlights from `DESIGN.md`.
+- Binding palette: navy `#14213D`, black `#000000`, white `#FFFFFF`, light neutral `#E5E5E5`, bone `#F5F1E7`, light gold `#D8C27A`, deep gold `#9B7D35`; vermilion is semantic blocker/destructive color only.
 - No purple/blue AI gradients, robot imagery, generic chat-first agent UI, or equal-card dashboard grids.
 
 ## First artifact should prove
