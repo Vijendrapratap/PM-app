@@ -1,5 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
 import { authApi } from '../api/authApi';
+import { DEMO_SESSION_TOKEN } from '../api';
 
 export interface AuthUser {
   _id: string;
@@ -37,7 +38,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       setLoading(false);
       return;
     }
-    if (token === 'demo-local-session') {
+    if (token === DEMO_SESSION_TOKEN) {
       setUser({ _id: 'demo-pm', name: 'Maya Pratap', email: 'maya@pratap.ai', role: 'Super Admin', department: 'Operations' });
       setIsDemo(true);
       setLoading(false);
@@ -62,7 +63,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, []);
 
   const startDemo = useCallback(() => {
-    localStorage.setItem('token', 'demo-local-session');
+    localStorage.setItem('token', DEMO_SESSION_TOKEN);
     sessionStorage.removeItem(ACK_STORAGE_KEY);
     setIsDemo(true);
     setUser({ _id: 'demo-pm', name: 'Maya Pratap', email: 'maya@pratap.ai', role: 'Super Admin', department: 'Operations' });

@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+export const DEMO_SESSION_TOKEN = 'demo-local-session';
+
 // Deliberately never throws here: this module is imported transitively by
 // almost every page/hook, so a throw at this top level runs during initial
 // module evaluation - before React even mounts - and blanks the entire app
@@ -59,7 +61,17 @@ api.interceptors.request.use(
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error?.response?.status === 401 && window.location.pathname !== '/login') {
+    const token = localStorage.getItem('token');
+    // The demo workspace is intentionally local-only. Some non-dashboard
+    // screens still probe the real API, where the demo token correctly gets
+    // a 401. That response must remain a normal page-level loading error; it
+    // must never destroy the local demo session or bounce the visitor back to
+    // login.
+    if (
+      error?.response?.status === 401 &&
+      token !== DEMO_SESSION_TOKEN &&
+      window.location.pathname !== '/login'
+    ) {
       localStorage.removeItem('token');
       window.location.href = '/login';
     }
