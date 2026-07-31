@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LogIn, Play, Eye, EyeOff } from 'lucide-react';
+import { LogIn, Eye, EyeOff, Crown, Workflow, UserRound, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import type { DemoPersona } from '../context/demoPersonas';
 import { getErrorMessage } from '../utils/errorMessage';
 
 const Login = () => {
@@ -15,6 +16,11 @@ const Login = () => {
   const [submitting, setSubmitting] = useState(false);
   const [showDemoHint, setShowDemoHint] = useState(false);
 
+  const launchDemo = (persona: DemoPersona) => {
+    startDemo(persona);
+    navigate('/', { replace: true });
+  };
+
   if (!loading && user) {
     const redirectTo = (location.state as { from?: string } | null)?.from || '/';
     return <Navigate to={redirectTo} replace />;
@@ -26,7 +32,7 @@ const Login = () => {
     setSubmitting(true);
     try {
       if (email.trim().toLowerCase() === 'demo@pratap.ai' && password === 'Demo@123') {
-        startDemo();
+        startDemo('ceo');
         navigate((location.state as { from?: string } | null)?.from || '/', { replace: true });
         return;
       }
@@ -41,7 +47,7 @@ const Login = () => {
 
   return (
     <div className="auth-page">
-      <div className="auth-card animate-fade-in" style={{ maxWidth: '400px' }}>
+      <div className="auth-card demo-auth-card animate-fade-in">
         <div className="auth-header">
           <div className="sidebar-logo-icon">
             <img src="/brand/pratap-ai-mark.png" alt="Pratap AI" />
@@ -116,18 +122,32 @@ const Login = () => {
           >
             <LogIn size={15} /> {submitting ? 'Signing in...' : 'Sign In'}
           </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            style={{ width: '100%', justifyContent: 'center' }}
-            onClick={() => {
-              startDemo();
-              navigate('/');
-            }}
-          >
-            <Play size={14} /> Explore demo workspace
-          </button>
         </form>
+
+        <section className="demo-login-section" aria-labelledby="demo-login-title">
+          <div className="demo-login-heading">
+            <span>Or preview the platform</span>
+            <small>No password required</small>
+          </div>
+          <h2 id="demo-login-title">Choose a role</h2>
+          <div className="demo-persona-grid">
+            <button type="button" onClick={() => launchDemo('ceo')}>
+              <span className="demo-persona-icon"><Crown size={17}/></span>
+              <span><strong>CEO</strong><small>Pratap · company view</small></span>
+              <ArrowRight size={15}/>
+            </button>
+            <button type="button" onClick={() => launchDemo('delivery')}>
+              <span className="demo-persona-icon"><Workflow size={17}/></span>
+              <span><strong>PM / Tech Lead</strong><small>Govind & Anush · delivery</small></span>
+              <ArrowRight size={15}/>
+            </button>
+            <button type="button" onClick={() => launchDemo('team')}>
+              <span className="demo-persona-icon"><UserRound size={17}/></span>
+              <span><strong>Team member</strong><small>Alex · daily workspace</small></span>
+              <ArrowRight size={15}/>
+            </button>
+          </div>
+        </section>
 
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.5rem', marginBottom: 0 }}>
           Don't have an account?{' '}
@@ -147,8 +167,9 @@ const Login = () => {
           </button>
           {showDemoHint && (
             <div className="demo-hint-box animate-fade-in">
-              Demo Email: <strong>demo@pratap.ai</strong><br />
-              Password: <strong>Demo@123</strong>
+              CEO demo email: <strong>demo@pratap.ai</strong><br />
+              Password: <strong>Demo@123</strong><br />
+              <small>Use the role buttons above for PM or Team Member previews.</small>
             </div>
           )}
         </div>

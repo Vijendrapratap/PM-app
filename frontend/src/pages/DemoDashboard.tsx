@@ -1,45 +1,92 @@
-import { useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowUpRight, Lightbulb, Users, UserRoundX, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Code2, Workflow } from 'lucide-react';
+import DemoPersonaBar from '../components/DemoPersonaBar';
+import TeamMemberDemo from '../components/TeamMemberDemo';
+import { CeoDashboard, ProjectManagerDashboard, TechLeadDashboard } from '../components/LeadershipDashboards';
+import { useAuth } from '../context/AuthContext';
+import type { Project, ProjectDocument, Priority } from '../types';
+import type { ProjectTask } from '../api/projectTaskApi';
+import type { AgentReviewQueueItem } from '../api/agentWorkflowApi';
+import type { Workday } from '../api/workdayApi';
+
+const now = '2026-07-31T08:30:00.000Z';
+const member = (id: string, name: string, role = 'Team Member') => ({ _id: id, name, email: `${id}@pratap.ai`, role, status: 'Active' as const, department: 'Engineering', photo: null });
+const team = [member('alex', 'Alex Rivera'), member('meera', 'Meera Nair'), member('aarav', 'Aarav Shah'), member('zoya', 'Zoya Khan')];
+
+const project = (id: string, name: string, progress: number, priority: Priority, deadline: string, status = 'In Progress'): Project => ({
+  _id: id, name, description: null, category: 'Product', department: 'Engineering', status, priority,
+  startDate: '2026-07-06', estimatedCompletionDate: deadline, deadline, budget: null,
+  owner: { _id: 'govind', name: 'Govind' }, assignedMembers: team.slice(0, id === 'portal' ? 4 : 3),
+  tags: ['Delivery'], progress, documents: [] as ProjectDocument[], finalLinks: {}, finalNotes: null,
+  isLocked: false, archived: false, completionDate: null, createdAt: now, updatedAt: now,
+});
 
 const projects = [
-  { name: 'Content Engine & social publishing', stream: 'Pratap AI', status: 'Discovery', progress: 25, risk: false, team: 3 },
-  { name: 'Lead Generation Engine', stream: 'Pratap AI', status: 'Discovery', progress: 20, risk: false, team: 3 },
-  { name: 'WhatsApp Business automation', stream: 'Pratap AI', status: 'Planning', progress: 15, risk: false, team: 2 },
-  { name: 'AI clone video pipeline', stream: 'Pratap AI', status: 'Research', progress: 20, risk: false, team: 2 },
-  { name: 'Guruji voice cloning platform', stream: 'Vishvas Foundation', status: 'Model research', progress: 20, risk: false, team: 3 },
-  { name: 'Guruji RAG & knowledge graph chat', stream: 'Vishvas Foundation', status: 'Research', progress: 15, risk: false, team: 3 },
-  { name: 'Recruitment platform — ATS, parsing & AI interviews', stream: 'Recruitment Platform', status: 'Demo validation', progress: 55, risk: true, team: 4 },
-  { name: 'WhatsApp Business automation', stream: 'Real Estate', status: 'Discovery', progress: 15, risk: false, team: 2 },
-  { name: 'Property voice calling agent', stream: 'Real Estate', status: 'Discovery', progress: 15, risk: false, team: 3 },
-  { name: 'Blueprint-to-walkthrough video', stream: 'Real Estate', status: 'Discovery', progress: 10, risk: false, team: 3 },
-  { name: 'Lead Generation Engine', stream: 'Real Estate', status: 'Planning', progress: 20, risk: false, team: 3 },
-  { name: 'Content & social publishing engine', stream: 'Real Estate', status: 'Planning', progress: 20, risk: false, team: 2 },
-  { name: 'Competitor ad analysis', stream: 'Real Estate', status: 'Discovery', progress: 10, risk: false, team: 2 },
-  { name: 'Competitor Analysis — Gold', stream: "Sunny's Project", status: 'Discovery', progress: 15, risk: false, team: 2 },
-  { name: 'Gold market sentiment analysis', stream: "Sunny's Project", status: 'Discovery', progress: 15, risk: false, team: 2 },
-  { name: 'Competition analysis — Resort', stream: "Sunny's Project", status: 'Discovery', progress: 15, risk: false, team: 2 },
-  { name: 'Niko Salon', stream: "Sunny's Project", status: 'Planning', progress: 20, risk: false, team: 2 },
-  { name: 'Clinical chatbot', stream: "Sunny's Project", status: 'Planning', progress: 20, risk: false, team: 2 },
-  { name: 'Content Brain', stream: "Sunny's Project", status: 'On hold', progress: 25, risk: false, team: 0 },
-  { name: 'Export Package agent', stream: "Sunny's Project", status: 'Awaiting BRD approval', progress: 10, risk: true, team: 1 },
-  { name: 'Loan vending Excel dashboard', stream: "Sunny's Project", status: 'Awaiting BRD approval', progress: 10, risk: true, team: 1 },
-];
-const people = [
-  ['Maya Pratap', 'Available', 6], ['Arjun Shah', 'Busy', 8], ['Lina Ahmed', 'Available', 4], ['Samir Khan', 'Available', 2], ['Aisha Noor', 'On Leave', 0],
+  project('portal', 'Customer Portal V2', 78, 'High', '2026-08-18'),
+  project('agents', 'Agent Operations Studio', 46, 'Critical', '2026-08-08'),
+  project('recruitment', 'AI Recruitment Platform', 62, 'High', '2026-08-22'),
+  project('content', 'Content Engine', 31, 'Medium', '2026-09-05', 'Planning'),
 ];
 
-const DemoDashboard = () => {
-  const [scope, setScope] = useState('All workstreams');
-  const shown = useMemo(() => projects.filter((p) => scope === 'All workstreams' || p.stream === scope), [scope]);
-  const risks = shown.filter((p) => p.risk);
-  const unassigned = scope === 'Client delivery' ? 1 : scope === 'Internal systems' ? 2 : 3;
-  return <div className="animate-fade-in">
-    <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between' }}><div><div className="eyebrow"><Zap size={14} /> Demo workspace</div><h1 className="page-title">Portfolio command center</h1><p className="page-subtitle">Sample operational data — safe to explore without connecting your database.</p></div><span className="badge badge-info">Demo mode</span></div>
-    <section className="decision-panel"><div className="decision-panel-title"><div><span>Decision queue</span><small>Resolve these before planning new work</small></div><label className="workstream-filter">Portfolio scope <select value={scope} onChange={(e) => setScope(e.target.value)}>{['All workstreams', 'Pratap AI', 'Vishvas Foundation', 'Recruitment Platform', 'Real Estate', "Sunny's Project"].map((item) => <option key={item}>{item}</option>)}</select></label></div><div className="decision-grid"><div className="decision-item danger"><AlertTriangle size={19}/><div><strong>{risks.length} projects at risk</strong><span>{risks[0]?.name ?? 'No approval or delivery risks detected'}</span></div></div><div className="decision-item"><UserRoundX size={19}/><div><strong>{unassigned} unassigned tasks</strong><span>Assign an owner before the next stand-up</span></div></div><Link to="/ideas" className="decision-item"><Lightbulb size={19}/><div><strong>2 ideas ready to plan</strong><span>AI reporting assistant</span></div><ArrowUpRight size={15}/></Link></div></section>
-    <div className="grid grid-cols-4 gap-4 mb-8">{[['Active initiatives', projects.length], ['At-risk delivery', risks.length], ['Portfolio areas', 5], ['Team members', 5]].map(([label, value]) => <div className="stat-card blue" key={String(label)}><div className="stat-value">{value}</div><div className="stat-label">{label}</div><div className="stat-desc">Demo portfolio data</div></div>)}</div>
-    <div className="grid grid-cols-3 gap-6"><section className="col-span-2 section-card"><div className="section-card-header"><div className="section-card-title">Portfolio overview</div><span style={{fontSize: '.72rem', color:'var(--text-muted)'}}>{shown.length} initiatives in scope</span></div><table className="data-table"><thead><tr><th>Initiative</th><th>Portfolio area</th><th>Status</th><th>Progress</th></tr></thead><tbody>{shown.map((project) => <tr key={`${project.stream}-${project.name}`}><td><strong style={{fontSize:'.86rem'}}>{project.name}</strong>{project.risk && <span className="badge badge-danger" style={{marginLeft:'.5rem'}}>Needs attention</span>}</td><td>{project.stream}</td><td>{project.status}</td><td><div style={{display:'flex', gap:'.5rem', alignItems:'center'}}><div className="progress-bar" style={{width:60}}><div className="progress-fill" style={{width:`${project.progress}%`}} /></div>{project.progress}%</div></td></tr>)}</tbody></table></section><section className="section-card"><div className="section-card-header"><div className="section-card-title">Immediate focus</div></div><div className="section-card-body"><p style={{color:'var(--text-secondary)',fontSize:'.82rem',lineHeight:1.7}}>Validate the recruitment platform demo. Send BRDs for Export Package Agent and Loan Vending Dashboard. For Vishvas Foundation, benchmark voice models and knowledge-graph RAG quality.</p></div></section></div>
-    <section className="capacity-card"><div className="capacity-header"><div><div className="eyebrow"><Users size={13}/> Team capacity</div><h2>Open work by owner</h2><p>Sample workload shows how the real dashboard balances assignments.</p></div></div><div className="capacity-list">{people.map(([name, availability, tasks]) => { const level = Number(tasks) >= 8 ? 'high' : Number(tasks) >= 4 ? 'medium' : 'low'; return <div className="capacity-member" key={String(name)}><div className="avatar">{String(name).charAt(0)}</div><div className="capacity-name"><strong>{name}</strong><span>{availability} · {tasks} open tasks</span></div><div className={`capacity-meter ${level}`}><i style={{width:`${Math.min(Number(tasks) / 8 * 100, 100)}%`}}/></div></div>; })}</div></section>
-  </div>;
+const task = (id: string, projectId: string, title: string, status: ProjectTask['status'], assignedTo: string | null, dueDate: string, priority: Priority = 'High', blockerReason: string | null = null): ProjectTask => ({
+  _id: id, projectId, title, description: null, blockerReason, dueDate, priority, status,
+  assignedTo: assignedTo ? { _id: assignedTo, name: team.find((person) => person._id === assignedTo)?.name || assignedTo } : null,
+  createdBy: { _id: 'govind', name: 'Govind' }, completedAt: null, documents: [], comments: [], subtasks: [], createdAt: now, updatedAt: now,
+});
+
+const taskGroups = [
+  { project: projects[0], tasks: [task('t1', 'portal', 'Mobile navigation regression', 'In Review', 'alex', '2026-08-02'), task('t2', 'portal', 'Staging CORS configuration', 'Blocked', 'meera', '2026-07-31', 'Critical', 'Waiting for DevOps environment access')] },
+  { project: projects[1], tasks: [task('t3', 'agents', 'Approval history interface', 'In Review', 'alex', '2026-08-03'), task('t4', 'agents', 'Business Analyst document versioning', 'In Progress', 'zoya', '2026-08-04'), task('t5', 'agents', 'Agent run observability', 'Pending', null, '2026-08-05')] },
+  { project: projects[2], tasks: [task('t6', 'recruitment', 'Interview scoring calibration', 'Blocked', 'aarav', '2026-08-02', 'High', 'Needs approved evaluation rubric'), task('t7', 'recruitment', 'Candidate consent flow', 'In Review', 'meera', '2026-08-06')] },
+  { project: projects[3], tasks: [task('t8', 'content', 'Define publishing adapters', 'Pending', null, '2026-08-12')] },
+];
+
+const agentQueue: AgentReviewQueueItem[] = [
+  { _id: 'run-1', agentType: 'Project Manager', status: 'Ready for review', provider: 'OpenRouter', completedAt: now, createdAt: now, workspace: 'plan', project: { _id: 'content', name: 'Content Engine', priority: 'Medium', deadline: '2026-09-05' } },
+  { _id: 'run-2', agentType: 'Business Analyst', status: 'Ready for review', provider: 'OpenRouter', completedAt: now, createdAt: now, workspace: 'documents', project: { _id: 'agents', name: 'Agent Operations Studio', priority: 'Critical', deadline: '2026-08-08' } },
+];
+
+const workday: Workday = {
+  _id: 'wd-demo', userId: 'demo-delivery', user: null, workDate: '2026-07-31', status: 'Open',
+  focus: 'Clear approvals and remove the two delivery blockers', checkInAt: now, checkOutAt: null,
+  completedSummary: null, blockers: null, remarks: null, items: [], createdAt: now, updatedAt: now,
 };
+
+const capacity = [
+  { _id: 'alex', name: 'Alex Rivera', availability: 'Busy', openTasks: 5, overdueTasks: 0 },
+  { _id: 'meera', name: 'Meera Nair', availability: 'Available', openTasks: 4, overdueTasks: 1 },
+  { _id: 'aarav', name: 'Aarav Shah', availability: 'Busy', openTasks: 6, overdueTasks: 2 },
+  { _id: 'zoya', name: 'Zoya Khan', availability: 'Available', openTasks: 3, overdueTasks: 0 },
+];
+
+const blockers = taskGroups.flatMap(({ project: itemProject, tasks }) => tasks.filter((item) => item.status === 'Blocked').map((item) => ({ project: itemProject, task: item })));
+const unassigned = taskGroups.flatMap(({ project: itemProject, tasks }) => tasks.filter((item) => !item.assignedTo).map((item) => ({ project: itemProject, task: item })));
+const shared = { projects, risks: [projects[1]], blockers, unassigned, capacity, agentQueue, workday };
+
+const DemoDashboard = () => {
+  const { demoPersona } = useAuth();
+  const [deliveryView, setDeliveryView] = useState<'pm' | 'lead'>('pm');
+
+  return (
+    <div className="demo-role-workspace">
+      <DemoPersonaBar />
+      {demoPersona === 'team' && <TeamMemberDemo />}
+      {demoPersona === 'delivery' && <>
+        <div className="delivery-demo-toggle">
+          <div><span>Delivery leadership view</span><small>PM and Tech Lead share the same source of truth with different decision priorities.</small></div>
+          <div>
+            <button type="button" className={deliveryView === 'pm' ? 'active' : ''} onClick={() => setDeliveryView('pm')}><Workflow size={14}/>Govind · PM</button>
+            <button type="button" className={deliveryView === 'lead' ? 'active' : ''} onClick={() => setDeliveryView('lead')}><Code2 size={14}/>Anush · Tech Lead</button>
+          </div>
+        </div>
+        {deliveryView === 'pm'
+          ? <ProjectManagerDashboard name="Govind" {...shared}/>
+          : <TechLeadDashboard name="Anush MK" {...shared} taskGroups={taskGroups}/>
+        }
+      </>}
+      {(!demoPersona || demoPersona === 'ceo') && <CeoDashboard name="Pratap" {...shared} totalProjects={9} completedProjects={3} teamSize={12}/>}
+    </div>
+  );
+};
+
 export default DemoDashboard;
