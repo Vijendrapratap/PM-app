@@ -82,6 +82,12 @@ export const agentWorkflowRepository = {
     return data;
   },
 
+  async findRunById(id: string) {
+    const { data, error } = await supabase.from('agent_runs').select(RUN_SELECT).eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
   async nextPlanVersion(projectId: string) {
     const { data, error } = await supabase
       .from('project_plan_versions')
@@ -149,6 +155,23 @@ export const agentWorkflowRepository = {
   },
 
   async publishFeaturesAndTasks(projectId: string, planId: string, content: ProjectPlanContent, actorId: string) {
+    const milestoneNames = [...new Set(content.features.map((feature) => feature.milestone?.trim() || 'Delivery'))];
+    const { data: currentMilestones, error: currentMilestonesError } = await supabase
+      .from('milestones')
+      .select('id, name')
+      .eq('project_id', projectId)
+      .is('archived_at', null);
+    if (currentMilestonesError) throw currentMilestonesError;
+    const milestoneIds = new Map((currentMilestones || []).map((milestone) => [milestone.name.toLowerCase(), milestone.id]));
+    const missingMilestones = milestoneNames.filter((name) => !milestoneIds.has(name.toLowerCase()));
+    if (missingMilestones.length) {
+      const { data: createdMilestones, error: milestoneError } = await supabase.from('milestones').insert(
+        missingMilestones.map((name, sequence) => ({ project_id: projectId, name, sequence: (currentMilestones?.length || 0) + sequence, status: 'PLANNED' }))
+      ).select('id, name');
+      if (milestoneError) throw milestoneError;
+      (createdMilestones || []).forEach((milestone) => milestoneIds.set(milestone.name.toLowerCase(), milestone.id));
+    }
+
     const { data: existing, error: existingError } = await supabase
       .from('project_features')
       .select('id, source_key')
@@ -176,6 +199,29 @@ export const agentWorkflowRepository = {
     }
 
     const featureIds = new Map((features || []).map((feature) => [feature.source_key, feature.id]));
+    const { data: currentDeliverables, error: currentDeliverablesError } = await supabase
+      .from('deliverables')
+      .select('id, name, milestone_id')
+      .eq('project_id', projectId)
+      .is('archived_at', null);
+    if (currentDeliverablesError) throw currentDeliverablesError;
+    const deliverableIds = new Map((currentDeliverables || []).map((deliverable) => [`${deliverable.milestone_id}:${deliverable.name.toLowerCase()}`, deliverable.id]));
+    for (const feature of content.features) {
+      const milestoneId = milestoneIds.get((feature.milestone?.trim() || 'Delivery').toLowerCase());
+      const deliverableKey = `${milestoneId}:${feature.title.toLowerCase()}`;
+      if (!deliverableIds.has(deliverableKey)) {
+        const { data: deliverable, error: deliverableError } = await supabase.from('deliverables').insert({
+          project_id: projectId,
+          milestone_id: milestoneId,
+          name: feature.title,
+          description: feature.outcome || feature.description,
+          acceptance_criteria_json: feature.acceptanceCriteria,
+          status: 'PLANNED',
+        }).select('id').single();
+        if (deliverableError) throw deliverableError;
+        deliverableIds.set(deliverableKey, deliverable.id);
+      }
+    }
     const { data: existingTasks, error: existingTasksError } = await supabase
       .from('project_tasks')
       .select('agent_source_key')
@@ -187,6 +233,8 @@ export const agentWorkflowRepository = {
       .map((task) => ({
       project_id: projectId,
       feature_id: featureIds.get(feature.key),
+      milestone_id: milestoneIds.get((feature.milestone?.trim() || 'Delivery').toLowerCase()),
+      deliverable_id: deliverableIds.get(`${milestoneIds.get((feature.milestone?.trim() || 'Delivery').toLowerCase())}:${feature.title.toLowerCase()}`),
       source_plan_version_id: planId,
       agent_source_key: task.key,
       title: task.title,
@@ -234,16 +282,31 @@ export const agentWorkflowRepository = {
 
   async createDocumentVersion(input: {
     document_id: string;
-    agent_run_id: string;
+    agent_run_id?: string | null;
     version: number;
     content: string;
     structured_content: Record<string, unknown>;
     created_by: string;
+    sources_json?: unknown[];
+    missing_information_json?: unknown[];
+    generated_by_agent?: boolean;
   }) {
     const { data, error } = await supabase.from('project_knowledge_document_versions')
       .insert({ ...input, status: 'In review' })
       .select('*')
       .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async findDocumentById(id: string) {
+    const { data, error } = await supabase.from('project_knowledge_documents').select(DOCUMENT_SELECT).eq('id', id).maybeSingle();
+    if (error) throw error;
+    return data;
+  },
+
+  async updateDocumentVersionStatus(id: string, status: 'Draft' | 'In review') {
+    const { data, error } = await supabase.from('project_knowledge_document_versions').update({ status, updated_at: new Date().toISOString() }).eq('id', id).neq('status', 'Approved').select('*').maybeSingle();
     if (error) throw error;
     return data;
   },

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
   FolderKanban, CheckCircle2, Users, Layers,
@@ -137,7 +137,7 @@ const Dashboard = () => {
         const unassigned = taskGroups.flatMap(({ project, tasks }) => tasks
           .filter((task) => task.status !== 'Completed' && !task.assignedTo)
           .map((task) => ({ task, project })));
-        setDecisionQueue({ atRisk, unassigned, plannedIdeas: ideas.filter((idea) => idea.status === 'Planned').slice(0, 4) });
+        setDecisionQueue({ atRisk, unassigned, plannedIdeas: ideas.filter((idea) => idea.status === 'APPROVED').slice(0, 4) });
       } catch (error) {
         console.error('Failed to load stats', error);
       } finally {
@@ -258,7 +258,7 @@ const Dashboard = () => {
   }, [allProjects, isAdmin, user]);
 
   const workstreams = ['All portfolios', ...PROJECT_PORTFOLIOS];
-  const inWorkstream = (project: Project) => workstream === 'All portfolios' || getProjectPortfolio(project) === workstream;
+  const inWorkstream = useCallback((project: Project) => workstream === 'All portfolios' || getProjectPortfolio(project) === workstream, [workstream]);
   const visibleProjects = recentProjects.filter(inWorkstream);
   const visibleRisks = decisionQueue.atRisk.filter(inWorkstream);
   const visibleUnassigned = decisionQueue.unassigned.filter(({ project }) => inWorkstream(project));
@@ -275,7 +275,7 @@ const Dashboard = () => {
     portfolioTasks.filter(({ project }) => inWorkstream(project)).forEach(({ tasks }) => tasks.forEach((task) => { register(task); task.subtasks.forEach(register); }));
     return teamMembers.filter((member) => member.status === 'Active').map((member) => ({ ...member, openTasks: counts.get(member._id) || 0, overdueTasks: overdue.get(member._id) || 0 }))
       .sort((a, b) => b.overdueTasks - a.overdueTasks || b.openTasks - a.openTasks || a.name.localeCompare(b.name));
-  }, [portfolioTasks, teamMembers, workstream]);
+  }, [portfolioTasks, teamMembers, inWorkstream]);
 
   if (loading) {
     return (

@@ -40,7 +40,7 @@ export const localAgentDraftProvider = {
       ],
       features: [
         {
-          key: 'discovery-alignment', title: 'Discovery and scope alignment',
+          key: 'discovery-alignment', milestone: 'Scope agreed', title: 'Discovery and scope alignment',
           outcome: 'The team shares one testable definition of the problem, users, scope, and success.',
           description, acceptanceCriteria: ['Primary users and their needs are documented', 'In-scope and out-of-scope boundaries are approved', 'Success measures and open questions have owners'],
           priority: 'High', estimateDays: 3, confidence: 'High',
@@ -51,7 +51,7 @@ export const localAgentDraftProvider = {
           ],
         },
         {
-          key: 'solution-foundation', title: isWeb ? 'Experience and solution foundation' : 'Solution foundation',
+          key: 'solution-foundation', milestone: 'Solution ready', title: isWeb ? 'Experience and solution foundation' : 'Solution foundation',
           outcome: 'The team has an agreed structure, primary flow, and implementation approach.',
           description: 'Translate approved requirements into the smallest coherent solution that can be built and reviewed.',
           acceptanceCriteria: ['Primary workflow is mapped end to end', 'Data and integration boundaries are identified', 'Reviewable solution direction is approved'],
@@ -63,7 +63,7 @@ export const localAgentDraftProvider = {
           ],
         },
         {
-          key: 'core-delivery', title: 'Core delivery',
+          key: 'core-delivery', milestone: 'Core delivery complete', title: 'Core delivery',
           outcome: 'The approved primary workflow works in a review environment with meaningful data.',
           description: 'Implement the core outcome in small reviewable increments and keep task state tied to acceptance criteria.',
           acceptanceCriteria: ['Primary workflow works end to end', 'Access and validation rules are enforced', 'Stakeholders can review a deployed or runnable increment'],
@@ -75,7 +75,7 @@ export const localAgentDraftProvider = {
           ],
         },
         {
-          key: 'quality-release', title: 'Quality, release, and handover',
+          key: 'quality-release', milestone: 'Release accepted', title: 'Quality, release, and handover',
           outcome: 'The agreed release is verified, documented, approved, and supportable.',
           description: 'Validate the end-to-end outcome, resolve release blockers, and complete operational handover.',
           acceptanceCriteria: ['Critical acceptance criteria pass', 'Release blockers are resolved or explicitly accepted', 'Documentation and ownership are handed over'],
@@ -124,6 +124,14 @@ export const localAgentDraftProvider = {
       '', '## Approval', '', 'Status: Waiting for review', '', 'Approver: Govind / Project Manager',
     ].join('\n');
 
-    return { content, structuredContent: { summary: plan.summary, featureCount: plan.features.length, openQuestions: plan.questions } };
+    return { content, structuredContent: {
+      summary: plan.summary, featureCount: plan.features.length,
+      classifications: [
+        ...plan.features.map((feature) => ({ label: 'Confirmed Requirement', text: feature.outcome, source: `Approved project plan feature: ${feature.key}` })),
+        ...plan.assumptions.map((text) => ({ label: 'Assumption', text, source: 'Approved project plan' })),
+        ...plan.questions.map((text) => ({ label: 'Open Question', text, source: 'Approved project plan' })),
+      ],
+      openQuestions: plan.questions,
+    } };
   },
 };

@@ -1,11 +1,12 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  AlertTriangle, ArrowLeft, ArrowRight, Bell, Bot, Briefcase, CalendarDays,
+  AlertTriangle, ArrowLeft, ArrowRight, Bot, Briefcase, CalendarDays,
   Check, CheckCircle2, Code2, Columns3, FileText, FolderKanban, Lightbulb,
   ListChecks, LogOut, Play, Plus, RefreshCw, Save, Sparkles, ThumbsUp,
   Timer, UserCheck, Workflow, X,
 } from 'lucide-react';
 import SharedStartDayPlanner, { type DayPlanResult } from './SharedStartDayPlanner';
+import { createDemoProject } from '../context/demoProjects';
 
 type Persona = 'pm' | 'lead';
 type Domain = 'ENGINEERING' | 'SALES' | 'MARKETING';
@@ -102,8 +103,6 @@ const initialTasks: DeliveryTask[] = [
 ];
 
 const statusLabel: Record<TaskStatus, string> = { todo: 'To do', in_progress: 'In progress', review: 'Review', completed: 'Completed', blocked: 'Blocked' };
-const formatTimer = (seconds: number) => [Math.floor(seconds / 3600), Math.floor((seconds % 3600) / 60), seconds % 60].map((part) => String(part).padStart(2, '0')).join(':');
-
 const DeliveryDialog = ({ title, description, icon, wide, onClose, children }: { title: string; description: string; icon: ReactNode; wide?: boolean; onClose: () => void; children: ReactNode }) => (
   <div className="dl-dialog-backdrop" onMouseDown={onClose}>
     <section className={`dl-dialog ${wide ? 'wide' : ''}`} role="dialog" aria-modal="true" aria-label={title} onMouseDown={(event) => event.stopPropagation()}>
@@ -113,7 +112,7 @@ const DeliveryDialog = ({ title, description, icon, wide, onClose, children }: {
   </div>
 );
 
-const DeliveryLeadershipDemo = () => {
+const DeliveryLeadershipDemo = ({ planRequest }: { planRequest?: string }) => {
   const [persona, setPersona] = useState<Persona>('pm');
   const [domain, setDomain] = useState<Domain>('ENGINEERING');
   const [view, setView] = useState<View>('desk');
@@ -121,11 +120,9 @@ const DeliveryLeadershipDemo = () => {
   const [tasks, setTasks] = useState(initialTasks);
   const [selectedProjectId, setSelectedProjectId] = useState('');
   const [dayStarted, setDayStarted] = useState(false);
-  const [elapsed, setElapsed] = useState(0);
-  const [startTime, setStartTime] = useState('');
+  const handledPlanRequest = useRef<string | undefined>(undefined);
   const [modal, setModal] = useState<'launch' | 'task' | 'start' | 'finish' | 'blocker' | null>(null);
-  const [notificationOpen, setNotificationOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
+  const [, setNotifications] = useState([
     { id: 'n1', title: 'Agent plan ready', detail: 'Content Engine plan is ready for Govind’s review.', time: '6m' },
     { id: 'n2', title: 'Blocker escalated', detail: 'Meera needs staging access for Customer Portal V2.', time: '18m' },
     { id: 'n3', title: 'Task moved to review', detail: 'Alex submitted PR #342 for Anush.', time: '41m' },
@@ -146,10 +143,11 @@ const DeliveryLeadershipDemo = () => {
   const [promptSaved, setPromptSaved] = useState(false);
 
   useEffect(() => {
-    if (!dayStarted) return;
-    const interval = window.setInterval(() => setElapsed((value) => value + 1), 1000);
-    return () => window.clearInterval(interval);
-  }, [dayStarted]);
+    if (planRequest && handledPlanRequest.current !== planRequest) {
+      handledPlanRequest.current = planRequest;
+      setModal(dayStarted ? 'finish' : 'start');
+    }
+  }, [dayStarted, planRequest]);
 
   const currentName = persona === 'pm' ? 'Govind' : 'Anush';
   const currentRole = persona === 'pm' ? 'Project Manager' : 'Tech Lead';
@@ -173,7 +171,6 @@ const DeliveryLeadershipDemo = () => {
   };
 
   const startPlannedDay = (plan: DayPlanResult) => {
-    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
     setTasks((current) => {
       const existingIds = new Set(current.map((task) => task.id));
       const added: DeliveryTask[] = plan.tasks.filter((task) => !existingIds.has(task.id)).map((task) => {
@@ -183,7 +180,6 @@ const DeliveryLeadershipDemo = () => {
       return [...added, ...current];
     });
     setDayStarted(true);
-    setStartTime(time);
     setModal(null);
     broadcast('Workday started', `${currentName} committed to ${plan.tasks.length} priority tasks.`);
   };
@@ -213,6 +209,7 @@ const DeliveryLeadershipDemo = () => {
   const launchProject = () => {
     if (!projectName.trim()) return;
     const id = `project-${Date.now()}`;
+    createDemoProject({ id, name: projectName.trim(), description: projectBrief.trim(), department: domain === 'ENGINEERING' ? 'Engineering' : domain === 'MARKETING' ? 'Marketing' : 'Sales', category: 'Delivery project', priority: 'High', status: 'Planning', owner: { _id: 'demo-delivery', name: currentName }, tags: ['pm-agent'] });
     const generatedTasks: DeliveryTask[] = (breakdown || []).flatMap((group, groupIndex) => group.tasks.map((title, index) => ({ id: `${id}-${groupIndex}-${index}`, title, projectId: id, project: projectName.trim(), domain, status: 'todo' as const, priority: index === 0 ? 'High' as const : 'Medium' as const, estimate: index === 0 ? '3 hrs' : '2 hrs', assignee: index === 0 ? 'Alex Rivera' : 'Zoya Khan', module: group.module })));
     setProjects((current) => [{ id, name: projectName.trim(), domain, description: projectBrief.trim(), lead: `${currentName} (${currentRole})`, progress: 0, status: 'Planning', due: 'Sep 4', members: [currentName, 'Alex Rivera', 'Zoya Khan'], docs: [{ title: 'Initial scope and technical brief', type: 'PM Agent draft' }] }, ...current]);
     setTasks((current) => [...generatedTasks, ...current]);
@@ -223,8 +220,7 @@ const DeliveryLeadershipDemo = () => {
   const nav: Array<{ id: View; label: string; icon: typeof Briefcase; count?: number }> = [
     { id: 'desk', label: 'Delivery desk', icon: Workflow },
     { id: 'projects', label: 'Projects & boards', icon: FolderKanban, count: domainProjects.length },
-    { id: 'blockers', label: 'Blockers', icon: AlertTriangle, count: blockers.length },
-    { id: 'agents', label: 'Agent controls', icon: Bot, count: 2 },
+    { id: 'blockers', label: 'Risks & blockers', icon: AlertTriangle, count: blockers.length },
   ];
 
   const TaskRow = ({ task }: { task: DeliveryTask }) => <article className={`dl-task-row ${task.status}`}>
@@ -244,12 +240,6 @@ const DeliveryLeadershipDemo = () => {
 
     <section className="dl-command-bar">
       <nav>{nav.map(({ id, label, icon: Icon, count }) => <button className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={15}/><span>{label}</span>{count !== undefined && <b>{count}</b>}</button>)}</nav>
-      <div className="dl-command-actions">
-        <div className="dl-notifications"><button aria-label="Notifications" onClick={() => setNotificationOpen(!notificationOpen)}><Bell size={16}/><i/></button>{notificationOpen && <aside><header><strong>Team broadcast feed</strong><button onClick={() => setNotifications([])}>Clear all</button></header>{notifications.length ? notifications.map((item) => <article key={item.id}><span/><div><strong>{item.title}</strong><p>{item.detail}</p></div><small>{item.time}</small></article>) : <p className="dl-empty">No unread updates.</p>}</aside>}</div>
-        <button className="dl-blocker-action" onClick={() => setModal('blocker')}><AlertTriangle size={15}/>Report blocker</button>
-        <button className="dl-launch" onClick={() => setModal('launch')}><Plus size={15}/>Add project</button>
-        {dayStarted ? <div className="dl-session"><i/><span><small>Started {startTime}</small><strong>{formatTimer(elapsed)}</strong></span><button onClick={() => setModal('finish')}><LogOut size={14}/></button></div> : <button className="dl-start" onClick={() => setModal('start')}><Play size={14}/>Start day</button>}
-      </div>
     </section>
 
     {view === 'desk' && <>
@@ -259,7 +249,7 @@ const DeliveryLeadershipDemo = () => {
       <section className="dl-schedule"><header><span><CalendarDays size={16}/>Today’s team schedule</span><small>Friday, July 31 · {config.label}</small></header><div>{config.schedule.map((item) => <article key={item.time}><time>{item.time}</time><div><strong>{item.title}</strong><p>{item.type} · {item.duration}</p></div></article>)}</div></section>
       <div className="dl-desk-grid">
         <section className="dl-work-panel"><header><div><span><ListChecks size={17}/>Team work focus</span><p>{persona === 'pm' ? 'Tasks across the department that need coordination.' : 'Technical work that needs review or dependency support.'}</p></div><button onClick={() => setModal('task')}><Plus size={15}/>Assign task</button></header><div className="dl-work-summary"><span><strong>{domainTasks.filter((task) => task.status === 'in_progress').length}</strong> in progress</span><span><strong>{domainTasks.filter((task) => task.status === 'review').length}</strong> waiting review</span><span className="danger"><strong>{domainTasks.filter((task) => task.status === 'blocked').length}</strong> blocked</span></div><div className="dl-task-list">{domainTasks.map((task) => <TaskRow task={task} key={task.id}/>)}</div></section>
-        <aside className="dl-side-stack"><section className="dl-agent-queue"><header><span><Bot size={16}/>Agent review queue</span><b>2</b></header><article><span>PM</span><div><strong>Content Engine plan</strong><p>Features, tasks and estimates ready</p></div><button><ArrowRight size={14}/></button></article><article><span>BA</span><div><strong>Agent Studio BRD</strong><p>Document version ready for approval</p></div><button><ArrowRight size={14}/></button></article><button onClick={() => setView('agents')}>Open agent controls<ArrowRight size={14}/></button></section><section className="dl-project-rail"><header><span>Active projects</span><button onClick={() => setView('projects')}>View all</button></header>{domainProjects.map((project) => <button key={project.id} onClick={() => { setSelectedProjectId(project.id); setView('projects'); }}><div><strong>{project.name}</strong><p>{project.lead} · due {project.due}</p></div><span><i style={{ width: `${project.progress}%` }}/></span><b>{project.progress}%</b></button>)}</section></aside>
+        <aside className="dl-side-stack"><section className="dl-project-rail"><header><span>Active projects</span><button onClick={() => setView('projects')}>View all</button></header>{domainProjects.map((project) => <button key={project.id} onClick={() => { setSelectedProjectId(project.id); setView('projects'); }}><div><strong>{project.name}</strong><p>{project.lead} · due {project.due}</p></div><span><i style={{ width: `${project.progress}%` }}/></span><b>{project.progress}%</b></button>)}</section></aside>
       </div>
     </>}
 

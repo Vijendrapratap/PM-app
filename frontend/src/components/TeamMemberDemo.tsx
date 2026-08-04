@@ -1,8 +1,8 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   AlertTriangle, ArrowRight, Briefcase, CalendarDays, Check, CheckCircle2,
   CheckSquare, Clock3, Code2, FileText, Flag, FolderKanban, LayoutGrid,
-  Lightbulb, List, LogOut, Paperclip, Play, Plus, Sparkles, ThumbsUp,
+  Lightbulb, List, LogOut, Paperclip, Plus, Sparkles, ThumbsUp,
   Timer, UserCheck, X, Zap,
 } from 'lucide-react';
 import SharedStartDayPlanner, { type DayPlanResult } from './SharedStartDayPlanner';
@@ -71,14 +71,13 @@ const Dialog = ({ title, description, icon, children, onClose, wide = false }: {
   </div>
 );
 
-const TeamMemberDemo = () => {
+const TeamMemberDemo = ({ planRequest }: { planRequest?: string }) => {
   const [view, setView] = useState<DemoView>('work');
   const [tasks, setTasks] = useState(initialTasks);
   const [filter, setFilter] = useState<'today' | 'pending' | 'completed' | 'all'>('today');
   const [taskLayout, setTaskLayout] = useState<'list' | 'board'>('list');
   const [dayStarted, setDayStarted] = useState(false);
   const [elapsed, setElapsed] = useState(0);
-  const [startTime, setStartTime] = useState('');
   const [dialog, setDialog] = useState<'start' | 'task' | 'blocker' | 'finish' | null>(null);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskProject, setTaskProject] = useState(projects[0].name);
@@ -97,12 +96,20 @@ const TeamMemberDemo = () => {
   const [finishSummary, setFinishSummary] = useState('');
   const [finishRemarks, setFinishRemarks] = useState('');
   const [savedCloseout, setSavedCloseout] = useState(false);
+  const handledPlanRequest = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (!dayStarted) return;
     const interval = window.setInterval(() => setElapsed((value) => value + 1), 1000);
     return () => window.clearInterval(interval);
   }, [dayStarted]);
+
+  useEffect(() => {
+    if (planRequest && handledPlanRequest.current !== planRequest) {
+      handledPlanRequest.current = planRequest;
+      setDialog(dayStarted ? 'finish' : 'start');
+    }
+  }, [dayStarted, planRequest]);
 
   const todayTasks = tasks.filter((task) => task.today);
   const completed = todayTasks.filter((task) => task.status === 'completed').length;
@@ -129,12 +136,7 @@ const TeamMemberDemo = () => {
     if (!startImmediately) setDialog(null);
   };
 
-  const openStartDay = () => {
-    setDialog('start');
-  };
-
   const beginDay = () => {
-    setStartTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
     setDayStarted(true);
     setSavedCloseout(false);
     setDialog(null);
@@ -213,10 +215,6 @@ const TeamMemberDemo = () => {
         <nav className="tm-tabs" aria-label="Team member demo sections">
           {navItems.map(({ id, label, icon: Icon, badge }) => <button type="button" className={`${view === id ? 'active' : ''} ${id === 'blockers' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(id)} key={id}><Icon size={14}/><span>{label}</span>{badge ? <b>{badge}</b> : null}</button>)}
         </nav>
-        <div className="tm-command-actions">
-          <button className="tm-blocker-button" type="button" onClick={() => setDialog('blocker')}><AlertTriangle size={14}/>Report blocker</button>
-          {dayStarted ? <div className="tm-live-session"><span className="tm-live-dot"/><div><small>Started {startTime}</small><strong>{formatTimer(elapsed)}</strong></div><button type="button" onClick={() => setDialog('finish')}><LogOut size={14}/>End day</button></div> : <button className="tm-start-button" type="button" onClick={openStartDay}><Play size={14}/>Start day</button>}
-        </div>
       </section>
 
       {savedCloseout && <div className="tm-success-note"><CheckCircle2 size={15}/><span>Today’s closeout was saved. Govind and Anush can now see the summary, blockers and remarks.</span><button type="button" onClick={() => setSavedCloseout(false)}><X size={14}/></button></div>}

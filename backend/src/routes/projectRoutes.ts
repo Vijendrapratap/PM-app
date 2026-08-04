@@ -16,6 +16,9 @@ import {
   addProjectMember,
   removeProjectMember,
   addProjectDocuments,
+  getProjectOverview,
+  setProjectHealth,
+  getProjectActivity,
 } from '../controllers/projectController';
 import { upload } from '../middleware/upload';
 import { protect, requireManager, requireProjectAccess, requireSuperAdmin } from '../middleware/auth';
@@ -27,6 +30,7 @@ import {
   saveDailyReportSchema,
   finishProjectSchema,
   addProjectMemberSchema,
+  setProjectHealthSchema,
 } from '../utils/validators';
 import projectTaskRoutes from './projectTaskRoutes';
 import {
@@ -36,22 +40,27 @@ import {
   runBusinessAnalystAgent,
   runProjectManagerAgent,
   updateKnowledgeDocumentVersion,
+  listKnowledgeDocuments,
+  createKnowledgeDocument,
   updatePlanDraft,
 } from '../controllers/agentWorkflowController';
 import { runAgentSchema, updateKnowledgeDocumentSchema, updatePlanDraftSchema } from '../utils/validators';
+import { createMilestone, listMilestones } from '../controllers/hierarchyController';
+import { createMilestoneSchema } from '../utils/validators';
+import { getProjectCaseStudy } from '../controllers/caseStudyController';
 
 const router = express.Router();
 
 router.use(protect);
 
-// Every authenticated user can view every project (transparent portal);
-// only a Super Admin can create/edit/delete/archive one at the project level.
+// Project listing is scoped in the service to CEO-wide access or projects
+// owned by / assigned to the current user. Managers may create projects.
 router.route('/')
   .post(requireManager, upload.array('documents', 5), validateBody(createProjectSchema), createProject)
   .get(getProjects);
 
-// Every project-specific route below this point is scoped. Managers can see
-// all projects; Leads and Team Members must be assigned to the project.
+// Every project-specific route below this point revalidates ownership or
+// membership. Hidden client controls are never the authorization boundary.
 router.use('/:id', requireProjectAccess);
 
 router.route('/:id')
@@ -69,7 +78,8 @@ router.route('/:id/updates')
   .post(upload.array('documents', 5), validateBody(addUpdateSchema), addUpdate)
   .get(getProjectUpdates);
 
-router.post('/:id/documents', upload.array('documents', 5), addProjectDocuments);
+router.get('/:id/documents', listKnowledgeDocuments);
+router.post('/:id/documents', (req, res, next) => req.is('application/json') ? createKnowledgeDocument(req, res, next) : upload.array('documents', 5)(req, res, (error) => error ? next(error) : addProjectDocuments(req, res, next)));
 
 router.route('/:id/daily-reports')
   .get(getProjectDailyReports)
@@ -84,6 +94,12 @@ router.route('/:id/finish')
 // creation time via CreateProjectModal) is part of Super Admin team management.
 router.post('/:id/members', requireManager, validateBody(addProjectMemberSchema), addProjectMember);
 router.delete('/:id/members/:userId', requireManager, removeProjectMember);
+router.get('/:id/milestones', listMilestones);
+router.post('/:id/milestones', validateBody(createMilestoneSchema), createMilestone);
+router.get('/:id/overview', getProjectOverview);
+router.post('/:id/health', validateBody(setProjectHealthSchema), setProjectHealth);
+router.get('/:id/activity', getProjectActivity);
+router.get('/:id/case-study', getProjectCaseStudy);
 
 router.get('/:id/agent-workflow', getAgentWorkspace);
 router.post('/:id/agents/project-manager/run', validateBody(runAgentSchema), runProjectManagerAgent);

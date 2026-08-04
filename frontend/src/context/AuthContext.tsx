@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, type React
 import { authApi } from '../api/authApi';
 import { DEMO_SESSION_TOKEN } from '../api';
 import { DEMO_PERSONAS, type AuthUser, type DemoPersona } from './demoPersonas';
+import { ACK_STORAGE_KEY } from './authStorage';
 
 const DEMO_PERSONA_KEY = 'demo-persona';
 
@@ -9,6 +10,7 @@ interface AuthContextValue {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string) => Promise<void>;
+  completeOnboarding: (input: { timezone: string; typicalWorkStart?: string; typicalWorkEnd?: string; notificationPreference?: 'IMMEDIATE_AND_DIGEST' | 'DIGEST_ONLY' }) => Promise<void>;
   startDemo: (persona?: DemoPersona) => void;
   logout: () => void;
   isDemo: boolean;
@@ -21,8 +23,6 @@ const AuthContext = createContext<AuthContextValue | null>(null);
 // until the next real login (not every page refresh). Clearing this on every
 // successful login - and nowhere else - gives exactly that behavior without a
 // server-side "seen" table. See ImportantMessageModal.
-export const ACK_STORAGE_KEY = 'acknowledgedMessageIds';
-
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
@@ -72,9 +72,17 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       name: result.name,
       email: result.email,
       role: result.role,
+      platformRole: result.platformRole,
+      designation: result.designation,
       department: result.department,
       photo: result.photo,
+      onboardingRequired: result.onboardingRequired,
     });
+  }, []);
+
+  const completeOnboarding = useCallback(async (input: { timezone: string; typicalWorkStart?: string; typicalWorkEnd?: string; notificationPreference?: 'IMMEDIATE_AND_DIGEST' | 'DIGEST_ONLY' }) => {
+    await authApi.completeOnboarding(input);
+    setUser((current) => current ? { ...current, onboardingRequired: false } : current);
   }, []);
 
   const startDemo = useCallback((persona: DemoPersona = 'ceo') => {
@@ -96,9 +104,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     setDemoPersona(null);
   }, []);
 
-  return <AuthContext.Provider value={{ user, loading, login, startDemo, logout, isDemo, demoPersona }}>{children}</AuthContext.Provider>;
+  return <AuthContext.Provider value={{ user, loading, login, completeOnboarding, startDemo, logout, isDemo, demoPersona }}>{children}</AuthContext.Provider>;
 };
 
+// Provider and hook intentionally share this module so every consumer uses
+// the same private context instance.
+// oxlint-disable-next-line react/only-export-components
 export const useAuth = (): AuthContextValue => {
   const ctx = useContext(AuthContext);
   if (!ctx) throw new Error('useAuth must be used within an AuthProvider');

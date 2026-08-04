@@ -1,9 +1,10 @@
 import { NextFunction, Request, Response } from 'express';
 import { verifyToken } from '../utils/jwt';
-import { canApproveAgentWork, canViewAllProjects, isSuperAdmin } from '../utils/roles';
+import { canApproveAgentWork, isSuperAdmin, toPlatformRole } from '../utils/roles';
 import { projectRepository } from '../repositories/projectRepository';
 import { userRepository } from '../repositories/userRepository';
 import { param } from '../utils/params';
+import { canViewProject } from '../policies/accessPolicy';
 
 // Re-checks the user's current status on every request (not just at login) so
 // that deactivating/deleting a user revokes access immediately instead of
@@ -18,13 +19,20 @@ export const protect = async (req: Request, res: Response, next: NextFunction): 
   try {
     const decoded = verifyToken(header.split(' ')[1]);
     const user = await userRepository.findById(decoded.id);
-    if (!user || user.deleted_at || user.status === 'Inactive') {
+    if (!user || user.deleted_at || user.status === 'Inactive' || ['INACTIVE', 'SUSPENDED'].includes(user.account_status || '')) {
       res.status(401).json({ message: 'Not authorized, account is inactive' });
       return;
     }
     // Use the database role rather than the role embedded in a potentially
     // month-old token. Role changes must take effect on the next request.
-    req.user = { id: user.id, role: user.role };
+    req.user = {
+      id: user.id,
+      role: user.role,
+      platformRole: toPlatformRole(user.platform_role || user.role),
+      organizationId: user.organization_id,
+      departmentId: user.department_id,
+      timezone: user.timezone || 'Asia/Dubai',
+    };
     next();
   } catch {
     res.status(401).json({ message: 'Not authorized, token failed' });
@@ -39,7 +47,8 @@ export const optionalAuth = (req: Request, _res: Response, next: NextFunction): 
   const header = req.headers.authorization;
   if (header && header.startsWith('Bearer ')) {
     try {
-      req.user = verifyToken(header.split(' ')[1]);
+      const decoded = verifyToken(header.split(' ')[1]);
+      req.user = { ...decoded, platformRole: toPlatformRole(decoded.role) };
     } catch {
       // Invalid/expired token on an optional route: proceed unauthenticated
       // rather than failing the request.
@@ -78,12 +87,27 @@ export const requireProjectAccess = async (req: Request, res: Response, next: Ne
     res.status(401).json({ message: 'Not authorized' });
     return;
   }
-  if (canViewAllProjects(req.user.role)) {
+  if (isSuperAdmin(req.user.platformRole)) {
     next();
     return;
   }
   try {
-    if (await projectRepository.isMemberAssigned(param(req, 'id'), req.user.id)) {
+    const project = await projectRepository.findById(param(req, 'id'));
+    if (!project) {
+      res.status(404).json({ message: 'Project not found' });
+      return;
+    }
+    const resource = {
+      organizationId: project.organization_id,
+      departmentId: project.department_id,
+      ownerUserId: project.owner_id,
+      members: (project.project_members || []).map((membership: any) => ({
+        userId: membership.user?.id,
+        projectRole: membership.project_role,
+        permissions: membership.permissions_json,
+      })),
+    };
+    if (canViewProject(req.user, resource)) {
       next();
       return;
     }
@@ -92,3 +116,5 @@ export const requireProjectAccess = async (req: Request, res: Response, next: Ne
     next(error);
   }
 };
+
+export const requireCEO = requireSuperAdmin;

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Megaphone, Pin } from 'lucide-react';
 import { useImportantMessages } from '../hooks/useImportantMessages';
-import { ACK_STORAGE_KEY } from '../context/AuthContext';
+import { ACK_STORAGE_KEY } from '../context/authStorage';
 import type { Priority } from '../types';
 
 const PRIORITY_BADGE: Record<Priority, string> = {

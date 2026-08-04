@@ -30,10 +30,19 @@ export interface DailyTodo {
   assignedTo: TaskPerson | null;
   createdBy: TaskPerson | null;
   completedAt: string | null;
+  domainType: 'PERSONAL' | 'DEVELOPMENT' | 'MARKETING' | 'SALES' | 'OPERATIONS';
+  workType: 'TASK' | 'MEETING' | 'UPDATE';
+  recurrence: 'NONE' | 'DAILY' | 'WEEKDAYS' | 'WEEKLY';
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  meetingWith: string | null;
+  channel: string | null;
   documents: { name: string; url: string }[];
   subtasks: Subtask[];
   createdAt: string;
   updatedAt: string;
+  source?: 'PERSONAL' | 'PROJECT';
+  project?: { _id: string; name: string; department?: string | null } | null;
 }
 
 export interface TodaysTodo {
@@ -47,6 +56,13 @@ export interface CreateTodoPayload {
   dueDate?: string;
   priority?: Priority;
   assignedTo?: string;
+  domainType?: DailyTodo['domainType'];
+  workType?: DailyTodo['workType'];
+  recurrence?: DailyTodo['recurrence'];
+  scheduledStart?: string | null;
+  scheduledEnd?: string | null;
+  meetingWith?: string | null;
+  channel?: string | null;
 }
 
 export interface CreateSubtaskPayload {

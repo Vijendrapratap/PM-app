@@ -18,6 +18,18 @@ export interface User {
   email: string;
   password_hash: string | null;
   role: string;
+  platform_role?: 'CEO' | 'MANAGER' | 'TEAM_MEMBER';
+  organization_id?: string;
+  designation?: string | null;
+  department_id?: string | null;
+  manager_user_id?: string | null;
+  timezone?: string | null;
+  daily_capacity_minutes?: number | null;
+  account_status?: 'INVITED' | 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' | null;
+  onboarding_completed_at?: string | null;
+  typical_work_start?: string | null;
+  typical_work_end?: string | null;
+  notification_preferences_json?: Record<string, unknown>;
   department: string | null;
   phone: string | null;
   skills: string[];
@@ -32,6 +44,18 @@ export interface User {
 
 export interface Project {
   id: string;
+  source_idea_id?: string | null;
+  organization_id?: string;
+  department_id?: string | null;
+  objective?: string | null;
+  expected_outcome?: string | null;
+  health?: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NOT_SET';
+  target_date?: string | null;
+  created_by?: string | null;
+  archived_at?: string | null;
+  health_note?: string | null;
+  health_updated_by?: string | null;
+  health_updated_at?: string | null;
   name: string;
   description: string | null;
   category: string | null;
@@ -130,6 +154,13 @@ export interface DailyTodo {
   assigned_to: string | null;
   created_by: string | null;
   completed_at: string | null;
+  domain_type: 'PERSONAL' | 'DEVELOPMENT' | 'MARKETING' | 'SALES' | 'OPERATIONS';
+  work_type: 'TASK' | 'MEETING' | 'UPDATE';
+  recurrence: 'NONE' | 'DAILY' | 'WEEKDAYS' | 'WEEKLY';
+  scheduled_start: string | null;
+  scheduled_end: string | null;
+  meeting_with: string | null;
+  channel: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -150,15 +181,28 @@ export interface DailyTodoSubtask {
 
 export interface ProjectTask {
   id: string;
+  organization_id?: string;
   project_id: string;
+  milestone_id?: string | null;
+  deliverable_id?: string | null;
+  department_type?: string | null;
+  task_type?: string | null;
   title: string;
   description: string | null;
   blocker_reason: string | null;
+  blocked?: boolean;
+  canonical_status?: 'BACKLOG' | 'READY' | 'IN_PROGRESS' | 'IN_REVIEW' | 'DONE' | 'CANCELLED' | 'DEFERRED' | null;
+  estimate_minutes?: number | null;
+  remaining_estimate_minutes?: number | null;
+  reviewer_user_id?: string | null;
+  review_requested_at?: string | null;
+  completion_note?: string | null;
   due_date: string | null;
   priority: Priority;
   status: TaskStatus;
   assigned_to: string | null;
   created_by: string | null;
+  reporter_user_id?: string | null;
   completed_at: string | null;
   created_at: string;
   updated_at: string;
@@ -181,12 +225,26 @@ export interface Idea {
   id: string;
   title: string;
   description: string;
-  status: 'Inbox' | 'Evaluating' | 'Planned' | 'Building' | 'Parked';
+  status: 'INBOX' | 'NEEDS_CLARIFICATION' | 'UNDER_REVIEW' | 'VALIDATING' | 'APPROVED' | 'INCUBATING' | 'CONVERTED_TO_PROJECT' | 'ARCHIVED' | 'REJECTED';
   impact: 'Low' | 'Medium' | 'High';
   effort: 'Small' | 'Medium' | 'Large';
   category: string | null;
   created_by: string;
   created_at: string;
+  organization_id?: string;
+  department_id?: string | null;
+  submitted_by?: string;
+  problem?: string;
+  proposed_solution?: string | null;
+  beneficiary?: string | null;
+  expected_value?: string | null;
+  business_value_score?: number | null;
+  strategic_alignment_score?: number | null;
+  urgency_score?: number | null;
+  delivery_effort_score?: number | null;
+  priority_score?: number | null;
+  converted_project_id?: string | null;
+  archived_at?: string | null;
 }
 
 export interface AppNotification {
@@ -218,6 +276,10 @@ export interface Workday {
   remarks: string | null;
   created_at: string;
   updated_at: string;
+  organization_id?: string;
+  timezone?: string | null;
+  plan_status?: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'REOPENED' | null;
+  generated_summary?: string | null;
 }
 
 export interface WorkdayItem {
@@ -232,9 +294,30 @@ export interface WorkdayItem {
   blocker_reason: string | null;
   created_at: string;
   updated_at: string;
+  source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY' | null;
+  planned_estimate_minutes?: number | null;
+  order_index?: number;
+  end_state?: string | null;
+  carryover_reason?: string | null;
+  carryover_count?: number;
 }
 
-export type AgentType = 'Project Manager' | 'Business Analyst';
+export interface WorkSession {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  daily_plan_id: string;
+  task_id: string | null;
+  status: 'ACTIVE' | 'PAUSED' | 'CLOSED';
+  started_at: string;
+  ended_at: string | null;
+  duration_minutes: number | null;
+  note: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type AgentType = 'Project Manager' | 'Business Analyst' | 'Case Study' | 'Daily Summary';
 export type AgentRunStatus = 'Queued' | 'Working' | 'Ready for review' | 'Approved' | 'Changes requested' | 'Failed';
 export type ReviewStatus = 'Draft' | 'In review' | 'Approved' | 'Superseded';
 
@@ -269,6 +352,7 @@ export interface PlanTaskDraft {
 
 export interface PlanFeatureDraft {
   key: string;
+  milestone?: string;
   title: string;
   outcome: string;
   description: string;

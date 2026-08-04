@@ -13,6 +13,12 @@ export interface WorkdayItem {
   status: WorkdayItemStatus;
   progressNote: string | null;
   blockerReason: string | null;
+  source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY';
+  plannedEstimateMinutes?: number | null;
+  orderIndex?: number;
+  endState?: string | null;
+  carryoverReason?: string | null;
+  carryoverCount?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -23,6 +29,7 @@ export interface Workday {
   user: { _id: string; name: string; email: string; role: string; department?: string | null; photo?: string | null } | null;
   workDate: string;
   status: 'Open' | 'Completed';
+  planStatus?: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'REOPENED';
   focus: string;
   checkInAt: string;
   checkOutAt: string | null;
@@ -44,7 +51,7 @@ export interface TeamPulseEntry {
 export interface StartWorkdayPayload {
   focus: string;
   remarks?: string;
-  items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string }>;
+  items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes?: number; carriedFromItemId?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
 }
 
 export const workdayApi = {
@@ -57,7 +64,7 @@ export const workdayApi = {
     completedSummary: string;
     blockers?: string;
     remarks?: string;
-    items: Array<{ id: string; status: WorkdayItemStatus; progressNote?: string; blockerReason?: string }>;
+    items: Array<{ id: string; status: WorkdayItemStatus; progressNote?: string; blockerReason?: string; endState?: 'DONE' | 'CARRY_OVER' | 'RESCHEDULED' | 'BACKLOG' | 'BLOCKED' | 'NO_LONGER_REQUIRED'; carryoverReason?: string }>;
   }) => api.post<Workday>('/workdays/finish', payload).then((response) => response.data),
   team: (date: string) => api.get<TeamPulseEntry[]>('/workdays/team', { params: { date } }).then((response) => expectArray<TeamPulseEntry>(response.data)),
 };

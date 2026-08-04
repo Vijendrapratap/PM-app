@@ -48,8 +48,34 @@ export const workdayRepository = {
     return data as WorkdayItem | null;
   },
 
-  async create(input: Pick<Workday, 'user_id' | 'work_date' | 'focus'> & { remarks?: string | null }) {
+  async create(input: Pick<Workday, 'user_id' | 'work_date' | 'focus'> & {
+    remarks?: string | null;
+    organization_id: string;
+    timezone: string;
+    plan_status?: 'ACTIVE' | 'DRAFT';
+    primary_outcome?: string;
+  }) {
     const { data, error } = await supabase.from('workdays').insert(input).select('*').single();
+    if (error) throw error;
+    return data as Workday;
+  },
+
+  async activateEmptyPlan(id: string, input: { focus: string; primary_outcome: string; remarks?: string | null }) {
+    const { data, error } = await supabase
+      .from('workdays')
+      .update({
+        focus: input.focus,
+        primary_outcome: input.primary_outcome,
+        remarks: input.remarks || null,
+        status: 'Open',
+        plan_status: 'ACTIVE',
+        check_in_at: new Date().toISOString(),
+        started_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select('*')
+      .single();
     if (error) throw error;
     return data as Workday;
   },
@@ -60,6 +86,12 @@ export const workdayRepository = {
     title: string;
     planned_outcome: string;
     progress_note?: string | null;
+    source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY';
+    planned_estimate_minutes?: number | null;
+    order_index?: number;
+    carried_from_item_id?: string | null;
+    carryover_reason?: string | null;
+    carryover_count?: number;
   }>) {
     const { error } = await supabase.from('workday_items').insert(
       items.map((item) => ({ ...item, workday_id: workdayId }))
@@ -71,6 +103,8 @@ export const workdayRepository = {
     status?: WorkdayItemStatus;
     progress_note?: string | null;
     blocker_reason?: string | null;
+    end_state?: string | null;
+    carryover_reason?: string | null;
   }) {
     const { data, error } = await supabase
       .from('workday_items')
@@ -87,8 +121,11 @@ export const workdayRepository = {
       .from('workdays')
       .update({
         status: 'Completed',
+        plan_status: 'CLOSED',
         check_out_at: new Date().toISOString(),
+        closed_at: new Date().toISOString(),
         completed_summary: input.completed_summary,
+        generated_summary: input.completed_summary,
         blockers: input.blockers || null,
         remarks: input.remarks || null,
         updated_at: new Date().toISOString(),
@@ -100,15 +137,34 @@ export const workdayRepository = {
     return data as Workday;
   },
 
-  async findTeamForDate(workDate: string) {
+  async reopen(id: string, reopenedCount: number) {
+    const { data, error } = await supabase
+      .from('workdays')
+      .update({
+        status: 'Open',
+        plan_status: 'REOPENED',
+        check_out_at: null,
+        closed_at: null,
+        reopened_count: reopenedCount,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', id)
+      .select(WORKDAY_SELECT)
+      .single();
+    if (error) throw error;
+    return data;
+  },
+
+  async findTeamForDate(workDate: string, organizationId: string) {
     const [{ data: users, error: usersError }, { data: workdays, error: workdaysError }] = await Promise.all([
       supabase
         .from('users')
-        .select('id, name, email, role, department, photo, availability')
+        .select('id, name, email, role, department, department_id, photo, availability')
+        .eq('organization_id', organizationId)
         .eq('status', 'Active')
         .is('deleted_at', null)
         .order('name'),
-      supabase.from('workdays').select(WORKDAY_SELECT).eq('work_date', workDate).order('check_in_at'),
+      supabase.from('workdays').select(WORKDAY_SELECT).eq('organization_id', organizationId).eq('work_date', workDate).order('check_in_at'),
     ]);
     if (usersError) throw usersError;
     if (workdaysError) throw workdaysError;

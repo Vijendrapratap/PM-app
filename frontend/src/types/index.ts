@@ -3,6 +3,9 @@ export interface Member {
   name: string;
   email: string;
   role: string;
+  platformRole?: 'CEO' | 'MANAGER' | 'TEAM_MEMBER';
+  designation?: string | null;
+  departmentId?: string | null;
   phone?: string | null;
   department?: string | null;
   status: 'Active' | 'Inactive';

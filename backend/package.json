@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "tsx --test src/**/*.test.ts",
     "dev": "nodemon src/server.ts",
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",

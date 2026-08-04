@@ -16,6 +16,18 @@ export interface UpsertProjectPayload {
   demoVideo?: string;
 }
 
+export interface ProjectActivityEvent {
+  _id: string;
+  eventType: string;
+  entityType: string;
+  entityId: string | null;
+  actorType: 'USER' | 'AGENT' | 'SYSTEM';
+  actor: { _id: string; name: string; photo?: string | null } | null;
+  payload: Record<string, unknown>;
+  correlationId: string;
+  createdAt: string;
+}
+
 export const projectApi = {
   list: (includeArchived = false) =>
     api
@@ -23,6 +35,7 @@ export const projectApi = {
       .then((res) => expectArray<Project>(res.data)),
 
   getById: (id: string) => api.get<Project>(`/projects/${id}`).then((res) => res.data),
+  getActivity: (id: string) => api.get<ProjectActivityEvent[]>(`/projects/${id}/activity`).then((res) => expectArray<ProjectActivityEvent>(res.data)),
 
   create: (data: FormData) =>
     api.post<Project>('/projects', data, { headers: { 'Content-Type': 'multipart/form-data' } }).then((res) => res.data),

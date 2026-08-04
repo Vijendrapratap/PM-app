@@ -5,13 +5,16 @@ import { getErrorMessage } from '../utils/errorMessage';
 import type { Member, Priority, TaskStatus } from '../types';
 import TaskDetailPanel from './TaskDetailPanel';
 
-const BOARD_COLUMNS: { status: TaskStatus; label: string }[] = [
-  { status: 'Pending', label: 'To Do' },
-  { status: 'In Progress', label: 'In Progress' },
-  { status: 'Blocked', label: 'Blocked' },
-  { status: 'In Review', label: 'In Review' },
-  { status: 'Completed', label: 'Done' },
+type CanonicalTaskStatus = NonNullable<ProjectTask['canonicalStatus']>;
+const BOARD_COLUMNS: { status: CanonicalTaskStatus; label: string }[] = [
+  { status: 'BACKLOG', label: 'Backlog' },
+  { status: 'READY', label: 'Ready' },
+  { status: 'IN_PROGRESS', label: 'In Progress' },
+  { status: 'IN_REVIEW', label: 'Review' },
+  { status: 'DONE', label: 'Done' },
 ];
+
+const canonicalStatus = (task: ProjectTask): CanonicalTaskStatus => task.canonicalStatus || ({ Pending: 'BACKLOG', 'In Progress': 'IN_PROGRESS', 'In Review': 'IN_REVIEW', Completed: 'DONE', Blocked: 'IN_PROGRESS' } as Record<TaskStatus, CanonicalTaskStatus>)[task.status];
 
 const PRIORITY_BADGE: Record<string, string> = {
   Low: 'badge-neutral',
@@ -27,6 +30,7 @@ const SubtaskRow = ({
   canManage,
   currentUserId,
   onChange,
+  onError,
 }: {
   projectId: string;
   task: ProjectTask;
@@ -34,6 +38,7 @@ const SubtaskRow = ({
   canManage: boolean;
   currentUserId?: string;
   onChange: () => void;
+  onError: (message: string) => void;
 }) => {
   const canTick = canManage || subtask.assignedTo?._id === currentUserId;
 
@@ -43,18 +48,14 @@ const SubtaskRow = ({
         status: subtask.status === 'Completed' ? 'Pending' : 'Completed',
       });
       onChange();
-    } catch {
-      // surfaced via parent list refresh; keep row interaction simple
-    }
+    } catch (reason) { onError(getErrorMessage(reason, 'The subtask status could not be updated.')); }
   };
 
   const remove = async () => {
     try {
       await projectTaskApi.removeSubtask(projectId, task._id, subtask._id);
       onChange();
-    } catch {
-      // no-op
-    }
+    } catch (reason) { onError(getErrorMessage(reason, 'The subtask could not be removed.')); }
   };
 
   return (
@@ -83,6 +84,7 @@ const TaskCard = ({
   currentUserId,
   onChange,
   onOpen,
+  onError,
 }: {
   projectId: string;
   task: ProjectTask;
@@ -91,6 +93,7 @@ const TaskCard = ({
   currentUserId?: string;
   onChange: () => void;
   onOpen: () => void;
+  onError: (message: string) => void;
 }) => {
   const [open, setOpen] = useState(false);
   const [addingSubtask, setAddingSubtask] = useState(false);
@@ -102,13 +105,13 @@ const TaskCard = ({
   const canTick = canManage || task.assignedTo?._id === currentUserId;
 
   const toggleComplete = async () => {
-    await projectTaskApi.update(projectId, task._id, { status: task.status === 'Completed' ? 'Pending' : 'Completed' }).catch(() => {});
-    onChange();
+    try { await projectTaskApi.update(projectId, task._id, { status: task.status === 'Completed' ? 'Pending' : 'Completed' }); onChange(); }
+    catch (reason) { onError(getErrorMessage(reason, 'The task status could not be updated.')); }
   };
 
   const removeTask = async () => {
-    await projectTaskApi.remove(projectId, task._id).catch(() => {});
-    onChange();
+    try { await projectTaskApi.remove(projectId, task._id); onChange(); }
+    catch (reason) { onError(getErrorMessage(reason, 'The task could not be removed.')); }
   };
 
   const addSubtask = async (e: React.FormEvent) => {
@@ -122,13 +125,15 @@ const TaskCard = ({
       setSubtaskDueDate('');
       setAddingSubtask(false);
       onChange();
+    } catch (reason) {
+      onError(getErrorMessage(reason, 'The subtask could not be added.'));
     } finally {
       setSaving(false);
     }
   };
 
   return (
-    <div className={`task-card task-status-${task.status.toLowerCase().replace(' ', '-')} ${task.dueDate && task.status !== 'Completed' && task.dueDate < new Date().toISOString().slice(0, 10) ? 'is-overdue' : ''}`} onClick={onOpen} style={{ borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem', background: 'var(--surface-1)' }}>
+    <div draggable={canManage} onDragStart={(event) => event.dataTransfer.setData('text/task-id', task._id)} className={`task-card priority-${task.priority.toLowerCase()} task-status-${task.status.toLowerCase().replace(' ', '-')} ${task.dueDate && task.status !== 'Completed' && task.dueDate < new Date().toISOString().slice(0, 10) ? 'is-overdue' : ''}`} onClick={onOpen} style={{ borderRadius: 'var(--radius-md)', padding: '0.875rem 1rem' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.625rem' }}>
         <button className="icon-btn" style={{ width: '20px', height: '20px', marginTop: '0.125rem' }} onClick={(event) => { event.stopPropagation(); setOpen((v) => !v); }}>
           {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
@@ -140,7 +145,8 @@ const TaskCard = ({
               {task.title}
             </span>
             <span className={`badge ${PRIORITY_BADGE[task.priority]}`}>{task.priority}</span>
-            {task.status === 'Blocked' && <span className="badge badge-danger">Blocked</span>}
+            {(task.blocked || task.status === 'Blocked') && <span className="badge badge-danger">Blocked</span>}
+            {task.deliverable && <span className="task-feature-label">{task.milestone?.name && <>{task.milestone.name}<ChevronRight size={10}/></>}{task.deliverable.name}</span>}
             {task.subtasks.length > 0 && (
               <span className="task-metric"><CheckSquare size={11}/>{task.subtasks.filter((s) => s.status === 'Completed').length}/{task.subtasks.length}</span>
             )}
@@ -156,7 +162,7 @@ const TaskCard = ({
           {open && (
             <div style={{ marginTop: '0.625rem', paddingLeft: '1rem', borderLeft: '2px solid var(--border-subtle)' }}>
               {task.subtasks.map((s) => (
-                <SubtaskRow key={s._id} projectId={projectId} task={task} subtask={s} canManage={canManage} currentUserId={currentUserId} onChange={onChange} />
+                <SubtaskRow key={s._id} projectId={projectId} task={task} subtask={s} canManage={canManage} currentUserId={currentUserId} onChange={onChange} onError={onError} />
               ))}
               {canManage && (
                 addingSubtask ? (
@@ -179,7 +185,7 @@ const TaskCard = ({
           )}
         </div>
         {canManage && (
-          <button className="icon-btn" style={{ color: 'var(--danger)' }} onClick={removeTask}>
+          <button className="icon-btn" style={{ color: 'var(--danger)' }} onClick={(event) => { event.stopPropagation(); void removeTask(); }}>
             <Trash2 size={13} />
           </button>
         )}
@@ -188,7 +194,7 @@ const TaskCard = ({
   );
 };
 
-const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { projectId: string; members: Member[]; canManage: boolean; currentUserId?: string }) => {
+const ProjectTaskList = ({ projectId, members, canManage, currentUserId, refreshSignal = 0, onTasksChanged }: { projectId: string; members: Member[]; canManage: boolean; currentUserId?: string; refreshSignal?: number; onTasksChanged?: () => void }) => {
   const [tasks, setTasks] = useState<ProjectTask[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -200,7 +206,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
   const [files, setFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
-  const [view, setView] = useState<'board' | 'list'>('board');
+  const [view, setView] = useState<'board' | 'list'>('list');
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
@@ -215,8 +221,13 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
   }, [projectId]);
 
   useEffect(() => {
-    refetch();
-  }, [refetch]);
+    void refetch();
+  }, [refetch, refreshSignal]);
+
+  const refreshAll = () => {
+    void refetch();
+    onTasksChanged?.();
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -231,11 +242,23 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
       setPriority('Medium');
       setFiles([]);
       setShowForm(false);
-      refetch();
+      await refetch();
+      onTasksChanged?.();
     } catch (err) {
       setError(getErrorMessage(err, 'Failed to create task.'));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const moveTask = async (taskId: string, status: CanonicalTaskStatus) => {
+    if (!canManage) return;
+    try {
+      await projectTaskApi.update(projectId, taskId, { canonicalStatus: status });
+      await refetch();
+      onTasksChanged?.();
+    } catch (err) {
+      setError(getErrorMessage(err, 'We could not move that task.'));
     }
   };
 
@@ -256,28 +279,24 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
         {error && <p style={{ color: 'var(--danger)', fontSize: '0.8125rem' }}>{error}</p>}
 
         {showForm && canManage && (
-          <form onSubmit={handleCreate} style={{ background: 'var(--surface-2)', borderRadius: 'var(--radius-md)', padding: '0.875rem', display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            <input type="text" className="form-input" placeholder="Task title" required autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '0.5rem' }}>
-              <select className="form-select" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
-                <option value="">Unassigned</option>
+          <form onSubmit={handleCreate} className="project-task-quick-form">
+            <div className="project-task-quick-row">
+              <input type="text" className="form-input" placeholder="What needs to be done?" aria-label="Task title" required autoFocus value={title} onChange={(e) => setTitle(e.target.value)} />
+              <select className="form-select" aria-label="Assign task" value={assignedTo} onChange={(e) => setAssignedTo(e.target.value)}>
+                <option value="">Assign later</option>
                 {members.map((m) => <option key={m._id} value={m._id}>{m.name}</option>)}
               </select>
-              <input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
-              <select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>
-                {['Low', 'Medium', 'High', 'Critical'].map((p) => <option key={p}>{p}</option>)}
-              </select>
+              <button type="submit" className="btn btn-primary" disabled={saving || !title.trim()}><Plus size={14}/>{saving ? 'Adding…' : 'Add task'}</button>
             </div>
-            <div>
-              <input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={(e) => e.target.files && setFiles(Array.from(e.target.files).slice(0, 5))} />
-              <button type="button" className="btn btn-ghost" style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem' }} onClick={() => fileRef.current?.click()}>
-                <Paperclip size={12} /> {files.length ? `${files.length} file(s)` : 'Attach files'}
-              </button>
-            </div>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <button type="button" className="btn btn-ghost" onClick={() => setShowForm(false)}>Cancel</button>
-              <button type="submit" className="btn btn-primary" disabled={saving}>{saving ? 'Creating...' : 'Create Task'}</button>
-            </div>
+            <details className="project-task-more-options">
+              <summary>More options</summary>
+              <div>
+                <label><span>Due date</span><input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>
+                <label><span>Priority</span><select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>{['Low', 'Medium', 'High', 'Critical'].map((p) => <option key={p}>{p}</option>)}</select></label>
+                <div><input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={(e) => e.target.files && setFiles(Array.from(e.target.files).slice(0, 5))} /><button type="button" className="btn btn-ghost" onClick={() => fileRef.current?.click()}><Paperclip size={12}/>{files.length ? `${files.length} file(s)` : 'Attach files'}</button></div>
+              </div>
+            </details>
+            <button type="button" className="project-task-cancel" onClick={() => setShowForm(false)}>Cancel</button>
           </form>
         )}
 
@@ -287,22 +306,24 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId }: { pro
           <div className="task-empty"><CheckSquare size={22}/><strong>No tasks yet</strong><span>Add the first task to make this project’s work visible.</span>{canManage && <button className="btn btn-secondary" onClick={() => setShowForm(true)}><Plus size={13}/>Add first task</button>}</div>
         ) : view === 'list' ? (
           tasks.map((task) => (
-            <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} onOpen={() => setSelectedTaskId(task._id)} />
+            <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refreshAll} onOpen={() => setSelectedTaskId(task._id)} onError={setError} />
           ))
         ) : (
           <div className="task-board">
             {BOARD_COLUMNS.map((column) => {
-              const columnTasks = tasks.filter((task) => task.status === column.status);
-              return <section className={`task-column task-column-${column.status.toLowerCase().replace(' ', '-')}`} key={column.status}>
+              const columnTasks = tasks.filter((task) => canonicalStatus(task) === column.status);
+              return <section onDragOver={(event) => { if (canManage) event.preventDefault(); }} onDrop={(event) => { event.preventDefault(); const taskId = event.dataTransfer.getData('text/task-id'); if (taskId) moveTask(taskId, column.status); }} className={`task-column task-column-${column.status.toLowerCase().replaceAll('_', '-')}`} key={column.status}>
                 <header><span>{column.label}</span><strong>{columnTasks.length}</strong></header>
-                <div>{columnTasks.map((task) => <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refetch} onOpen={() => setSelectedTaskId(task._id)}/>)}</div>
+                <div>{columnTasks.map((task) => <TaskCard key={task._id} projectId={projectId} task={task} members={members} canManage={canManage} currentUserId={currentUserId} onChange={refreshAll} onOpen={() => setSelectedTaskId(task._id)} onError={setError}/>)}</div>
                 {!columnTasks.length && <p>No tasks</p>}
               </section>;
             })}
           </div>
         )}
       </div>
-      {selectedTaskId && tasks.find((task) => task._id === selectedTaskId) && <TaskDetailPanel projectId={projectId} task={tasks.find((task) => task._id === selectedTaskId)!} members={members} canManage={canManage} currentUserId={currentUserId} onClose={() => setSelectedTaskId(null)} onChange={refetch}/>}
+      {selectedTaskId && tasks.find((task) => task._id === selectedTaskId) && (
+        <TaskDetailPanel projectId={projectId} task={tasks.find((task) => task._id === selectedTaskId)!} members={members} canManage={canManage} currentUserId={currentUserId} onClose={() => setSelectedTaskId(null)} onChange={refreshAll}/>
+      )}
     </div>
   );
 };

@@ -6,6 +6,8 @@ const SUBTASKS_TABLE = 'project_task_subtasks';
 
 const TASK_SELECT = `
   *,
+  milestone:milestone_id(id, name),
+  deliverable:deliverable_id(id, name),
   assignee:assigned_to(id, name, email, photo),
   creator:created_by(id, name),
   documents:project_task_documents(id, name, storage_path, uploaded_at),
@@ -33,7 +35,7 @@ export const projectTaskRepository = {
   async findAssignedToUser(userId: string) {
     const { data, error } = await supabase
       .from(TASKS_TABLE)
-      .select('*, project:project_id(id, name)')
+      .select('*, project:project_id(id, name, department)')
       .eq('assigned_to', userId)
       .order('due_date', { ascending: true, nullsFirst: false });
     if (error) throw error;

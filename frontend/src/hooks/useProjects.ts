@@ -3,6 +3,7 @@ import { projectApi } from '../api/projectApi';
 import type { Project } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
 import { useAuth } from '../context/AuthContext';
+import { getDemoProjects } from '../context/demoProjects';
 
 export const useProjects = (includeArchived = false) => {
   const { isDemo } = useAuth();
@@ -14,7 +15,7 @@ export const useProjects = (includeArchived = false) => {
     // Demo mode has no real backend session (see AuthContext.startDemo) -
     // fetching here would 401 and force-logout the demo user.
     if (isDemo) {
-      setProjects([]);
+      setProjects(getDemoProjects().filter((project) => includeArchived || !project.archived));
       setLoading(false);
       return;
     }
@@ -33,5 +34,9 @@ export const useProjects = (includeArchived = false) => {
     refetch();
   }, [refetch]);
 
-  return { projects, loading, error, refetch };
+  const addProject = useCallback((project: Project) => {
+    setProjects((current) => [project, ...current.filter((item) => item._id !== project._id)]);
+  }, []);
+
+  return { projects, loading, error, refetch, addProject };
 };

@@ -78,7 +78,7 @@ const AgentWorkflowPanel = ({ projectId, view }: { projectId: string; view: 'pla
   const addFeature = () => {
     const key = keyFor('feature');
     setPlanDraft((current) => current ? ({ ...current, features: [...current.features, {
-      key, title: 'New feature', outcome: 'Describe the measurable outcome.', description: 'Describe the feature boundary.',
+      key, milestone: 'Delivery', title: 'New module', outcome: 'Describe the measurable outcome.', description: 'Describe the module boundary.',
       acceptanceCriteria: ['Define the acceptance condition'], priority: 'Medium', estimateDays: 1,
       confidence: 'Low', tasks: [],
     }] }) : current);
@@ -142,21 +142,21 @@ const AgentWorkflowPanel = ({ projectId, view }: { projectId: string; view: 'pla
       </div>
 
       {view === 'plan' ? !activePlan || !planDraft ? (
-        <div className="agent-empty"><Sparkles size={25}/><h3>No planning draft yet</h3><p>Run the Project Manager Agent to turn the project brief into features, tasks, acceptance criteria, and estimate ranges.</p>{canEdit && <button className="btn btn-primary" disabled={saving} onClick={() => act(() => agentWorkflowApi.runProjectManager(projectId), 'Planning draft created')}><Bot size={15}/>{saving ? 'Preparing…' : 'Create planning draft'}</button>}</div>
+        <div className="agent-empty"><Sparkles size={25}/><h3>No planning draft yet</h3><p>Run the Project Manager Agent to turn the brief into editable milestones, modules, tasks, acceptance criteria, and estimate ranges.</p>{canEdit && <button className="btn btn-primary" disabled={saving} onClick={() => act(() => agentWorkflowApi.runProjectManager(projectId), 'Planning draft created')}><Bot size={15}/>{saving ? 'Preparing…' : 'Create planning draft'}</button>}</div>
       ) : (
         <div className="plan-workspace">
           <main className="plan-main">
-            <div className="plan-heading"><div><span>Plan v{activePlan.version}</span><h2>Delivery structure</h2><p>{activePlan.status === 'Approved' ? `Approved by ${activePlan.approvedBy?.name || 'Project Manager'}` : 'Edit the draft before publishing it to the project board.'}</p></div><span className={`review-state ${statusClass(activePlan.status)}`}>{activePlan.status}</span></div>
+            <div className="plan-heading"><div><span>Plan v{activePlan.version} · Project → Milestone → Module → Task</span><h2>Delivery structure</h2><p>{activePlan.status === 'Approved' ? `Approved by ${activePlan.approvedBy?.name || 'Project Manager'}` : 'Edit every layer, then publish the approved structure to the project workspace.'}</p></div><span className={`review-state ${statusClass(activePlan.status)}`}>{activePlan.status}</span></div>
             <label className="agent-field"><span>Plan summary</span><textarea rows={4} disabled={!canEdit || activePlan.status === 'Approved'} value={planDraft.summary} onChange={(event) => setPlanDraft({ ...planDraft, summary: event.target.value })}/></label>
             <div className="feature-list">
               {planDraft.features.map((feature, featureIndex) => {
                 const isOpen = expanded[feature.key] ?? featureIndex === 0;
                 return <article className="feature-draft" key={feature.key}>
                   <button className="feature-summary" onClick={() => setExpanded((current) => ({ ...current, [feature.key]: !isOpen }))} aria-expanded={isOpen}>
-                    <span className="feature-index">{String(featureIndex + 1).padStart(2, '0')}</span><div><small>{feature.priority} · {feature.estimateDays} days · {feature.confidence} confidence</small><strong>{feature.title}</strong><p>{feature.outcome}</p></div><span>{isOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</span>
+                    <span className="feature-index">{String(featureIndex + 1).padStart(2, '0')}</span><div><small>{feature.milestone || 'Delivery'} · {feature.priority} · {feature.estimateDays} days · {feature.confidence} confidence</small><strong>{feature.title}</strong><p>{feature.outcome}</p></div><span>{isOpen ? <ChevronDown size={16}/> : <ChevronRight size={16}/>}</span>
                   </button>
                   {isOpen && <div className="feature-editor">
-                    <div className="agent-form-grid"><label className="agent-field"><span>Feature title</span><input disabled={!canEdit || activePlan.status === 'Approved'} value={feature.title} onChange={(event) => updateFeature(feature.key, { title: event.target.value })}/></label><label className="agent-field"><span>Estimate (days)</span><input type="number" min="0.25" step="0.25" disabled={!canEdit || activePlan.status === 'Approved'} value={feature.estimateDays} onChange={(event) => updateFeature(feature.key, { estimateDays: Number(event.target.value) })}/></label></div>
+                    <div className="agent-form-grid"><label className="agent-field"><span>Milestone</span><input disabled={!canEdit || activePlan.status === 'Approved'} value={feature.milestone || 'Delivery'} onChange={(event) => updateFeature(feature.key, { milestone: event.target.value })}/></label><label className="agent-field"><span>Module title</span><input disabled={!canEdit || activePlan.status === 'Approved'} value={feature.title} onChange={(event) => updateFeature(feature.key, { title: event.target.value })}/></label><label className="agent-field"><span>Estimate (days)</span><input type="number" min="0.25" step="0.25" disabled={!canEdit || activePlan.status === 'Approved'} value={feature.estimateDays} onChange={(event) => updateFeature(feature.key, { estimateDays: Number(event.target.value) })}/></label></div>
                     <label className="agent-field"><span>Outcome</span><textarea disabled={!canEdit || activePlan.status === 'Approved'} value={feature.outcome} onChange={(event) => updateFeature(feature.key, { outcome: event.target.value })}/></label>
                     <label className="agent-field"><span>Acceptance criteria <small>one per line</small></span><textarea disabled={!canEdit || activePlan.status === 'Approved'} value={listText(feature.acceptanceCriteria)} onChange={(event) => updateFeature(feature.key, { acceptanceCriteria: parseList(event.target.value) })}/></label>
                     <div className="task-draft-list"><div className="task-list-heading"><span><ListChecks size={14}/>Executable tasks</span>{canEdit && activePlan.status !== 'Approved' && <button onClick={() => addTask(feature.key)}><Plus size={13}/>Add task</button>}</div>
@@ -166,7 +166,7 @@ const AgentWorkflowPanel = ({ projectId, view }: { projectId: string; view: 'pla
                 </article>;
               })}
             </div>
-            {canEdit && activePlan.status !== 'Approved' && <button className="add-feature" onClick={addFeature}><Plus size={14}/>Add feature</button>}
+            {canEdit && activePlan.status !== 'Approved' && <button className="add-feature" onClick={addFeature}><Plus size={14}/>Add module</button>}
           </main>
           <aside className="plan-review-rail">
             <section><span><Flag size={14}/>Risks</span><textarea disabled={!canEdit || activePlan.status === 'Approved'} value={listText(planDraft.risks)} onChange={(event) => setPlanDraft({ ...planDraft, risks: parseList(event.target.value) })}/></section>

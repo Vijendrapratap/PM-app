@@ -56,3 +56,9 @@ export const updateKnowledgeDocumentVersion = asyncHandler(async (req: Request, 
 export const approveKnowledgeDocumentVersion = asyncHandler(async (req: Request, res: Response) => {
   res.json(await agentWorkflowService.approveDocumentVersion(param(req, 'id'), param(req, 'versionId'), actorOf(req)));
 });
+export const listKnowledgeDocuments = asyncHandler(async (req: Request, res: Response) => res.json(await agentWorkflowService.listDocuments(param(req, 'id'), actorOf(req))));
+export const createKnowledgeDocument = asyncHandler(async (req: Request, res: Response) => res.status(201).json(await agentWorkflowService.createDocument(param(req, 'id'), req.body, actorOf(req))));
+export const getKnowledgeDocument = asyncHandler(async (req: Request, res: Response) => res.json(await agentWorkflowService.getDocument(param(req, 'documentId'), actorOf(req))));
+export const updateKnowledgeDocument = asyncHandler(async (req: Request, res: Response) => res.json(await agentWorkflowService.updateDocument(param(req, 'documentId'), req.body.content, actorOf(req))));
+export const submitKnowledgeDocument = asyncHandler(async (req: Request, res: Response) => res.json(await agentWorkflowService.submitDocument(param(req, 'documentId'), actorOf(req))));
+export const approveKnowledgeDocument = asyncHandler(async (req: Request, res: Response) => res.json(await agentWorkflowService.approveDocument(param(req, 'documentId'), actorOf(req))));

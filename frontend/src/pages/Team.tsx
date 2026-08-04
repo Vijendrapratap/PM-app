@@ -190,7 +190,7 @@ const Team = () => {
       ) : (
         <div>
           <div className="team-card-grid">
-            {paginated.map((member) => <article className="team-card" key={member._id}>
+            {paginated.map((member, index) => <article className={`team-card tone-${index % 5}`} key={member._id}>
               <header className="team-card-header">
                 <div className="avatar team-card-avatar">{member.photo ? <img src={member.photo} alt=""/> : member.name?.charAt(0)?.toUpperCase() ?? '?'}</div>
                 <div className="team-card-identity"><h2>{member.name}</h2><p><Mail size={11}/>{member.email}</p></div>

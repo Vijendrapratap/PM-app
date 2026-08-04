@@ -22,9 +22,9 @@ const projectPlanSchema = {
       type: 'array', minItems: 1, maxItems: 30,
       items: {
         type: 'object', additionalProperties: false,
-        required: ['key', 'title', 'outcome', 'description', 'acceptanceCriteria', 'priority', 'estimateDays', 'confidence', 'tasks'],
+        required: ['key', 'milestone', 'title', 'outcome', 'description', 'acceptanceCriteria', 'priority', 'estimateDays', 'confidence', 'tasks'],
         properties: {
-          key: { type: 'string' }, title: { type: 'string' }, outcome: { type: 'string' }, description: { type: 'string' },
+          key: { type: 'string' }, milestone: { type: 'string' }, title: { type: 'string' }, outcome: { type: 'string' }, description: { type: 'string' },
           acceptanceCriteria, priority, estimateDays: { type: 'number', minimum: 0.25, maximum: 1000 },
           confidence: { type: 'string', enum: ['Low', 'Medium', 'High'] },
           tasks: {
@@ -75,7 +75,7 @@ export const hostedAgentDraftProvider = {
       instructions: [
         systemPrompt,
         'You are a senior startup project manager. Convert a project brief into a practical delivery plan for human review.',
-        'Create outcome-based features and small executable tasks. Estimates are working-day estimates, never commitments.',
+        'Create a clear four-layer structure: project, milestone, outcome-based feature, and small executable task. Estimates are working-day estimates, never commitments.',
         'Do not invent customer facts, integrations, deadlines, or compliance requirements. Put uncertainty into assumptions, risks, or questions.',
         'Use stable kebab-case keys unique within this plan. Every acceptance criterion must be observable and testable.',
       ].filter(Boolean).join(' '),
@@ -109,7 +109,15 @@ export const hostedAgentDraftProvider = {
     if (!response.output_text) throw new Error('The model returned an empty business requirements document');
     return {
       content: response.output_text,
-      structuredContent: { summary: plan.summary, featureCount: plan.features.length, openQuestions: plan.questions },
+      structuredContent: {
+        summary: plan.summary, featureCount: plan.features.length,
+        classifications: [
+          ...plan.features.map((feature) => ({ label: 'Confirmed Requirement', text: feature.outcome, source: `Approved project plan feature: ${feature.key}` })),
+          ...plan.assumptions.map((text) => ({ label: 'Assumption', text, source: 'Approved project plan' })),
+          ...plan.questions.map((text) => ({ label: 'Open Question', text, source: 'Approved project plan' })),
+        ],
+        openQuestions: plan.questions,
+      },
     };
   },
 };

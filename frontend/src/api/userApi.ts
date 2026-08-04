@@ -13,7 +13,9 @@ export interface UpsertUserPayload {
 }
 
 export const userApi = {
-  list: () => api.get<User[]>('/users').then((res) => expectArray<User>(res.data)),
+  list: () => api.get<User[]>('/team').then((res) => expectArray<User>(res.data)),
+
+  invite: (data: UpsertUserPayload & { password: string }) => api.post<User>('/team/invite', data).then((res) => res.data),
 
   update: (id: string, data: UpsertUserPayload) => api.put<User>(`/users/${id}`, data).then((res) => res.data),
 

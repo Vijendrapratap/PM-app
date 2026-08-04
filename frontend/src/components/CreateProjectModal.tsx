@@ -1,11 +1,15 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { X, UploadCloud, Paperclip, Search, Users } from 'lucide-react';
+import { X, UploadCloud, Paperclip, Search, Users, Bot, PenLine, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { userApi } from '../api/userApi';
 import { projectApi } from '../api/projectApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { User } from '../types';
+import type { Project } from '../types';
+import { useAuth } from '../context/AuthContext';
+import { createDemoProject } from '../context/demoProjects';
 
-const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: () => void }) => {
+const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuccess: (project: Project) => void | Promise<void> }) => {
+  const { isDemo, user } = useAuth();
   const [form, setForm] = useState({
     name: '',
     description: '',
@@ -23,6 +27,8 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
   const [files, setFiles] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingMembers, setLoadingMembers] = useState(false);
+  const [step, setStep] = useState(1);
+  const [planningMode, setPlanningMode] = useState<'ai' | 'manual'>('ai');
   const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -47,12 +53,24 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
     const { tags, ...rest } = form;
     Object.entries(rest).forEach(([k, v]) => data.append(k, v));
     data.append('status', 'Planning');
+    data.append('useAiPlanning', String(planningMode === 'ai'));
     data.append('assignedMembers', JSON.stringify(selectedMembers));
     data.append('tags', JSON.stringify(tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []));
     files.forEach(f => data.append('documents', f));
     try {
-      await projectApi.create(data);
-      onSuccess();
+      const project = isDemo ? createDemoProject({
+        name: form.name,
+        description: form.description,
+        category: form.category,
+        department: form.department,
+        priority: form.priority as Project['priority'],
+        startDate: form.startDate,
+        estimatedCompletionDate: form.estimatedCompletionDate,
+        owner: user ? { _id: user._id, name: user.name } : undefined,
+        assignedMembers: teamMembers.filter((member) => selectedMembers.includes(member._id)),
+        tags: tags ? tags.split(',').map((tag) => tag.trim()).filter(Boolean) : [],
+      }) : await projectApi.create(data);
+      await onSuccess(project);
       onClose();
     } catch (err) {
       alert(getErrorMessage(err, 'Failed to create project.'));
@@ -71,18 +89,20 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
   ), [teamMembers, memberSearch]);
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container modal-lg">
+    <div className="modal-backdrop modal-backdrop-drawer">
+      <div className="modal-container modal-drawer modal-drawer-wide" role="dialog" aria-modal="true" aria-labelledby="create-project-modal-title">
         <div className="modal-header">
           <div>
-            <div className="modal-title">Create New Project</div>
-            <div className="modal-subtitle">Fill in the details to start a new project.</div>
+            <div className="modal-title" id="create-project-modal-title">Create New Project</div>
+            <div className="modal-subtitle">Nothing is created until the final review.</div>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
         </div>
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            <div className="project-wizard-steps" aria-label="Project setup progress">{['Basics', 'Planning', 'Review'].map((label, index) => <div className={step >= index + 1 ? 'active' : ''} key={label}><span>{step > index + 1 ? <Check size={12}/> : index + 1}</span><small>{label}</small></div>)}</div>
+            {step === 1 && <>
             {/* Row 1 */}
             <div className="form-group">
               <label className="form-label">Project Name *</label>
@@ -104,6 +124,14 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
                 <label className="form-label">Expected Completion Date</label>
                 <input type="date" className="form-input" value={form.estimatedCompletionDate} onChange={set('estimatedCompletionDate')} />
               </div>
+            </div>
+
+            </>}
+
+            {step === 2 && <>
+            <div className="project-planning-choice">
+              <button type="button" className={planningMode === 'ai' ? 'active' : ''} onClick={() => setPlanningMode('ai')}><Bot size={20}/><span><strong>Generate with PM Agent</strong><small>Creates a reviewable plan proposal after the project is created.</small></span></button>
+              <button type="button" className={planningMode === 'manual' ? 'active' : ''} onClick={() => setPlanningMode('manual')}><PenLine size={20}/><span><strong>Create manually</strong><small>Starts with an empty hierarchy and no agent run.</small></span></button>
             </div>
 
             {/* Row 3 */}
@@ -212,7 +240,7 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
                 className="upload-zone"
                 onClick={() => fileRef.current?.click()}
                 onDragOver={e => e.preventDefault()}
-                onDrop={e => { e.preventDefault(); e.dataTransfer.files && setFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)].slice(0, 5)); }}
+                onDrop={e => { e.preventDefault(); if (e.dataTransfer.files.length) setFiles(prev => [...prev, ...Array.from(e.dataTransfer.files)].slice(0, 5)); }}
               >
                 <input ref={fileRef} type="file" multiple className="" onChange={e => e.target.files && setFiles(prev => [...prev, ...Array.from(e.target.files!)].slice(0, 5))} style={{ display: 'none' }} />
                 <UploadCloud size={24} style={{ color: 'var(--text-muted)', margin: '0 auto 0.5rem' }} />
@@ -230,13 +258,18 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
                 </div>
               )}
             </div>
+            </>}
+
+            {step === 3 && <div className="project-review-card">
+              <div><small>Project</small><strong>{form.name}</strong><p>{form.description || 'No description added.'}</p></div>
+              <dl><div><dt>Department</dt><dd>{form.department || 'Not set'}</dd></div><div><dt>Dates</dt><dd>{form.startDate || 'Not set'} → {form.estimatedCompletionDate || 'Not set'}</dd></div><div><dt>Priority</dt><dd>{form.priority}</dd></div><div><dt>Planning</dt><dd>{planningMode === 'ai' ? 'PM Agent proposal' : 'Manual'}</dd></div><div><dt>Initial team</dt><dd>{selectedMembers.length} member{selectedMembers.length === 1 ? '' : 's'}</dd></div><div><dt>Attachments</dt><dd>{files.length}</dd></div></dl>
+              {planningMode === 'ai' && <p className="project-review-note"><Bot size={15}/> The agent will draft structure only. A Manager or CEO must review and approve it before tasks are published.</p>}
+            </div>}
           </div>
 
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose} disabled={loading}>Cancel</button>
-            <button type="submit" className="btn btn-primary" disabled={loading}>
-              {loading ? 'Creating...' : 'Create Project'}
-            </button>
+            <div className="project-wizard-actions">{step > 1 && <button type="button" className="btn btn-secondary" onClick={() => setStep((value) => value - 1)}><ArrowLeft size={14}/>Back</button>}{step < 3 ? <button type="button" className="btn btn-primary" disabled={(step === 1 && (!form.name.trim() || !form.startDate || !form.estimatedCompletionDate)) || (step === 2 && !form.department.trim())} onClick={() => setStep((value) => value + 1)}>Continue <ArrowRight size={14}/></button> : <button type="submit" className="btn btn-primary" disabled={loading}>{loading ? 'Creating…' : 'Approve & Create Project'}</button>}</div>
           </div>
         </form>
       </div>

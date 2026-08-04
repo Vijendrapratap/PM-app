@@ -1,0 +1,1 @@
+import express from 'express'; import { getReportOverview } from '../controllers/reportController'; import { protect } from '../middleware/auth'; const router = express.Router(); router.use(protect); router.get('/overview', getReportOverview); export default router;

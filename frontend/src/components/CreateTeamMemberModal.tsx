@@ -1,13 +1,12 @@
 import { useEffect, useState } from 'react';
 import { X, Shield } from 'lucide-react';
 import { userApi } from '../api/userApi';
-import { authApi } from '../api/authApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import { SUPER_ADMIN_ROLE } from '../utils/roles';
 import type { User } from '../types';
 import { DEPARTMENTS } from '../utils/departments';
 
-const BASE_ROLE_OPTIONS = ['Team Member', 'Lead', 'Project Manager'];
+const BASE_ROLE_OPTIONS = ['Team Member', 'Manager'];
 
 const CreateTeamMemberModal = ({
   onClose,
@@ -20,7 +19,7 @@ const CreateTeamMemberModal = ({
   member?: User | null;
   canAssignSuperAdmin?: boolean;
 }) => {
-  const ROLE_OPTIONS = canAssignSuperAdmin ? [...BASE_ROLE_OPTIONS, SUPER_ADMIN_ROLE] : BASE_ROLE_OPTIONS;
+  const ROLE_OPTIONS = canAssignSuperAdmin ? [...BASE_ROLE_OPTIONS, 'CEO'] : BASE_ROLE_OPTIONS;
   const isEdit = Boolean(member);
   const [form, setForm] = useState({
     name: '',
@@ -28,6 +27,7 @@ const CreateTeamMemberModal = ({
     phone: '',
     password: '',
     role: ROLE_OPTIONS[0],
+    designation: '',
     department: 'Engineering',
     status: 'Active',
     skills: '',
@@ -41,7 +41,8 @@ const CreateTeamMemberModal = ({
         email: member.email ?? '',
         phone: member.phone ?? '',
         password: '',
-        role: member.role ?? ROLE_OPTIONS[0],
+        role: member.platformRole === 'CEO' || member.role === SUPER_ADMIN_ROLE ? 'CEO' : member.platformRole === 'MANAGER' || ['Lead', 'Project Manager'].includes(member.role) ? 'Manager' : 'Team Member',
+        designation: member.designation ?? member.role ?? '',
         department: member.department ?? 'Engineering',
         status: member.status ?? 'Active',
         skills: Array.isArray(member.skills) ? member.skills.join(', ') : '',
@@ -62,7 +63,7 @@ const CreateTeamMemberModal = ({
       if (isEdit && member?._id) {
         await userApi.update(member._id, payload);
       } else {
-        await authApi.register(payload);
+        await userApi.invite(payload);
       }
       onSuccess();
       onClose();
@@ -77,11 +78,11 @@ const CreateTeamMemberModal = ({
     setForm(f => ({ ...f, [key]: e.target.value }));
 
   return (
-    <div className="modal-backdrop">
-      <div className="modal-container modal-sm">
+    <div className="modal-backdrop modal-backdrop-drawer">
+      <div className="modal-container modal-drawer" role="dialog" aria-modal="true" aria-labelledby="team-member-modal-title">
         <div className="modal-header">
           <div>
-            <div className="modal-title">{isEdit ? 'Edit Team Member' : 'Add Team Member'}</div>
+            <div className="modal-title" id="team-member-modal-title">{isEdit ? 'Edit Team Member' : 'Add Team Member'}</div>
             <div className="modal-subtitle">{isEdit ? 'Update the member profile and role.' : 'Create an account for a new team member.'}</div>
           </div>
           <button className="icon-btn" onClick={onClose}><X size={18} /></button>
@@ -89,6 +90,8 @@ const CreateTeamMemberModal = ({
 
         <form onSubmit={handleSubmit}>
           <div className="modal-body">
+            <section className="modal-form-section tone-account">
+              <div className="modal-form-section-heading"><strong>Account details</strong><span>Sign-in and contact information</span></div>
             <div className="form-group">
               <label className="form-label">Full Name *</label>
               <input type="text" className="form-input" required placeholder="John Doe" value={form.name} onChange={set('name')} />
@@ -108,6 +111,9 @@ const CreateTeamMemberModal = ({
               </label>
               <input type="password" className="form-input" required={!isEdit} placeholder="Minimum 6 characters" value={form.password} onChange={set('password')} />
             </div>
+            </section>
+            <section className="modal-form-section tone-work">
+              <div className="modal-form-section-heading"><strong>Work profile</strong><span>Role, team, and responsibilities</span></div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">
                 <label className="form-label">Role</label>
@@ -122,6 +128,10 @@ const CreateTeamMemberModal = ({
                 </select>
               </div>
             </div>
+            <div className="form-group">
+              <label className="form-label">Designation</label>
+              <input type="text" className="form-input" placeholder="Developer, Tech Lead, Project Manager" value={form.designation} onChange={set('designation')} />
+            </div>
             {isEdit && (
               <div className="form-group">
                 <label className="form-label">Status</label>
@@ -135,6 +145,7 @@ const CreateTeamMemberModal = ({
               <label className="form-label">Skills (comma-separated)</label>
               <input type="text" className="form-input" placeholder="React, TypeScript, Node.js" value={form.skills} onChange={set('skills')} />
             </div>
+            </section>
           </div>
           <div className="modal-footer">
             <button type="button" className="btn btn-ghost" onClick={onClose}>Cancel</button>

@@ -5,6 +5,8 @@ import { mapDocument } from './mappers';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { DailyTodo, DailyTodoSubtask } from '../types/models';
 import { isSuperAdmin } from '../utils/roles';
+import { canCreateTodoFor } from '../policies/todoPolicy';
+import { nextRecurringDueDate } from '../utils/recurringTodo';
 
 interface Actor {
   id: string;
@@ -19,6 +21,11 @@ const mapPerson = (person: { id: string; name: string; email?: string; photo?: s
 // action is ticking their own item's status - mirrors the Project Tasks rule.
 const assertCanManageTodos = (actor: Actor) => {
   if (!isSuperAdmin(actor.role)) throw forbidden('Only the Super Admin can add or edit to-do tasks.');
+};
+
+const assertCanCreateTodo = (assignedTo: string, actor: Actor) => {
+  if (canCreateTodoFor(actor, assignedTo)) return;
+  throw forbidden('Team members can only create personal to-do tasks for themselves.');
 };
 
 const assertCanSetStatus = (assignedTo: string | null | undefined, actor: Actor) => {
@@ -69,11 +76,40 @@ const mapTodo = (todo: DailyTodo & { assignee?: any; creator?: any; subtasks?: a
     assignedTo: mapPerson(todo.assignee || null),
     createdBy: mapPerson(todo.creator || null),
     completedAt: todo.completed_at,
+    domainType: todo.domain_type || 'PERSONAL',
+    workType: todo.work_type || 'TASK',
+    recurrence: todo.recurrence || 'NONE',
+    scheduledStart: todo.scheduled_start,
+    scheduledEnd: todo.scheduled_end,
+    meetingWith: todo.meeting_with,
+    channel: todo.channel,
     documents: (todo.documents || []).map(mapDocument),
     subtasks: (todo.subtasks || []).map(mapSubtask),
     createdAt: todo.created_at,
     updatedAt: todo.updated_at,
   };
+};
+
+// A completed recurring item remains completed for its due day. On the first
+// read after that day, the same routine is reopened at its next valid date.
+// This makes daily habits reliable without duplicating cards or requiring a
+// background scheduler.
+const applyRecurringSchedules = async (todos: any[]): Promise<any[]> => {
+  const today = todayISO();
+  return Promise.all(todos.map(async (todo) => {
+    if (todo.status !== 'Completed' || !todo.due_date || !todo.recurrence || todo.recurrence === 'NONE') return todo;
+    const nextDueDate = nextRecurringDueDate(todo.due_date, todo.recurrence, today);
+    if (!nextDueDate) return todo;
+    const patch = {
+      due_date: nextDueDate,
+      original_due_date: nextDueDate,
+      carry_forward_count: 0,
+      status: 'Pending' as const,
+      completed_at: null,
+    };
+    await todoRepository.update(todo.id, patch);
+    return { ...todo, ...patch };
+  }));
 };
 
 // No cron scheduler exists in this app (see plan). Carry-forward runs lazily
@@ -105,18 +141,26 @@ interface CreateTodoInput {
   dueDate?: string;
   priority?: string;
   assignedTo?: string;
+  domainType?: DailyTodo['domain_type'];
+  workType?: DailyTodo['work_type'];
+  recurrence?: DailyTodo['recurrence'];
+  scheduledStart?: string | null;
+  scheduledEnd?: string | null;
+  meetingWith?: string | null;
+  channel?: string | null;
   files?: Express.Multer.File[];
 }
 
 export const todoService = {
   async listMine(userId: string) {
-    const todos = await applyCarryForward(await todoRepository.findForUser(userId));
+    const recurring = await applyRecurringSchedules(await todoRepository.findForUser(userId));
+    const todos = await applyCarryForward(recurring);
     return todos.map(mapTodo);
   },
 
   async create(input: CreateTodoInput, actor: Actor) {
-    assertCanManageTodos(actor);
     const assignedTo = input.assignedTo || actor.id;
+    assertCanCreateTodo(assignedTo, actor);
 
     const todo = await todoRepository.create({
       title: input.title,
@@ -126,6 +170,13 @@ export const todoService = {
       status: 'Pending',
       assigned_to: assignedTo,
       created_by: actor.id,
+      domain_type: input.domainType || 'PERSONAL',
+      work_type: input.workType || 'TASK',
+      recurrence: input.recurrence || 'NONE',
+      scheduled_start: input.scheduledStart || null,
+      scheduled_end: input.scheduledEnd || null,
+      meeting_with: input.meetingWith || null,
+      channel: input.channel || null,
     });
 
     if (input.files?.length) {
@@ -166,6 +217,13 @@ export const todoService = {
       ...(allowedPatch.dueDate !== undefined && { due_date: allowedPatch.dueDate }),
       ...(allowedPatch.priority !== undefined && { priority: allowedPatch.priority as any }),
       ...(allowedPatch.assignedTo !== undefined && { assigned_to: allowedPatch.assignedTo || null }),
+      ...(allowedPatch.domainType !== undefined && { domain_type: allowedPatch.domainType }),
+      ...(allowedPatch.workType !== undefined && { work_type: allowedPatch.workType }),
+      ...(allowedPatch.recurrence !== undefined && { recurrence: allowedPatch.recurrence }),
+      ...(allowedPatch.scheduledStart !== undefined && { scheduled_start: allowedPatch.scheduledStart }),
+      ...(allowedPatch.scheduledEnd !== undefined && { scheduled_end: allowedPatch.scheduledEnd }),
+      ...(allowedPatch.meetingWith !== undefined && { meeting_with: allowedPatch.meetingWith }),
+      ...(allowedPatch.channel !== undefined && { channel: allowedPatch.channel }),
       ...(allowedPatch.status !== undefined && {
         status: allowedPatch.status as any,
         completed_at: allowedPatch.status === 'Completed' ? new Date().toISOString() : null,

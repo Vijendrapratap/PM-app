@@ -1,4 +1,5 @@
 import dotenv from 'dotenv';
+import { normalizeOpenRouterModelId } from '../utils/openRouterModel';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -36,5 +37,5 @@ export const env = {
   openAIApiKey: process.env.OPENAI_API_KEY,
   openAIAgentModel: process.env.OPENAI_AGENT_MODEL || 'gpt-5.5',
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
-  openRouterAgentModel: process.env.OPENROUTER_AGENT_MODEL || 'deepseek/deepseek-v4-flash',
+  openRouterAgentModel: normalizeOpenRouterModelId(process.env.OPENROUTER_AGENT_MODEL || 'deepseek/deepseek-v4-flash'),
 };

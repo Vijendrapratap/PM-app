@@ -16,9 +16,37 @@ import activityLogRoutes from './routes/activityLogRoutes';
 import myTasksRoutes from './routes/myTasksRoutes';
 import workdayRoutes from './routes/workdayRoutes';
 import agentWorkflowRoutes from './routes/agentWorkflowRoutes';
+import departmentRoutes from './routes/departmentRoutes';
+import workSessionRoutes from './routes/workSessionRoutes';
+import todayRoutes from './routes/todayRoutes';
+import taskActionRoutes from './routes/taskActionRoutes';
+import dailyPlanRoutes from './routes/dailyPlanRoutes';
+import { deliverableRouter, milestoneRouter } from './routes/hierarchyRoutes';
+import teamRoutes from './routes/teamRoutes';
+import { agentProposalsRouter, agentRunsRouter, agentsRouter } from './routes/agentProposalRoutes';
+import documentRoutes from './routes/documentRoutes';
+import caseStudyRoutes from './routes/caseStudyRoutes';
+import reportRoutes from './routes/reportRoutes';
 import { getAgentDraftProviderStatus } from './services/openAIAgentDraftProvider';
 
 const app = express();
+
+const configuredFrontendOrigins = env.frontendUrl
+  .split(',')
+  .map((origin) => origin.trim().replace(/\/+$/, ''))
+  .filter(Boolean);
+
+const isAllowedFrontendOrigin = (origin: string): boolean => {
+  const normalizedOrigin = origin.replace(/\/+$/, '');
+
+  if (configuredFrontendOrigins.includes(normalizedOrigin)) return true;
+
+  // Vite can move to the next available port during local development, and
+  // localhost and 127.0.0.1 are the same machine but different browser
+  // origins. Accept either loopback form locally so an innocent URL/port
+  // change does not make every API call look like a server failure.
+  return !env.isProduction && /^http:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/.test(normalizedOrigin);
+};
 
 // This runs on Railway, which puts its own edge proxy in front of the app -
 // that proxy is a real network hop, not on loopback. Express ignores
@@ -32,7 +60,18 @@ const app = express();
 app.set('trust proxy', 1);
 
 app.use(helmet());
-app.use(cors({ origin: env.frontendUrl }));
+app.use(cors({
+  origin(origin, callback) {
+    // Requests without an Origin header are server-to-server, CLI, health
+    // checks, or same-origin traffic and are safe to pass through here.
+    if (!origin || isAllowedFrontendOrigin(origin)) {
+      callback(null, true);
+      return;
+    }
+
+    callback(null, false);
+  },
+}));
 app.use(express.json());
 app.use(apiRateLimiter);
 
@@ -53,6 +92,20 @@ app.use('/api/activity-logs', activityLogRoutes);
 app.use('/api/my-assigned-tasks', myTasksRoutes);
 app.use('/api/workdays', workdayRoutes);
 app.use('/api/agent-workflow', agentWorkflowRoutes);
+app.use('/api/departments', departmentRoutes);
+app.use('/api/work-sessions', workSessionRoutes);
+app.use('/api/today', todayRoutes);
+app.use('/api/tasks', taskActionRoutes);
+app.use('/api/daily-plans', dailyPlanRoutes);
+app.use('/api/milestones', milestoneRouter);
+app.use('/api/deliverables', deliverableRouter);
+app.use('/api/team', teamRoutes);
+app.use('/api/agents', agentsRouter);
+app.use('/api/agent-runs', agentRunsRouter);
+app.use('/api/agent-proposals', agentProposalsRouter);
+app.use('/api/documents', documentRoutes);
+app.use('/api/case-studies', caseStudyRoutes);
+app.use('/api/reports', reportRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

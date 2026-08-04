@@ -1,5 +1,6 @@
 import { notificationRepository } from '../repositories/notificationRepository';
 import { logger } from '../config/logger';
+import { notificationDelivery } from '../utils/notificationRouting';
 
 const toDto = (n: {
   id: string;
@@ -47,6 +48,7 @@ export const notificationService = {
         link: options?.link,
         related_type: options?.relatedType,
         related_id: options?.relatedId,
+        priority: notificationDelivery(type) === 'IMMEDIATE' ? 'HIGH' : 'NORMAL',
       });
     } catch (error) {
       logger.error('Failed to create notification', { userId, type, error: error instanceof Error ? error.message : error });

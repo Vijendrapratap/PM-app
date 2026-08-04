@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Navigate, Link, useLocation, useNavigate } from 'react-router-dom';
+import { Navigate, useLocation, useNavigate } from 'react-router-dom';
 import { LogIn, Eye, EyeOff, Crown, Workflow, UserRound, ArrowRight } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import type { DemoPersona } from '../context/demoPersonas';
@@ -23,6 +23,7 @@ const Login = () => {
   };
 
   if (!loading && user) {
+    if (user.onboardingRequired) return <Navigate to="/onboarding" replace />;
     const redirectTo = (location.state as { from?: string } | null)?.from || '/';
     return <Navigate to={redirectTo} replace />;
   }
@@ -152,10 +153,7 @@ const Login = () => {
         </section>}
 
         <p style={{ fontSize: '0.8125rem', color: 'var(--text-muted)', textAlign: 'center', marginTop: '1.5rem', marginBottom: 0 }}>
-          Don't have an account?{' '}
-          <Link to="/register" style={{ color: 'var(--accent-cyan)', fontWeight: 600, textDecoration: 'none' }}>
-            Register
-          </Link>
+          Accounts are invited and managed by your organization CEO.
         </p>
 
         {demoEnabled && <div style={{ textAlign: 'center', marginTop: '1rem' }}>

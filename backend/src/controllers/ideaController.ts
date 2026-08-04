@@ -3,20 +3,13 @@ import { asyncHandler } from '../utils/asyncHandler';
 import { ideaService } from '../services/ideaService';
 import { param } from '../utils/params';
 import { unauthorized } from '../utils/httpError';
-
-export const getIdeas = asyncHandler(async (_req: Request, res: Response) => {
-  res.json(await ideaService.list());
-});
-
-export const createIdea = asyncHandler(async (req: Request, res: Response) => {
-  if (!req.user) throw unauthorized('Not authorized');
-  res.status(201).json(await ideaService.create(req.body, req.user.id));
-});
-
-export const updateIdea = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await ideaService.update(param(req, 'id'), req.body));
-});
-
-export const deleteIdea = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await ideaService.remove(param(req, 'id')));
-});
+const actorOf = (req: Request) => { if (!req.user) throw unauthorized('Not authorized'); return req.user; };
+export const getIdeas = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.list(actorOf(req))));
+export const getIdea = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.get(param(req, 'id'), actorOf(req))));
+export const createIdea = asyncHandler(async (req: Request, res: Response) => res.status(201).json(await ideaService.create(req.body, actorOf(req))));
+export const updateIdea = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.update(param(req, 'id'), req.body, actorOf(req))));
+export const reviewIdea = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.transition(param(req, 'id'), req.body.status || 'UNDER_REVIEW', actorOf(req), req.body.note)));
+export const approveIdea = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.transition(param(req, 'id'), 'APPROVED', actorOf(req), req.body.note)));
+export const rejectIdea = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.transition(param(req, 'id'), 'REJECTED', actorOf(req), req.body.note)));
+export const convertIdea = asyncHandler(async (req: Request, res: Response) => res.status(201).json(await ideaService.convert(param(req, 'id'), actorOf(req))));
+export const deleteIdea = asyncHandler(async (req: Request, res: Response) => res.json(await ideaService.remove(param(req, 'id'), actorOf(req))));

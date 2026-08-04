@@ -15,6 +15,7 @@ export interface PlanTaskDraft {
 
 export interface PlanFeatureDraft {
   key: string;
+  milestone?: string;
   title: string;
   outcome: string;
   description: string;
@@ -128,6 +129,7 @@ export interface AgentDefinition {
   description: string;
   systemPrompt: string;
   active: boolean;
+  editable: boolean;
   updatedAt: string;
   updatedBy: { _id: string; name: string } | null;
   versions: Array<{ _id: string; version: number; changeNote: string | null; createdAt: string; createdBy: { _id: string; name: string } | null }>;

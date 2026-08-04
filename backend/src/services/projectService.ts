@@ -11,10 +11,18 @@ import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { canApproveAgentWork, canViewAllProjects, isSuperAdmin } from '../utils/roles';
 import { agentWorkflowService } from './agentWorkflowService';
 import { logger } from '../config/logger';
+import { canManageProject, canViewProject } from '../policies/accessPolicy';
+import { blockerRepository } from '../repositories/blockerRepository';
+import { hierarchyRepository } from '../repositories/hierarchyRepository';
+import { projectTaskRepository } from '../repositories/projectTaskRepository';
+import { recommendProjectHealth } from '../utils/projectHealth';
+import { projectProgressService } from './projectProgressService';
 
 interface Actor {
   id: string;
   role: string;
+  organizationId?: string;
+  departmentId?: string | null;
 }
 
 const toArray = (value: unknown): unknown[] => {
@@ -44,18 +52,46 @@ interface CreateProjectInput {
   status?: string;
   actorId?: string;
   actorRole?: string;
+  organizationId?: string;
+  sourceIdeaId?: string;
+  useAiPlanning?: boolean | string;
   files: Express.Multer.File[];
 }
 
 export const projectService = {
-  // Managers can coordinate every project. Leads and team members can edit a
-  // project only when they are assigned to it. This is the single gate every
-  // project-mutating endpoint below routes through - never rely on the
-  // frontend hiding a button.
+  // CEO has organization-wide authority. A Manager can edit a project they
+  // own or manage through membership; a Team Member can only update their own
+  // assigned work through task services. Never rely on hidden client controls.
   async assertProjectEditAccess(projectId: string, actor: Actor) {
-    if (canApproveAgentWork(actor.role)) return;
-    const assigned = await projectRepository.isMemberAssigned(projectId, actor.id);
-    if (!assigned) throw forbidden('Only assigned members can edit this project');
+    const project = await projectRepository.findById(projectId);
+    if (!project) throw notFound('Project not found');
+    if (canManageProject(actor, {
+      organizationId: project.organization_id,
+      departmentId: project.department_id,
+      ownerUserId: project.owner_id,
+      members: (project.project_members || []).map((membership: any) => ({
+        userId: membership.user?.id,
+        projectRole: membership.project_role,
+        permissions: membership.permissions_json,
+      })),
+    })) return;
+    throw forbidden('Only the project owner or an assigned Manager can edit this project');
+  },
+
+  async assertProjectContributionAccess(projectId: string, actor: Actor) {
+    const project = await projectRepository.findById(projectId);
+    if (!project) throw notFound('Project not found');
+    if (canViewProject(actor, {
+      organizationId: project.organization_id,
+      departmentId: project.department_id,
+      ownerUserId: project.owner_id,
+      members: (project.project_members || []).map((membership: any) => ({
+        userId: membership.user?.id,
+        projectRole: membership.project_role,
+        permissions: membership.permissions_json,
+      })),
+    })) return;
+    throw forbidden('Only assigned project members can post to this work log');
   },
 
   async createProject(input: CreateProjectInput) {
@@ -82,6 +118,10 @@ export const projectService = {
       status: (input.status as any) || 'Draft',
       tags: toArray(input.tags) as string[],
       owner_id: ownerId,
+      organization_id: input.organizationId,
+      source_idea_id: input.sourceIdeaId,
+      created_by: ownerId,
+      objective: input.description || input.name,
     });
 
     await projectRepository.addMembers(
@@ -115,12 +155,14 @@ export const projectService = {
     // A project remains valid even if the drafting side effect fails (for
     // example before the additive migration is applied). The failed run can
     // be retried from the project workspace without duplicating the project.
-    try {
-      await agentWorkflowService.runProjectManagerAgent(project.id, { id: ownerId, role: input.actorRole || 'Super Admin' });
-    } catch (error) {
-      logger.error('Failed to trigger Project Manager Agent', {
-        projectId: project.id, error: error instanceof Error ? error.message : error,
-      });
+    if (input.useAiPlanning !== false && input.useAiPlanning !== 'false') {
+      try {
+        await agentWorkflowService.runProjectManagerAgent(project.id, { id: ownerId, role: input.actorRole || 'Super Admin' });
+      } catch (error) {
+        logger.error('Failed to trigger Project Manager Agent', {
+          projectId: project.id, error: error instanceof Error ? error.message : error,
+        });
+      }
     }
 
     const full = await projectRepository.findById(project.id);
@@ -138,6 +180,29 @@ export const projectService = {
     const row = await projectRepository.findById(id);
     if (!row) throw notFound('Project not found');
     return mapProject(row);
+  },
+
+  async getOverview(id: string) {
+    const project = await projectRepository.findById(id);
+    if (!project) throw notFound('Project not found');
+    const [milestones, tasks, blockers] = await Promise.all([
+      hierarchyRepository.listMilestones(id), projectTaskRepository.findForProject(id), blockerRepository.findOpenForProjects([id]),
+    ]);
+    const now = new Date();
+    const activeTasks = tasks.filter((task: any) => !['Completed', 'Cancelled'].includes(task.status));
+    const overdueActiveTasks = activeTasks.filter((task: any) => task.due_date && new Date(`${task.due_date}T23:59:59Z`) < now).length;
+    const overdueMilestones = milestones.filter((milestone: any) => milestone.status !== 'COMPLETED' && milestone.target_date && new Date(`${milestone.target_date}T23:59:59Z`) < now).length;
+    const oldestBlockerAgeDays = blockers.length ? Math.max(...blockers.map((blocker: any) => Math.floor((now.getTime() - new Date(blocker.created_at).getTime()) / 86_400_000))) : 0;
+    const signals = { overdueMilestones, overdueActiveTasks, activeTasks: activeTasks.length, criticalBlockers: blockers.filter((blocker: any) => blocker.severity === 'CRITICAL').length, oldestBlockerAgeDays, repeatedCarryovers: 0, staleDays: Math.floor((now.getTime() - new Date(project.updated_at).getTime()) / 86_400_000) };
+    return { project: mapProject(project), milestones, blockers, taskSummary: { total: tasks.length, active: activeTasks.length, overdue: overdueActiveTasks, done: tasks.filter((task: any) => task.status === 'Completed').length }, health: { current: project.health, recommended: recommendProjectHealth(signals), signals } };
+  },
+
+  async setHealth(id: string, health: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NOT_SET', note: string | undefined, actor: Actor) {
+    await this.assertProjectEditAccess(id, actor);
+    const updated = await projectRepository.update(id, { health, health_note: note?.trim() || null, health_updated_by: actor.id, health_updated_at: new Date().toISOString() } as any);
+    if (!updated) throw notFound('Project not found');
+    await activityLogRepository.create({ action: 'Project Health Changed', user_id: actor.id, project_id: id, details: `Project health changed to ${health}.`, event: { eventType: 'PROJECT_HEALTH_CHANGED', entityType: 'PROJECT', entityId: id, payload: { health, note } } });
+    return mapProject(await projectRepository.findById(id));
   },
 
   async addProjectDocuments(id: string, files: Express.Multer.File[], actorId: string) {
@@ -165,7 +230,8 @@ export const projectService = {
       status: string;
       github: string;
       demoVideo: string;
-    }>
+    }>,
+    actorId?: string,
   ) {
     const existing = await projectRepository.findById(id);
     if (!existing) throw notFound('Project not found');
@@ -186,30 +252,38 @@ export const projectService = {
     });
     if (!updated) throw notFound('Project not found');
 
+    if (actorId) await activityLogRepository.create({
+      action: 'Project Updated', user_id: actorId, project_id: id,
+      details: `Project ${updated.name} was updated.`,
+      event: { eventType: 'PROJECT_UPDATED', entityType: 'PROJECT', entityId: id, payload: { changedFields: Object.keys(patch) } },
+    });
+
     const full = await projectRepository.findById(id);
     return mapProject(full);
   },
 
-  async archiveProject(id: string) {
-    const updated = await projectRepository.update(id, { archived: true });
+  async archiveProject(id: string, actorId?: string) {
+    const updated = await projectRepository.update(id, { archived: true, archived_at: new Date().toISOString() });
     if (!updated) throw notFound('Project not found');
+    if (actorId) await activityLogRepository.create({ action: 'Project Archived', user_id: actorId, project_id: id, details: `Project ${updated.name} was archived.`, event: { eventType: 'PROJECT_ARCHIVED', entityType: 'PROJECT', entityId: id } });
     return mapProject(await projectRepository.findById(id));
   },
 
-  async restoreProject(id: string) {
-    const updated = await projectRepository.update(id, { archived: false });
+  async restoreProject(id: string, actorId?: string) {
+    const updated = await projectRepository.update(id, { archived: false, archived_at: null });
     if (!updated) throw notFound('Project not found');
+    if (actorId) await activityLogRepository.create({ action: 'Project Restored', user_id: actorId, project_id: id, details: `Project ${updated.name} was restored.`, event: { eventType: 'PROJECT_RESTORED', entityType: 'PROJECT', entityId: id } });
     return mapProject(await projectRepository.findById(id));
   },
 
-  async deleteProject(id: string) {
+  async deleteProject(id: string, actorId?: string) {
     const existing = await projectRepository.findById(id);
     if (!existing) throw notFound('Project not found');
-    // Every child table (project_members, updates, daily_reports, project
-    // tasks, documents, links) already has `on delete cascade` back to
-    // projects(id) - see 0001_init.sql / 0002 migration - so this is safe.
+    // Preserve project history and all child records. Destructive cleanup is
+    // intentionally outside the v1 lifecycle.
     await projectRepository.remove(id);
-    return { message: 'Project deleted successfully' };
+    if (actorId) await activityLogRepository.create({ action: 'Project Archived', user_id: actorId, project_id: id, details: `Project ${existing.name} was archived through the delete action.`, event: { eventType: 'PROJECT_ARCHIVED', entityType: 'PROJECT', entityId: id, payload: { requestedAction: 'delete' } } });
+    return { message: 'Project archived successfully' };
   },
 
   async getProjectDailyReports(projectId: string) {
@@ -285,8 +359,8 @@ export const projectService = {
     projectId: string;
     title: string;
     description: string;
-    progress: number;
-    status: string;
+    progress?: number;
+    status?: string;
     comments?: string;
     links?: unknown;
     files: Express.Multer.File[];
@@ -297,13 +371,17 @@ export const projectService = {
     if (project.is_locked) throw badRequest('Project is locked and cannot be updated');
 
     const actorId = input.actorId || (await getSystemUserId());
+    // Progress and lifecycle status are execution facts. Recalculate them
+    // from the task board instead of trusting a manually entered percentage
+    // or letting a comment silently move the project.
+    const execution = await projectProgressService.sync(input.projectId);
 
     const update = await updateRepository.create({
       project_id: input.projectId,
       title: input.title,
       description: input.description,
-      progress: input.progress,
-      status: input.status,
+      progress: execution.progress,
+      status: execution.status,
       comments: input.comments,
       created_by: actorId,
     });
@@ -319,13 +397,12 @@ export const projectService = {
       );
     }
 
-    await projectRepository.updateProgressAndStatus(input.projectId, input.progress, input.status);
-
     await activityLogRepository.create({
-      action: 'Project Updated',
+      action: 'Project Work Log Updated',
       user_id: actorId,
       project_id: input.projectId,
-      details: `Project updated: ${input.title}`,
+      details: `${input.title}: ${input.description}`,
+      event: { eventType: 'PROJECT_WORK_LOG_UPDATED', entityType: 'PROJECT', entityId: input.projectId, payload: { updateId: update.id, progress: execution.progress, status: execution.status } },
     });
 
     const rows = await updateRepository.findByProject(input.projectId);
@@ -343,6 +420,8 @@ export const projectService = {
   ) {
     const project = await projectRepository.findById(id);
     if (!project) throw notFound('Project not found');
+    const validation = await this.validateCompletion(id);
+    if (!validation.valid) throw badRequest(`Project cannot be completed: ${(validation.errors || []).join(' ')}`);
 
     const updated = await projectRepository.finish(id, {
       final_github: input.github,
@@ -419,6 +498,13 @@ export const projectService = {
     if (!project.project_members || project.project_members.length === 0) {
       errors.push('At least one team member must be assigned.');
     }
+    const [tasks, milestones, blockers] = await Promise.all([
+      projectTaskRepository.findForProject(id), hierarchyRepository.listMilestones(id), blockerRepository.findOpenForProjects([id]),
+    ]);
+    if (tasks.some((task: any) => !['Completed', 'Cancelled'].includes(task.status))) errors.push('Every open task must be completed, cancelled, or transferred.');
+    if (blockers.length) errors.push('Open blockers must be resolved or transferred.');
+    if (milestones.some((milestone: any) => milestone.status !== 'COMPLETED' && milestone.status !== 'CANCELLED')) errors.push('Every milestone must be completed or cancelled.');
+    if (milestones.some((milestone: any) => (milestone.deliverables || []).some((deliverable: any) => !['COMPLETED', 'CANCELLED'].includes(deliverable.status)))) errors.push('Every deliverable must be completed or cancelled.');
     if (
       project.start_date &&
       project.estimated_completion_date &&

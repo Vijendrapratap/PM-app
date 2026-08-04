@@ -1,11 +1,13 @@
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  Activity, AlertTriangle, ArrowRight, BarChart3, Bell, Bot, Briefcase,
+  Activity, AlertTriangle, ArrowRight, BarChart3, Bot, Briefcase,
   CalendarDays, Check, CheckCircle2, Crown, FileText,
   FolderKanban, Lightbulb, LogOut, Play, Plus, RefreshCw, Save, ShieldCheck,
   Sparkles, ThumbsUp, Users, X, Zap,
 } from 'lucide-react';
 import SharedStartDayPlanner, { type DayPlanResult } from './SharedStartDayPlanner';
+import { createDemoProject } from '../context/demoProjects';
+import { useNavigate } from 'react-router-dom';
 
 type Scope = 'ALL' | 'ENGINEERING' | 'SALES' | 'MARKETING';
 type View = 'overview' | 'portfolio' | 'people' | 'risks' | 'ideas' | 'agents';
@@ -86,7 +88,8 @@ const CeoDialog = ({ title, description, icon, wide, onClose, children }: { titl
   </div>
 );
 
-const CeoExecutiveDemo = () => {
+const CeoExecutiveDemo = ({ planRequest }: { planRequest?: string }) => {
+  const navigate = useNavigate();
   const [scope, setScope] = useState<Scope>('ALL');
   const [view, setView] = useState<View>('overview');
   const [projects, setProjects] = useState(initialProjects);
@@ -94,16 +97,15 @@ const CeoExecutiveDemo = () => {
   const [risks, setRisks] = useState(initialRisks);
   const [ideas, setIdeas] = useState(initialIdeas);
   const [selectedProject, setSelectedProject] = useState('agents');
-  const [notificationsOpen, setNotificationsOpen] = useState(false);
-  const [notifications, setNotifications] = useState([
+  const [, setNotifications] = useState([
     { id: 'n1', title: 'PM Agent plan ready', detail: 'Content Engine scope is ready for approval.', time: '8m' },
     { id: 'n2', title: 'Critical blocker escalated', detail: 'Portal staging validation is waiting on DevOps.', time: '42m' },
     { id: 'n3', title: 'Project moved forward', detail: 'Global Product Launch reached 90% completion.', time: '2h' },
   ]);
   const [modal, setModal] = useState<Modal>(null);
   const [dayStarted, setDayStarted] = useState(false);
+  const handledPlanRequest = useRef<string | undefined>(undefined);
   const [elapsed, setElapsed] = useState(0);
-  const [startTime, setStartTime] = useState('');
   const [briefing, setBriefing] = useState(false);
   const [generatingBriefing, setGeneratingBriefing] = useState(false);
   const [newProject, setNewProject] = useState({ name: '', domain: 'ENGINEERING' as Exclude<Scope, 'ALL'>, summary: '' });
@@ -116,6 +118,13 @@ const CeoExecutiveDemo = () => {
     pm: 'Turn approved project outcomes into clear features, executable tasks, owners, dependencies and realistic estimates. Always require human approval before publishing.',
     ba: 'Create concise, editable business and technical documents from approved project scope. Surface assumptions, acceptance criteria and unresolved decisions.',
   });
+
+  useEffect(() => {
+    if (planRequest && handledPlanRequest.current !== planRequest) {
+      handledPlanRequest.current = planRequest;
+      setModal(dayStarted ? 'finish' : 'start');
+    }
+  }, [dayStarted, planRequest]);
 
   useEffect(() => {
     if (!dayStarted) return;
@@ -132,7 +141,7 @@ const CeoExecutiveDemo = () => {
     setGeneratingBriefing(true);
     window.setTimeout(() => { setGeneratingBriefing(false); setBriefing(true); addNotification('Executive briefing refreshed', 'Live portfolio, people and risk signals were summarized.'); }, 700);
   };
-  const beginDay = () => { setDayStarted(true); setStartTime(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })); setModal(null); addNotification('Workday started', 'Pratap opened the executive workday.'); };
+  const beginDay = () => { setDayStarted(true); setModal(null); addNotification('Workday started', 'Pratap opened the executive workday.'); };
   const beginPlannedDay = (plan: DayPlanResult) => {
     setTasks((current) => {
       const existingIds = new Set(current.map((task) => task.id));
@@ -161,6 +170,7 @@ const CeoExecutiveDemo = () => {
   const launchProject = () => {
     if (!newProject.name.trim() || !breakdown.length) return;
     const id = `project-${Date.now()}`;
+    createDemoProject({ id, name: newProject.name, description: newProject.summary, department: newProject.domain === 'ENGINEERING' ? 'Engineering' : newProject.domain === 'MARKETING' ? 'Marketing' : 'Sales', category: 'AI-assisted project', priority: 'High', status: 'Planning', owner: { _id: 'demo-ceo', name: 'Pratap' }, tags: ['pm-agent'] });
     setProjects((items) => [{ id, name: newProject.name, domain: newProject.domain, summary: newProject.summary || 'New strategic initiative prepared with the PM Agent.', lead: 'Govind · PM', progress: 0, health: 'On track', due: 'Sep 30', team: ['Govind', 'Anush MK'], openTasks: breakdown.length, docs: 1 }, ...items]);
     setTasks((items) => [...breakdown.map((item, index) => ({ id: `${id}-${index}`, title: item.task, projectId: id, assignee: index === 1 ? 'Anush MK' : 'Govind', status: 'To do' as const, estimate: item.estimate })), ...items]);
     addNotification('Project published', `${newProject.name} was sent to Govind with ${breakdown.length} starter tasks.`);
@@ -178,8 +188,7 @@ const CeoExecutiveDemo = () => {
 
   const nav: Array<{ id: View; label: string; icon: typeof Activity }> = [
     { id: 'overview', label: 'Executive overview', icon: Activity }, { id: 'portfolio', label: 'Portfolio', icon: Briefcase },
-    { id: 'people', label: 'People & capacity', icon: Users }, { id: 'risks', label: 'Risks', icon: AlertTriangle },
-    { id: 'agents', label: 'Agent governance', icon: Bot },
+    { id: 'people', label: 'People & capacity', icon: Users }, { id: 'risks', label: 'Risks & blockers', icon: AlertTriangle },
   ];
 
   return (
@@ -193,10 +202,6 @@ const CeoExecutiveDemo = () => {
         <nav>{nav.map((item) => { const Icon = item.icon; return <button type="button" className={`${view === item.id ? 'active' : ''} ${item.id === 'risks' ? 'blocker-nav' : ''}`.trim()} onClick={() => setView(item.id)} key={item.id}><Icon size={15}/><span>{item.label}</span>{item.id === 'risks' && <b>{risks.length}</b>}</button>; })}</nav>
         <div className="ce-command-actions">
           <button className="ce-brief-button" type="button" onClick={generateBriefing} disabled={generatingBriefing}>{generatingBriefing ? <RefreshCw className="spin" size={15}/> : <Sparkles size={15}/>}<span>{generatingBriefing ? 'Analyzing…' : 'Generate CEO briefing'}</span></button>
-          <div className="ce-notifications"><button type="button" aria-label="Notifications" onClick={() => setNotificationsOpen((open) => !open)}><Bell size={17}/><i>{notifications.length}</i></button>{notificationsOpen && <aside><header><strong>Company activity</strong><button type="button" onClick={() => { setNotifications([]); setNotificationsOpen(false); }}>Clear</button></header>{notifications.length ? notifications.map((item) => <article key={item.id}><span></span><div><strong>{item.title}</strong><p>{item.detail}</p><small>{item.time}</small></div></article>) : <p className="ce-empty">You are all caught up.</p>}</aside>}</div>
-          <button className="ce-blocker-action" type="button" onClick={() => setModal('risk')}><AlertTriangle size={15}/> Blocker</button>
-          {dayStarted ? <div className="ce-session"><span><i></i>{startTime}</span><b>{formatTimer(elapsed)}</b><button type="button" onClick={() => setModal('finish')}><LogOut size={14}/> Wrap up</button></div> : <button className="ce-start" type="button" onClick={() => setModal('start')}><Play size={14}/> Start day</button>}
-          <button className="ce-launch" type="button" onClick={() => setModal('launch')}><Plus size={15}/> Add project</button>
         </div>
       </section>
 
@@ -207,7 +212,7 @@ const CeoExecutiveDemo = () => {
         <section className="ce-schedule"><header><span><CalendarDays size={17}/> Today across the company</span><small>Friday · July 31</small></header><div>{scopeCopy[scope].schedule.map((item) => <article key={item.time}><time>{item.time}</time><div><strong>{item.title}</strong><small>{item.type}</small></div><button type="button"><ArrowRight size={15}/></button></article>)}</div></section>
         <div className="ce-overview-grid">
           <section className="ce-portfolio-health"><header><div><span>Portfolio movement</span><p>Progress and delivery health at a glance.</p></div><button type="button" onClick={() => setView('portfolio')}>Open portfolio <ArrowRight size={14}/></button></header><div className="ce-health-summary"><article><strong>{portfolioProgress}%</strong><span>Average progress</span><p>{filteredProjects.filter((project) => project.health === 'On track').length} of {filteredProjects.length} projects are on track.</p></article><div>{filteredProjects.map((project) => <button type="button" key={project.id} onClick={() => { setSelectedProject(project.id); setView('portfolio'); }}><span><strong>{project.name}</strong><small>{project.lead} · due {project.due}</small></span><b>{project.progress}%</b><i><em style={{ width: `${project.progress}%` }}/></i></button>)}</div></div></section>
-          <section className="ce-decisions"><header><span><Zap size={17}/> Decision queue</span><b>4 waiting</b></header><article className="purple"><i><Bot size={17}/></i><div><strong>Approve PM Agent plan</strong><p>Content Engine · 4 features · 18 tasks</p></div><button type="button" onClick={() => setView('agents')}>Review</button></article><article className="rose"><i><AlertTriangle size={17}/></i><div><strong>Unblock staging validation</strong><p>Customer Portal V2 · critical</p></div><button type="button" onClick={() => setView('risks')}>Act</button></article><article className="amber"><i><Users size={17}/></i><div><strong>Capacity check for Anush</strong><p>84% load before new sprint scope</p></div><button type="button" onClick={() => setView('people')}>View</button></article></section>
+          <section className="ce-decisions"><header><span><Zap size={17}/> Decision queue</span><b>4 waiting</b></header><article className="purple"><i><Bot size={17}/></i><div><strong>Approve PM Agent plan</strong><p>Content Engine · 4 features · 18 tasks</p></div><button type="button" onClick={() => navigate('/agents')}>Review</button></article><article className="rose"><i><AlertTriangle size={17}/></i><div><strong>Unblock staging validation</strong><p>Customer Portal V2 · critical</p></div><button type="button" onClick={() => setView('risks')}>Act</button></article><article className="amber"><i><Users size={17}/></i><div><strong>Capacity check for Anush</strong><p>84% load before new sprint scope</p></div><button type="button" onClick={() => setView('people')}>View</button></article></section>
         </div>
         <section className="ce-attendance"><header><div><span><Users size={17}/> Team attendance & current load</span><p>Visibility for support and planning—not surveillance.</p></div><button type="button" onClick={() => setView('people')}>View capacity</button></header><div>{initialPeople.map((person) => <article key={person.name}><div className="ce-avatar">{person.name.split(' ').map((word) => word[0]).join('').slice(0, 2)}</div><div><strong>{person.name}</strong><p>{person.role}</p><small><i></i>{person.state} · since {person.since}</small></div><span><b>{person.load}%</b><small>{person.tasks} open tasks</small></span></article>)}</div></section>
       </div>}

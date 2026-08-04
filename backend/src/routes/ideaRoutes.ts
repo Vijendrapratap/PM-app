@@ -1,18 +1,14 @@
 import express from 'express';
-import { getIdeas, createIdea, updateIdea, deleteIdea } from '../controllers/ideaController';
-import { protect, requireSuperAdmin } from '../middleware/auth';
+import { approveIdea, convertIdea, createIdea, deleteIdea, getIdea, getIdeas, rejectIdea, reviewIdea, updateIdea } from '../controllers/ideaController';
+import { protect, requireCEO, requireManager } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import { createIdeaSchema, updateIdeaSchema } from '../utils/validators';
-
 const router = express.Router();
-
 router.use(protect);
-
-router.route('/')
-  .get(getIdeas)
-  .post(validateBody(createIdeaSchema), createIdea);
-
-router.patch('/:id', requireSuperAdmin, validateBody(updateIdeaSchema), updateIdea);
-router.delete('/:id', requireSuperAdmin, deleteIdea);
-
+router.route('/').get(getIdeas).post(validateBody(createIdeaSchema), createIdea);
+router.route('/:id').get(getIdea).patch(validateBody(updateIdeaSchema), updateIdea).delete(requireCEO, deleteIdea);
+router.post('/:id/review', requireManager, reviewIdea);
+router.post('/:id/approve', requireManager, approveIdea);
+router.post('/:id/reject', requireManager, rejectIdea);
+router.post('/:id/convert', requireCEO, convertIdea);
 export default router;

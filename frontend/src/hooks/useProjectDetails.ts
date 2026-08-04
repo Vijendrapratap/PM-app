@@ -2,8 +2,11 @@ import { useCallback, useEffect, useState } from 'react';
 import { projectApi } from '../api/projectApi';
 import type { DailyReport, Project, ProjectUpdate } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
+import { useAuth } from '../context/AuthContext';
+import { getDemoProject } from '../context/demoProjects';
 
 export const useProjectDetails = (id: string | undefined) => {
+  const { isDemo } = useAuth();
   const [project, setProject] = useState<Project | null>(null);
   const [updates, setUpdates] = useState<ProjectUpdate[]>([]);
   const [dailyReports, setDailyReports] = useState<DailyReport[]>([]);
@@ -12,6 +15,13 @@ export const useProjectDetails = (id: string | undefined) => {
 
   const refetch = useCallback(async () => {
     if (!id) return;
+    if (isDemo) {
+      setProject(getDemoProject(id));
+      setUpdates([]);
+      setDailyReports([]);
+      setLoading(false);
+      return;
+    }
     try {
       setError(null);
       const [projectData, updatesData] = await Promise.all([projectApi.getById(id), projectApi.getUpdates(id)]);
@@ -31,7 +41,7 @@ export const useProjectDetails = (id: string | undefined) => {
     } finally {
       setLoading(false);
     }
-  }, [id]);
+  }, [id, isDemo]);
 
   useEffect(() => {
     refetch();

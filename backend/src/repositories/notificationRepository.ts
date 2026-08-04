@@ -12,6 +12,7 @@ export const notificationRepository = {
     link?: string;
     related_type?: string;
     related_id?: string;
+    priority?: 'LOW' | 'NORMAL' | 'HIGH' | 'CRITICAL';
   }): Promise<void> {
     // The unique index on (user_id, type, related_type, related_id) in the
     // migration makes this idempotent for the lazy due-soon/overdue

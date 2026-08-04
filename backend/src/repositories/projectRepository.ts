@@ -4,7 +4,7 @@ import { Project } from '../types/models';
 const PROJECT_SELECT = `
   *,
   owner:owner_id(id, name),
-  project_members(user:user_id(id, name, email, role, phone, department, status, photo)),
+  project_members(project_role, permissions_json, joined_at, user:user_id(id, name, email, role, platform_role, designation, phone, department, department_id, status, photo)),
   project_initial_documents(id, name, storage_path, uploaded_at)
 `;
 
@@ -30,15 +30,26 @@ export const projectRepository = {
   },
 
   async findForUser(userId: string, includeArchived = false) {
-    let query = supabase
+    let memberQuery = supabase
       .from('projects')
       .select(`${PROJECT_SELECT}, project_access:project_members!inner(user_id)`)
       .eq('project_access.user_id', userId)
       .order('created_at', { ascending: false });
-    if (!includeArchived) query = query.eq('archived', false);
-    const { data, error } = await query;
-    if (error) throw error;
-    return data;
+    let ownerQuery = supabase
+      .from('projects')
+      .select(PROJECT_SELECT)
+      .eq('owner_id', userId)
+      .order('created_at', { ascending: false });
+    if (!includeArchived) {
+      memberQuery = memberQuery.eq('archived', false);
+      ownerQuery = ownerQuery.eq('archived', false);
+    }
+    const [memberResult, ownerResult] = await Promise.all([memberQuery, ownerQuery]);
+    if (memberResult.error) throw memberResult.error;
+    if (ownerResult.error) throw ownerResult.error;
+    const merged = new Map<string, any>();
+    [...(memberResult.data || []), ...(ownerResult.data || [])].forEach((project) => merged.set(project.id, project));
+    return [...merged.values()].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
   async create(input: Partial<Project>): Promise<Project> {
@@ -87,7 +98,12 @@ export const projectRepository = {
   },
 
   async remove(id: string): Promise<void> {
-    const { error } = await supabase.from('projects').delete().eq('id', id);
+    const { error } = await supabase.from('projects').update({
+      archived: true,
+      archived_at: new Date().toISOString(),
+      status: 'Cancelled',
+      updated_at: new Date().toISOString(),
+    }).eq('id', id);
     if (error) throw error;
   },
 

@@ -17,7 +17,7 @@ const Projects = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const canManage = canApproveAgentWork(user?.role);
   const [showArchived, setShowArchived] = useState(false);
-  const { projects: allProjects, loading, refetch } = useProjects(showArchived);
+  const { projects: allProjects, loading, error: loadError, refetch, addProject } = useProjects(showArchived);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editTarget, setEditTarget] = useState<Project | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
@@ -114,6 +114,15 @@ const Projects = () => {
     }
   };
 
+  const handleProjectCreated = (project: Project) => {
+    addProject(project);
+    setSearch('');
+    setStatusFilter('All');
+    setSortBy('recent');
+    setShowArchived(false);
+    setSearchParams({});
+  };
+
   return (
     <div className="animate-fade-in">
       {/* Header */}
@@ -137,9 +146,9 @@ const Projects = () => {
         </div>
       </div>
 
-      {error && (
+      {(error || loadError) && (
         <div style={{ background: 'rgba(239,68,68,0.1)', color: 'var(--danger)', borderRadius: 'var(--radius-sm)', padding: '0.625rem 0.875rem', fontSize: '0.8125rem', marginBottom: '1rem' }}>
-          {error}
+          {error || loadError}
         </div>
       )}
 
@@ -203,8 +212,8 @@ const Projects = () => {
         </div>
       ) : (
         <div className="project-grid">
-          {filtered.map((project) => (
-            <div key={project._id} style={{ position: 'relative' }}>
+          {filtered.map((project, index) => (
+            <div key={project._id} className={`project-card-shell tone-${index % 5}`} style={{ position: 'relative' }}>
               <Link
                 to={`/projects/${project._id}`}
                 className={`project-card ${canManage ? 'project-card--managed' : ''}`}
@@ -265,7 +274,7 @@ const Projects = () => {
       {isModalOpen && (
         <CreateProjectModal
           onClose={() => setIsModalOpen(false)}
-          onSuccess={refetch}
+          onSuccess={handleProjectCreated}
         />
       )}
 

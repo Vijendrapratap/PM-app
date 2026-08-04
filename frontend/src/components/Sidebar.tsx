@@ -1,7 +1,7 @@
-import { NavLink, useLocation, useNavigate } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Archive, Bot, FolderKanban, LayoutDashboard, Lightbulb, ListChecks,
-  LogOut, Megaphone, Target, Users, Waypoints,
+  Archive, BarChart3, Bell, Bot, CalendarCheck2, CheckSquare2, FolderKanban,
+  Lightbulb, LogOut, MessageSquareText, Target, Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
@@ -10,7 +10,6 @@ import { workdayApi } from '../api/workdayApi';
 const Sidebar = () => {
   const { user, logout, isDemo } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
 
   const handleSignOut = async () => {
     if (!isDemo) {
@@ -28,9 +27,15 @@ const Sidebar = () => {
     navigate('/login', { replace: true });
   };
 
+  const handlePlanMyDay = () => {
+    const request = Date.now();
+    navigate(isDemo ? `/?plan=${request}` : `/workday?plan=${request}`);
+  };
+
   const linkClass = ({ isActive }: { isActive: boolean }) => `rail-link ${isActive ? 'active' : ''}`;
-  const workdayView = new URLSearchParams(location.search).get('view');
   const canCoordinate = canApproveAgentWork(user?.role) || isLead(user?.role);
+  const isTeamMember = user?.platformRole === 'TEAM_MEMBER' || user?.role === 'Team Member';
+  const isCEO = isSuperAdmin(user?.platformRole || user?.role);
 
   return (
     <aside className="sidebar" aria-label="Primary navigation">
@@ -39,20 +44,27 @@ const Sidebar = () => {
         <span className="rail-tooltip">Pratap AI</span>
       </NavLink>
 
-      <nav className="sidebar-nav">
-        <span className="sidebar-section-label">Workspace</span>
-        <NavLink to="/" end className={linkClass} aria-label="Home"><LayoutDashboard size={19}/><span className="rail-tooltip">Home</span></NavLink>
-        <NavLink to="/projects" className={linkClass} aria-label="Projects"><FolderKanban size={19}/><span className="rail-tooltip">Projects</span></NavLink>
-        <NavLink to="/workday" className={() => `rail-link ${location.pathname === '/workday' && workdayView !== 'team' ? 'active' : ''}`} aria-label="My workday"><Target size={19}/><span className="rail-tooltip">My workday</span></NavLink>
-        <NavLink to="/daily-todo" className={linkClass} aria-label="Daily tasks"><ListChecks size={19}/><span className="rail-tooltip">Daily tasks</span></NavLink>
+      <button type="button" onClick={handlePlanMyDay} className="sidebar-plan-cta" aria-label="Plan my day">
+        <span className="sidebar-plan-icon"><CalendarCheck2 size={18}/></span>
+        <span className="sidebar-plan-copy"><strong>Plan my day</strong><small>Set today’s focus</small></span>
+      </button>
 
-        <span className="sidebar-section-label">{canCoordinate ? 'Company' : 'Explore'}</span>
-        {canCoordinate && <NavLink to="/team" className={linkClass} aria-label="Team"><Users size={19}/><span className="rail-tooltip">Team</span></NavLink>}
-        {canCoordinate && <NavLink to="/workday?view=team" className={() => `rail-link ${location.pathname === '/workday' && workdayView === 'team' ? 'active' : ''}`} aria-label="Team pulse"><Waypoints size={19}/><span className="rail-tooltip">Team pulse</span></NavLink>}
+      <nav className="sidebar-nav">
+        <span className="sidebar-section-label">Daily work</span>
+        <NavLink to="/" end className={linkClass} aria-label="Today"><Target size={19}/><span className="rail-tooltip">Today</span></NavLink>
+        <NavLink to="/daily-todo" className={linkClass} aria-label="Tasks"><CheckSquare2 size={19}/><span className="rail-tooltip">Tasks</span></NavLink>
+
+        <span className="sidebar-section-label">Projects &amp; ideas</span>
+        <NavLink to="/projects" className={linkClass} aria-label={isTeamMember ? 'My Projects' : 'Projects'}><FolderKanban size={19}/><span className="rail-tooltip">{isTeamMember ? 'My Projects' : 'Projects'}</span></NavLink>
+        <NavLink to="/completed" className={linkClass} aria-label="Completed projects"><Archive size={19}/><span className="rail-tooltip">Completed projects</span></NavLink>
         <NavLink to="/ideas" className={linkClass} aria-label="Idea bucket"><Lightbulb size={19}/><span className="rail-tooltip">Idea bucket</span></NavLink>
-        {canCoordinate && <NavLink to="/agents" className={linkClass} aria-label="Agent Studio"><Bot size={19}/><span className="rail-tooltip">Agent Studio</span></NavLink>}
-        <NavLink to="/completed" className={linkClass} aria-label="Completed projects"><Archive size={19}/><span className="rail-tooltip">Completed</span></NavLink>
-        {isSuperAdmin(user?.role) && <NavLink to="/messages" className={linkClass} aria-label="Important messages"><Megaphone size={19}/><span className="rail-tooltip">Messages</span></NavLink>}
+
+        <span className="sidebar-section-label">{canCoordinate ? 'Organization' : 'Workspace'}</span>
+        {canCoordinate && <NavLink to="/team" className={linkClass} aria-label="Team"><Users size={19}/><span className="rail-tooltip">Team</span></NavLink>}
+        <NavLink to="/reports" className={linkClass} aria-label="Reports"><BarChart3 size={19}/><span className="rail-tooltip">{isTeamMember ? 'My reports' : 'Reports'}</span></NavLink>
+        {canCoordinate && <NavLink to="/agents" className={linkClass} aria-label="AI workspace"><Bot size={19}/><span className="rail-tooltip">AI workspace</span></NavLink>}
+        {isCEO && <NavLink to="/messages" className={linkClass} aria-label="Team messages"><MessageSquareText size={19}/><span className="rail-tooltip">Team messages</span></NavLink>}
+        <NavLink to="/notifications" className={linkClass} aria-label="Notifications"><Bell size={19}/><span className="rail-tooltip">Notifications</span></NavLink>
       </nav>
 
       <div className="sidebar-footer">

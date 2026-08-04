@@ -1,0 +1,13 @@
+import { Request, Response } from 'express';
+import { asyncHandler } from '../utils/asyncHandler';
+import { agentProposalService } from '../services/agentProposalService';
+import { agentWorkflowService } from '../services/agentWorkflowService';
+import { unauthorized } from '../utils/httpError';
+import { param } from '../utils/params';
+const actorOf = (req: Request) => { if (!req.user) throw unauthorized('Not authorized'); return req.user; };
+export const runPmAgent = asyncHandler(async (req: Request, res: Response) => { const workspace = await agentWorkflowService.runProjectManagerAgent(req.body.projectId, actorOf(req), req.body.force === true); const run = workspace.runs[0]; res.status(202).json({ runId: run?._id, status: run?.status, workspace }); });
+export const runBaAgent = asyncHandler(async (req: Request, res: Response) => { const workspace = await agentWorkflowService.runBusinessAnalystAgent(req.body.projectId, req.body.planId, actorOf(req), req.body.force === true); const run = workspace.runs[0]; res.status(202).json({ runId: run?._id, status: run?.status, workspace }); });
+export const getAgentRun = asyncHandler(async (req: Request, res: Response) => res.json(await agentProposalService.getRun(param(req, 'runId'), actorOf(req))));
+export const getAgentProposal = asyncHandler(async (req: Request, res: Response) => res.json(await agentProposalService.get(param(req, 'proposalId'), actorOf(req))));
+export const applyAgentProposal = asyncHandler(async (req: Request, res: Response) => res.json(await agentProposalService.apply(param(req, 'proposalId'), actorOf(req))));
+export const rejectAgentProposal = asyncHandler(async (req: Request, res: Response) => res.json(await agentProposalService.reject(param(req, 'proposalId'), req.body.note, actorOf(req))));

@@ -8,6 +8,8 @@ const ProtectedRoute = ({ children }: { children: ReactNode }) => {
 
   if (loading) return null;
   if (!user) return <Navigate to="/login" state={{ from: location.pathname }} replace />;
+  if (!user.onboardingRequired && location.pathname === '/onboarding') return <Navigate to="/" replace />;
+  if (user.onboardingRequired && location.pathname !== '/onboarding') return <Navigate to="/onboarding" replace />;
 
   return <>{children}</>;
 };

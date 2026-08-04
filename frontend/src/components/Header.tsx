@@ -4,15 +4,17 @@ import { useAuth } from '../context/AuthContext';
 import NotificationBell from './NotificationBell';
 
 const BREADCRUMB_MAP: Record<string, string> = {
-  '/': 'Dashboard',
+  '/': 'Today',
   '/projects': 'Active Projects',
   '/completed': 'Completed Projects',
   '/team': 'Team Members',
   '/messages': 'Important Messages',
-  '/daily-todo': 'Daily To-Do',
+  '/daily-todo': 'Tasks',
   '/workday': 'Workday',
   '/ideas': 'Ideas',
   '/agents': 'Agent Studio',
+  '/reports': 'Reports',
+  '/notifications': 'Notifications',
 };
 
 const Header = () => {

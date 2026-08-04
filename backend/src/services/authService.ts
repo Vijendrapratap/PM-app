@@ -2,8 +2,9 @@ import bcrypt from 'bcrypt';
 import { userRepository } from '../repositories/userRepository';
 import { generateToken } from '../utils/jwt';
 import { badRequest, unauthorized } from '../utils/httpError';
-import { DEFAULT_ROLE, isSuperAdmin, isValidRole } from '../utils/roles';
+import { DEFAULT_ROLE, legacyRoleFor, toPlatformRole, type PlatformRole } from '../utils/roles';
 import { logger } from '../config/logger';
+import { activityLogRepository } from '../repositories/activityLogRepository';
 
 interface RegisterInput {
   name: string;
@@ -13,35 +14,42 @@ interface RegisterInput {
   department?: string;
   phone?: string;
   skills?: string[];
+  designation?: string;
+  departmentId?: string;
+  managerUserId?: string;
+  timezone?: string;
+  dailyCapacityMinutes?: number;
 }
 
-const toAuthResponse = (user: { id: string; name: string; email: string; role: string; department?: string | null; photo?: string | null }) => ({
+interface RegistrationActor {
+  id: string;
+  role: string;
+  organizationId?: string;
+}
+
+const toAuthResponse = (user: { id: string; name: string; email: string; role: string; platform_role?: PlatformRole; designation?: string | null; department?: string | null; department_id?: string | null; photo?: string | null; onboarding_completed_at?: string | null }) => ({
   _id: user.id,
   name: user.name,
   email: user.email,
   role: user.role,
+  platformRole: user.platform_role || toPlatformRole(user.role),
+  designation: user.designation ?? null,
   department: user.department ?? null,
+  departmentId: user.department_id ?? null,
   photo: user.photo ?? null,
-  token: generateToken({ id: user.id, role: user.role }),
+  onboardingRequired: !user.onboarding_completed_at,
+  token: generateToken({ id: user.id, role: user.role, platformRole: user.platform_role || toPlatformRole(user.role) }),
 });
 
 export const authService = {
-  // `actorRole` is the role of whoever is calling this (undefined for a public,
-  // unauthenticated self-registration). Only a Super Admin caller may choose a
-  // role for the new account - everyone else always gets 'Team Member',
-  // regardless of what the request body asks for. This is enforced here, not
-  // just hidden in the UI, since the endpoint is public.
-  async register(input: RegisterInput, actorRole?: string) {
+  async register(input: RegisterInput, actor: RegistrationActor) {
     const existing = await userRepository.findByEmail(input.email);
     if (existing) {
       throw badRequest('User already exists');
     }
 
-    let role = DEFAULT_ROLE;
-    if (isSuperAdmin(actorRole) && input.role) {
-      if (!isValidRole(input.role)) throw badRequest('Invalid role');
-      role = input.role;
-    }
+    const platformRole = input.role ? toPlatformRole(input.role) : 'TEAM_MEMBER';
+    const role = legacyRoleFor(platformRole, input.designation || input.role) || DEFAULT_ROLE;
 
     const passwordHash = await bcrypt.hash(input.password, 10);
     const user = await userRepository.create({
@@ -49,9 +57,30 @@ export const authService = {
       email: input.email,
       password_hash: passwordHash,
       role,
+      platform_role: platformRole,
+      organization_id: actor.organizationId,
+      designation: input.designation || input.role || role,
       department: input.department,
+      department_id: input.departmentId,
+      manager_user_id: input.managerUserId,
+      timezone: input.timezone,
+      daily_capacity_minutes: input.dailyCapacityMinutes,
+      account_status: 'INVITED',
+      invited_at: new Date().toISOString(),
       phone: input.phone,
       skills: input.skills,
+    });
+
+    await activityLogRepository.create({
+      action: 'User Invited',
+      user_id: actor.id,
+      details: `${user.name} was added to the organization.`,
+      event: {
+        eventType: 'USER_INVITED',
+        entityType: 'USER',
+        entityId: user.id,
+        payload: { invitedUserId: user.id, platformRole },
+      },
     });
 
     return toAuthResponse(user);
@@ -69,7 +98,7 @@ export const authService = {
       throw unauthorized('Invalid email or password');
     }
     if (user.deleted_at) throw unauthorized('Invalid email or password');
-    if (user.status === 'Inactive') throw unauthorized('Account is inactive');
+    if (user.status === 'Inactive' || ['INACTIVE', 'SUSPENDED'].includes(user.account_status || '')) throw unauthorized('Account is inactive');
     await userRepository.update(user.id, { last_login_at: new Date().toISOString() });
     return toAuthResponse(user);
   },
@@ -77,6 +106,16 @@ export const authService = {
   async getMe(userId: string) {
     const user = await userRepository.findById(userId);
     if (!user) throw unauthorized('User not found');
-    return { _id: user.id, name: user.name, email: user.email, role: user.role, department: user.department };
+    return {
+      _id: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      platformRole: user.platform_role || toPlatformRole(user.role),
+      designation: user.designation,
+      department: user.department,
+      departmentId: user.department_id,
+      onboardingRequired: !user.onboarding_completed_at,
+    };
   },
 };

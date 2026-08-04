@@ -44,22 +44,51 @@ export const userRepository = {
     department?: string;
     phone?: string;
     skills?: string[];
+    organization_id?: string;
+    platform_role?: 'CEO' | 'MANAGER' | 'TEAM_MEMBER';
+    designation?: string;
+    department_id?: string;
+    manager_user_id?: string;
+    timezone?: string;
+    daily_capacity_minutes?: number;
+    account_status?: 'INVITED' | 'ACTIVE';
+    invited_at?: string;
   }): Promise<User> {
+    let organizationId = input.organization_id;
+    if (!organizationId) {
+      const { data: organization, error: organizationError } = await supabase
+        .from('organizations')
+        .select('id')
+        .order('created_at')
+        .limit(1)
+        .single();
+      if (organizationError) throw organizationError;
+      organizationId = organization.id;
+    }
     const { data, error } = await supabase
       .from(TABLE)
-      .insert({ ...input, department: input.department || 'General' })
+      .insert({
+        ...input,
+        organization_id: organizationId,
+        platform_role: input.platform_role || 'TEAM_MEMBER',
+        designation: input.designation || input.role,
+        department: input.department || 'General',
+        account_status: input.account_status || 'ACTIVE',
+      })
       .select('*')
       .single();
     if (error) throw error;
     return data;
   },
 
-  async list(): Promise<any[]> {
-    const { data, error } = await supabase
+  async list(organizationId?: string): Promise<any[]> {
+    let query = supabase
       .from(TABLE)
       .select(WITH_PROJECTS_SELECT)
       .is('deleted_at', null)
       .order('created_at', { ascending: false });
+    if (organizationId) query = query.eq('organization_id', organizationId);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
@@ -76,14 +105,30 @@ export const userRepository = {
     return data;
   },
 
-  async findActiveByRoles(roles: string[]): Promise<User[]> {
+  async findActiveByRoles(roles: string[], organizationId?: string): Promise<User[]> {
     if (!roles.length) return [];
-    const { data, error } = await supabase
+    let query = supabase
       .from(TABLE)
       .select('*')
       .in('role', roles)
       .eq('status', 'Active')
       .is('deleted_at', null);
+    if (organizationId) query = query.eq('organization_id', organizationId);
+    const { data, error } = await query;
+    if (error) throw error;
+    return data;
+  },
+
+  async findActiveByPlatformRoles(roles: Array<'CEO' | 'MANAGER' | 'TEAM_MEMBER'>, organizationId?: string): Promise<User[]> {
+    if (!roles.length) return [];
+    let query = supabase
+      .from(TABLE)
+      .select('*')
+      .in('platform_role', roles)
+      .eq('status', 'Active')
+      .is('deleted_at', null);
+    if (organizationId) query = query.eq('organization_id', organizationId);
+    const { data, error } = await query;
     if (error) throw error;
     return data;
   },
@@ -98,7 +143,7 @@ export const userRepository = {
     const { count, error } = await supabase
       .from(TABLE)
       .select('id', { count: 'exact', head: true })
-      .eq('role', 'Super Admin')
+      .eq('platform_role', 'CEO')
       .eq('status', 'Active')
       .is('deleted_at', null)
       .neq('id', excludeId);

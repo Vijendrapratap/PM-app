@@ -1,0 +1,2 @@
+import { Request, Response } from 'express'; import { asyncHandler } from '../utils/asyncHandler'; import { reportService } from '../services/reportService'; import { unauthorized } from '../utils/httpError';
+export const getReportOverview = asyncHandler(async (req: Request, res: Response) => { if (!req.user) throw unauthorized('Not authorized'); res.json(await reportService.overview(req.user)); });

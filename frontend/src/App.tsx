@@ -1,37 +1,40 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { lazy, Suspense } from 'react';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import { AuthProvider } from './context/AuthContext';
-import Dashboard from './pages/Dashboard';
-import Projects from './pages/Projects';
-import ProjectDetails from './pages/ProjectDetails';
-import CompletedProjects from './pages/CompletedProjects';
-import Team from './pages/Team';
-import Login from './pages/Login';
-import Register from './pages/Register';
-import Messages from './pages/Messages';
-import DailyPlanner from './pages/DailyPlanner';
-import Ideas from './pages/Ideas';
-import DemoDashboard from './pages/DemoDashboard';
-import Workday from './pages/Workday';
-import AgentStudio from './pages/AgentStudio';
 import { useAuth } from './context/AuthContext';
+
+const Projects = lazy(() => import('./pages/Projects'));
+const ProjectDetails = lazy(() => import('./pages/ProjectDetails'));
+const CompletedProjects = lazy(() => import('./pages/CompletedProjects'));
+const Team = lazy(() => import('./pages/Team'));
+const Login = lazy(() => import('./pages/Login'));
+const Messages = lazy(() => import('./pages/Messages'));
+const DailyPlanner = lazy(() => import('./pages/DailyPlanner'));
+const Ideas = lazy(() => import('./pages/Ideas'));
+const DemoDashboard = lazy(() => import('./pages/DemoDashboard'));
+const Workday = lazy(() => import('./pages/Workday'));
+const AgentStudio = lazy(() => import('./pages/AgentStudio'));
+const Notifications = lazy(() => import('./pages/Notifications'));
+const Onboarding = lazy(() => import('./pages/Onboarding'));
+const Reports = lazy(() => import('./pages/Reports'));
 
 const Home = () => {
   const { isDemo } = useAuth();
-  return isDemo ? <DemoDashboard /> : <Dashboard />;
+  return isDemo ? <DemoDashboard /> : <Workday />;
 };
 
 function App() {
   return (
     <Router>
       <AuthProvider>
+        <Suspense fallback={<div className="route-loading" role="status" aria-label="Loading page"><div className="skeleton"/></div>}>
         <Routes>
           <Route path="/login" element={<Login />} />
           {/* Dedicated Super Admin entry point, reusing the exact same login
               flow/JWT - see plan Design Decision 7. */}
           <Route path="/admin/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
           <Route
             path="/"
             element={
@@ -41,6 +44,7 @@ function App() {
             }
           >
             <Route index element={<Home />} />
+            <Route path="onboarding" element={<Onboarding />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetails />} />
             <Route path="completed" element={<CompletedProjects />} />
@@ -50,9 +54,12 @@ function App() {
             <Route path="workday" element={<Workday />} />
             <Route path="ideas" element={<Ideas />} />
             <Route path="agents" element={<AgentStudio />} />
+            <Route path="reports" element={<Reports />} />
+            <Route path="notifications" element={<Notifications />} />
             <Route path="*" element={<div>Page Not Found</div>} />
           </Route>
         </Routes>
+        </Suspense>
       </AuthProvider>
     </Router>
   );

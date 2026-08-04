@@ -6,8 +6,11 @@ export interface AuthResponse {
   name: string;
   email: string;
   role: string;
+  platformRole?: 'CEO' | 'MANAGER' | 'TEAM_MEMBER';
+  designation?: string | null;
   department?: string | null;
   photo?: string | null;
+  onboardingRequired?: boolean;
   token: string;
 }
 
@@ -21,10 +24,8 @@ export interface RegisterPayload {
 }
 
 export const authApi = {
-  // Public self-registration always lands as 'Team Member' (enforced
-  // server-side). Super Admin's "Add Member" flow reuses this same endpoint
-  // but sends a `role`, which is only honored when the caller is already an
-  // authenticated Super Admin - see backend authService.register.
+  // CEO-only account creation. The API rejects unauthenticated and non-CEO
+  // requests even if a caller manipulates the client.
   register: (data: RegisterPayload | (UpsertUserPayload & { password: string })) =>
     api.post<AuthResponse>('/auth/register', data).then((res) => res.data),
 
@@ -32,4 +33,7 @@ export const authApi = {
     api.post<AuthResponse>('/auth/login', { email, password }).then((res) => res.data),
 
   me: () => api.get('/auth/me').then((res) => res.data),
+
+  completeOnboarding: (data: { timezone: string; typicalWorkStart?: string; typicalWorkEnd?: string; notificationPreference?: 'IMMEDIATE_AND_DIGEST' | 'DIGEST_ONLY' }) =>
+    api.post('/team/onboarding', data).then((res) => res.data),
 };
