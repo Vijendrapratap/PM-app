@@ -15,6 +15,7 @@ import { userRepository } from '../repositories/userRepository';
 import { notificationService } from './notificationService';
 import { logger } from '../config/logger';
 import { projectProgressService } from './projectProgressService';
+import { dailyReportRepository } from '../repositories/dailyReportRepository';
 
 interface Actor {
   id: string;
@@ -297,6 +298,14 @@ export const workdayService = {
       const member = await userRepository.findById(actor.id).catch(() => null);
       const state = input.status || item.status;
       const note = input.progressNote?.trim();
+      const blocker = input.blockerReason?.trim();
+      if (input.progressNote !== undefined || input.blockerReason !== undefined) {
+        const details = `${item.title}: ${String(state)}${note ? ` - ${note}` : ''}${blocker ? ` (Blocker: ${blocker})` : ''}`;
+        await activityLogRepository.create({
+          action: 'Daily Task Updated', user_id: actor.id, project_id: item.project_id, details,
+          event: { eventType: 'DAILY_TASK_UPDATED', entityType: 'TASK', entityId: item.task_id, payload: { details, status: state, taskTitle: item.title } },
+        });
+      }
       await notifyDailyLeads(actor, [item.project_id], {
         type: input.status === 'Blocked' ? 'critical_blocker' : 'daily_task_update',
         title: `${member?.name || 'A team member'} updated daily work`,
@@ -335,6 +344,35 @@ export const workdayService = {
       });
     }
 
+    const member = await userRepository.findById(actor.id).catch(() => null);
+    const submittedItems = new Map(input.items.map((item) => [item.id, item]));
+    const itemsByProject = new Map<string, string[]>();
+    for (const item of workday.items || []) {
+      if (!item.project_id) continue;
+      const submitted = submittedItems.get(item.id);
+      const status = submitted?.status || item.status;
+      const note = submitted?.progressNote?.trim() || item.progress_note;
+      const blocker = submitted?.blockerReason?.trim() || item.blocker_reason;
+      const line = `${item.title}: ${status}${note ? ` - ${note}` : ''}${blocker ? ` (Blocker: ${blocker})` : ''}`;
+      itemsByProject.set(item.project_id, [...(itemsByProject.get(item.project_id) || []), line]);
+    }
+
+    await Promise.all([...itemsByProject].map(([projectId, projectItems]) => dailyReportRepository.upsert({
+      project_id: projectId,
+      member_id: actor.id,
+      team_member_name: member?.name || 'Team member',
+      role: member?.role || actor.role,
+      report_date: workday.work_date,
+      work_date: workday.work_date,
+      description: [
+        input.completedSummary.trim(),
+        projectItems.map((item) => `- ${item}`).join('\n'),
+        input.blockers?.trim() ? `Blockers: ${input.blockers.trim()}` : '',
+        input.remarks?.trim() ? `Remarks: ${input.remarks.trim()}` : '',
+      ].filter(Boolean).join('\n\n'),
+      created_by: actor.id,
+    })));
+
     await workSessionService.closeActive(actor);
     const timeSummary = await workSessionService.summary(workday.id, actor);
     await workdayRepository.finish(workday.id, {
@@ -347,7 +385,6 @@ export const workdayService = {
       details: 'Daily outcomes, blockers and remarks were recorded.',
       event: { eventType: 'DAILY_PLAN_CLOSED', entityType: 'DAILY_PLAN', entityId: workday.id, payload: { completedSummary: input.completedSummary.trim(), trackedMinutes: timeSummary.totalMinutes } },
     });
-    const member = await userRepository.findById(actor.id).catch(() => null);
     const completedCount = input.items.filter((item) => item.status === 'Completed').length;
     const projectIds = (workday.items || []).map((item: any) => item.project_id).filter(Boolean);
     await notifyDailyLeads(actor, projectIds, {

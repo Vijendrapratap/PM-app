@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Activity, Bot, Gauge, MessageSquare, Send, UserRound } from 'lucide-react';
 import { projectApi, type ProjectActivityEvent } from '../api/projectApi';
-import type { Project, ProjectUpdate } from '../types';
+import type { DailyReport, Project, ProjectUpdate } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
 
 type RailFilter = 'all' | 'comments' | 'activity';
@@ -10,9 +10,10 @@ type UpdateKind = 'Progress update' | 'Blocker or risk' | 'Decision' | 'Comment'
 const eventLabel = (value: string) => value.toLowerCase().split('_')
   .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
-const ProjectActivityRail = ({ project, updates, canComment, onRefresh }: {
+const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRefresh }: {
   project: Project;
   updates: ProjectUpdate[];
+  dailyReports: DailyReport[];
   canComment: boolean;
   onRefresh: () => void | Promise<void>;
 }) => {
@@ -42,6 +43,15 @@ const ProjectActivityRail = ({ project, updates, canComment, onRefresh }: {
       createdAt: update.createdAt,
       agent: false,
     }));
+    const dailyReportItems = dailyReports.map((report) => ({
+      id: `daily-report-${report._id}`,
+      kind: 'activity' as const,
+      title: 'Daily update',
+      description: report.description,
+      actor: report.member?.name || report.teamMemberName || report.createdBy?.name || 'Team member',
+      createdAt: report.createdAt,
+      agent: false,
+    }));
     const eventItems = events.filter((event) => !['PROJECT_UPDATED', 'PROJECT_WORK_LOG_UPDATED'].includes(event.eventType)).map((event) => ({
       id: `event-${event._id}`,
       kind: 'activity' as const,
@@ -51,11 +61,11 @@ const ProjectActivityRail = ({ project, updates, canComment, onRefresh }: {
       createdAt: event.createdAt,
       agent: event.actorType === 'AGENT',
     }));
-    return [...updateItems, ...eventItems]
+    return [...updateItems, ...dailyReportItems, ...eventItems]
       .filter((item) => filter === 'all' || (filter === 'comments' ? item.kind === 'comment' : item.kind !== 'comment'))
       .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 40);
-  }, [events, filter, updates]);
+  }, [dailyReports, events, filter, updates]);
 
   const submitComment = async (event: React.FormEvent) => {
     event.preventDefault();

@@ -38,6 +38,7 @@ alter table ideas add constraint ideas_status_check check (status in (
   'INBOX','NEEDS_CLARIFICATION','UNDER_REVIEW','VALIDATING','APPROVED',
   'INCUBATING','CONVERTED_TO_PROJECT','ARCHIVED','REJECTED'
 ));
+alter table ideas drop constraint if exists ideas_score_range_check;
 alter table ideas add constraint ideas_score_range_check check (
   (business_value_score is null or business_value_score between 1 and 5) and
   (strategic_alignment_score is null or strategic_alignment_score between 1 and 5) and

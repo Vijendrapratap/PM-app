@@ -37,7 +37,7 @@ const ProjectDetails = () => {
   const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const { user } = useAuth();
-  const { project, updates, loading, error, refetch } = useProjectDetails(id);
+  const { project, updates, dailyReports, loading, error, refetch } = useProjectDetails(id);
   const [deliveryView, setDeliveryView] = useState<DeliveryView>('outline');
   const [executionVersion, setExecutionVersion] = useState(0);
   const [isFinishOpen, setIsFinishOpen] = useState(false);
@@ -135,7 +135,7 @@ const ProjectDetails = () => {
             : <ProjectTaskList projectId={project._id} members={project.assignedMembers} canManage={canManageStructure} currentUserId={user?._id} refreshSignal={executionVersion} onTasksChanged={refreshExecution}/>
           }
         </main>
-        <ProjectActivityRail project={project} updates={updates} canComment={Boolean(canContribute && !isCompleted)} onRefresh={refreshExecution}/>
+        <ProjectActivityRail project={project} updates={updates} dailyReports={dailyReports} canComment={Boolean(canContribute && !isCompleted)} onRefresh={refreshExecution}/>
       </div>
     </> : <>
       <AgentWorkflowPanel projectId={project._id} view={workspace === 'documents' ? 'documents' : 'plan'}/>

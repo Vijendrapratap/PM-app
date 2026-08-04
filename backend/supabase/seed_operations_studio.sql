@@ -1,6 +1,25 @@
 -- Pratap AI Operations Studio development workspace.
--- Run after migrations 0001–0018. All seeded accounts use: Demo@123
+-- Run after all migrations through 0022. All seeded accounts use: Demo@123
 begin;
+
+do $$
+begin
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'users' and column_name = 'organization_id'
+  ) then
+    raise exception 'Migration 0010 is missing: public.users.organization_id does not exist. Apply migrations 0002 through 0010 in order.';
+  end if;
+
+  if not exists (
+    select 1
+    from information_schema.columns
+    where table_schema = 'public' and table_name = 'daily_todos' and column_name = 'domain_type'
+  ) then
+    raise exception 'Migration 0019 is missing: public.daily_todos.domain_type does not exist. Apply migrations 0011 through 0021 in order.';
+  end if;
+end $$;
 
 insert into users (organization_id,name,email,password_hash,role,platform_role,designation,department,department_id,timezone,account_status,onboarding_completed_at,status,availability)
 select organization.id,seed.name,seed.email,crypt('Demo@123',gen_salt('bf')),seed.legacy_role,seed.platform_role,seed.designation,department.name,department.id,'Asia/Dubai','ACTIVE',now(),'Active','Available'
