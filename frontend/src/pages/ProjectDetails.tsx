@@ -110,7 +110,7 @@ const ProjectDetails = () => {
         <span><Calendar size={14}/><strong>{formatTargetDate(project.estimatedCompletionDate || project.deadline)}</strong><small>target</small></span>
       </section>
       <button className="project-ai-structure" onClick={() => changeWorkspace('assistant')}>
-        <Bot size={16}/><span><strong>Plan with AI</strong><small>Milestones <ChevronRight size={10}/> modules <ChevronRight size={10}/> tasks</small></span><ChevronRight size={14}/>
+        <Bot size={16}/><span><strong>Plan with AI</strong><small>Milestones <ChevronRight size={10}/> features <ChevronRight size={10}/> tasks</small></span><ChevronRight size={14}/>
       </button>
     </div>
 

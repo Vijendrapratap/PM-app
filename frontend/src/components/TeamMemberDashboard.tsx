@@ -9,6 +9,7 @@ import type { Workday } from '../api/workdayApi';
 import type { ImportantMessage } from '../api/messageApi';
 import type { Project, TaskStatus } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
+import { projectProgressTone } from '../utils/projectProgress';
 
 interface TeamMemberDashboardProps {
   name: string;
@@ -94,7 +95,7 @@ const TeamMemberDashboard = ({ name, workday, tasks, projects, messages }: TeamM
 
         <aside className="member-side">
           <section className="member-week"><header><span>My week</span><small>{new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</small></header><div>{week.map((day) => <div className={day.key === today ? 'today' : ''} key={day.key}><small>{day.day}</small><strong>{day.date}</strong><i>{day.count || ''}</i></div>)}</div><footer><span><i className="due"/>Task due</span><span><i className="current"/>Today</span></footer></section>
-          <section className="member-projects"><header><span>My projects</span><Link to="/projects">View all</Link></header>{projects.slice(0, 4).map((project) => <Link to={`/projects/${project._id}`} key={project._id}><div><strong>{project.name}</strong><small>{project.status} · {project.progress}%</small></div><span><i style={{ width: `${project.progress}%` }}/></span></Link>)}{!projects.length && <p>No assigned projects.</p>}</section>
+          <section className="member-projects"><header><span>My projects</span><Link to="/projects">View all</Link></header>{projects.slice(0, 4).map((project) => <Link className={`progress-${projectProgressTone(project)}`} to={`/projects/${project._id}`} key={project._id}><div><strong>{project.name}</strong><small>{project.status} · {project.progress}%</small></div><span><i style={{ width: `${project.progress}%` }}/></span></Link>)}{!projects.length && <p>No assigned projects.</p>}</section>
           <section className="member-decisions"><header>Recent decisions</header>{messages.slice(0, 3).map((message) => <div key={message._id}><strong>{message.title}</strong><p>{message.description}</p></div>)}{!messages.length && <p>No new project decisions.</p>}</section>
         </aside>
       </div>

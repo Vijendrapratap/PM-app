@@ -137,7 +137,7 @@ const Workday = () => {
               priority: item.task?.priority || 'Medium',
             }));
           const assignedDrafts: DraftItem[] = openTasks
-            .filter((task) => task.project && ['Critical', 'High'].includes(task.priority) && !carriedTaskIds.has(task._id) && !carriedKeys.has(`${task.projectId}:${task.title.toLowerCase()}`))
+            .filter((task) => task.project && (['Critical', 'High'].includes(task.priority) || Boolean(task.dueDate && task.dueDate < dateKey())) && !carriedTaskIds.has(task._id) && !carriedKeys.has(`${task.projectId}:${task.title.toLowerCase()}`))
             .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
             .map((task) => ({
               key: task._id,
@@ -316,8 +316,8 @@ const Workday = () => {
       <header className="workday-header">
         <div>
           <div className="eyebrow"><CircleDot size={13} /> Daily operating rhythm</div>
-          <h1>{view === 'team' ? 'Team pulse' : 'Today, with intention'}</h1>
-          <p>{view === 'team' ? 'See commitments, progress and blockers without another status meeting.' : 'Choose a small number of outcomes, make progress visible, then close the loop.'}</p>
+          <h1>{view === 'team' ? 'Team pulse' : 'Plan my day'}</h1>
+          <p>{view === 'team' ? 'See commitments, progress and blockers without another status meeting.' : 'Start with carry-forward work, choose today’s tasks, and keep the list realistic.'}</p>
         </div>
         <div className="workday-date"><CalendarDays size={16} /><span>{new Date(`${teamDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</span></div>
       </header>
@@ -355,7 +355,7 @@ const Workday = () => {
             <div className="workday-step"><span>01</span><div><h2>Set the finish line</h2><p>One sentence that keeps the day pointed in the right direction.</p></div></div>
             <label className="focus-field"><span>Today will be successful if…</span><textarea value={focus} maxLength={240} onChange={(event) => setFocus(event.target.value)} placeholder="The client can review the new onboarding flow." /></label>
 
-            <div className="workday-step outcomes-step"><span>02</span><div><h2>Review today’s priority</h2><p>Unfinished work from yesterday and high-priority assigned tasks are included automatically.</p></div><b>{draftItems.length} tasks</b></div>
+            <div className="workday-step outcomes-step"><span>02</span><div><h2>Build today’s task list</h2><p>Carry-forward, overdue, and high-priority work is included automatically.</p></div><b>{draftItems.length} tasks</b></div>
             {carryoverCount > 0 && <div className="carryover-note"><RotateCcw size={17} /><div><strong>{carryoverCount} unfinished {carryoverCount === 1 ? 'task was' : 'tasks were'} carried forward</strong><span>Nothing gets lost between workdays. Review the expected result and add any useful context.</span></div></div>}
             {draftItems.length < MAX_DAILY_ITEMS && <section className="quick-add-task"><div><span><Plus size={15} /> Add task</span><p>Add a missing task directly to today’s plan.</p></div><div className="custom-outcome"><select aria-label="Project" value={customProject} onChange={(event) => setCustomProject(event.target.value)}><option value="">Choose project</option>{assignedProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="Describe a clear, finishable task…" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomOutcome(); } }} /><select aria-label="Priority" value={customPriority} onChange={(event) => setCustomPriority(event.target.value as Priority)}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select><button className="btn btn-primary" disabled={!customProject || !customTitle.trim()} onClick={addCustomOutcome}><Plus size={14} /> Add to today</button></div></section>}
             <div className="selected-outcomes">

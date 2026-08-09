@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown, MoreHorizontal } from 'lucide-react';
 import CreateProjectModal from '../components/CreateProjectModal';
 import EditProjectModal from '../components/EditProjectModal';
@@ -11,9 +11,11 @@ import { projectApi } from '../api/projectApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { Project } from '../types';
 import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
+import { projectProgressLabel, projectProgressTone } from '../utils/projectProgress';
 
 const Projects = () => {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const canManage = canApproveAgentWork(user?.role);
   const [showArchived, setShowArchived] = useState(false);
@@ -121,6 +123,7 @@ const Projects = () => {
     setSortBy('recent');
     setShowArchived(false);
     setSearchParams({});
+    navigate(`/projects/${project._id}`);
   };
 
   return (
@@ -212,8 +215,10 @@ const Projects = () => {
         </div>
       ) : (
         <div className="project-grid">
-          {filtered.map((project, index) => (
-            <div key={project._id} className={`project-card-shell tone-${index % 5}`} style={{ position: 'relative' }}>
+          {filtered.map((project) => {
+            const progressTone = projectProgressTone(project);
+            return (
+            <div key={project._id} className={`project-card-shell progress-${progressTone}`} style={{ position: 'relative' }}>
               <Link
                 to={`/projects/${project._id}`}
                 className={`project-card ${canManage ? 'project-card--managed' : ''}`}
@@ -234,7 +239,7 @@ const Projects = () => {
                 {/* Progress */}
                 <div className="project-progress">
                   <div className="project-progress-label">
-                    <span>Progress</span><strong>{project.progress}%</strong>
+                    <span>{projectProgressLabel(project)}</span><strong>{project.progress}%</strong>
                   </div>
                   <div className="progress-bar">
                     <div className="progress-fill" style={{ width: `${project.progress}%` }}></div>
@@ -267,7 +272,7 @@ const Projects = () => {
                 </details>
               )}
             </div>
-          ))}
+          );})}
         </div>
       )}
 

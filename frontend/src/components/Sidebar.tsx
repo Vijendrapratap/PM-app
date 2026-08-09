@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Archive, BarChart3, Bell, Bot, CalendarCheck2, CheckSquare2, FolderKanban,
-  Lightbulb, LogOut, MessageSquareText, Target, Users,
+  LayoutDashboard, Lightbulb, LogOut, MessageSquareText, Target, Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
@@ -51,6 +51,7 @@ const Sidebar = () => {
 
       <nav className="sidebar-nav">
         <span className="sidebar-section-label">Daily work</span>
+        <NavLink to="/overview" className={linkClass} aria-label="Overview"><LayoutDashboard size={19}/><span className="rail-tooltip">Overview</span></NavLink>
         <NavLink to="/" end className={linkClass} aria-label="Today"><Target size={19}/><span className="rail-tooltip">Today</span></NavLink>
         <NavLink to="/daily-todo" className={linkClass} aria-label="Tasks"><CheckSquare2 size={19}/><span className="rail-tooltip">Tasks</span></NavLink>
 
