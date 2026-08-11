@@ -25,6 +25,8 @@ export interface ProjectTask {
   title: string;
   description: string | null;
   blockerReason: string | null;
+  estimateMinutes: number;
+  remainingEstimateMinutes?: number | null;
   dueDate: string | null;
   priority: Priority;
   status: TaskStatus;
@@ -49,6 +51,8 @@ export interface AssignedProjectTask {
   priority: Priority;
   status: TaskStatus;
   completedAt: string | null;
+  estimateMinutes: number;
+  remainingEstimateMinutes?: number | null;
 }
 
 export interface CreateProjectTaskPayload {
@@ -60,6 +64,7 @@ export interface CreateProjectTaskPayload {
   blockerReason?: string;
   milestoneId?: string | null;
   deliverableId?: string | null;
+  expectedMinutes: number;
 }
 
 export interface CreateProjectTaskSubtaskPayload {

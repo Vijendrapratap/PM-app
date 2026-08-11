@@ -336,7 +336,7 @@ const Dashboard = () => {
           <small>{dailyWorkday?.status === 'Completed' ? 'Workday closed' : dailyWorkday ? 'Workday in progress' : 'Start with a clear finish line'}</small>
           <strong>{dailyWorkday?.focus || 'Choose up to three outcomes for today'}</strong>
         </div>
-        <span>{dailyWorkday?.status === 'Completed' ? 'Review today' : dailyWorkday ? `${dailyWorkday.items.filter((item) => item.status === 'Completed').length}/${dailyWorkday.items.length} outcomes done` : 'Plan my day'}<ArrowUpRight size={14} /></span>
+        <span>{dailyWorkday?.status === 'Completed' ? 'Review today' : dailyWorkday ? `${dailyWorkday.items.filter((item) => item.status === 'Completed').length}/${dailyWorkday.items.length} outcomes done` : 'Open daily workspace'}<ArrowUpRight size={14} /></span>
       </Link>
 
       {(canApproveAgentWork(user?.role) || isLead(user?.role)) && (

@@ -161,6 +161,7 @@ export interface DailyTodo {
   scheduled_end: string | null;
   meeting_with: string | null;
   channel: string | null;
+  estimate_minutes?: number | null;
   created_at: string;
   updated_at: string;
 }
@@ -280,6 +281,7 @@ export interface Workday {
   timezone?: string | null;
   plan_status?: 'DRAFT' | 'ACTIVE' | 'CLOSED' | 'REOPENED' | null;
   generated_summary?: string | null;
+  productive_minutes?: number;
 }
 
 export interface WorkdayItem {

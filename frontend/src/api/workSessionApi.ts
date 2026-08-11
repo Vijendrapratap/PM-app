@@ -23,7 +23,7 @@ export const workSessionApi = {
     ...response.data,
     sessions: expectArray<WorkSession>(response.data.sessions),
   })),
-  start: (dailyPlanId: string, taskId?: string, note?: string) => api.post<WorkSession>('/work-sessions/start', { dailyPlanId, taskId, note }).then((response) => response.data),
+  start: (dailyPlanId: string, taskId: string, note?: string) => api.post<WorkSession>('/work-sessions/start', { dailyPlanId, taskId, note }).then((response) => response.data),
   pause: (sessionId: string) => api.post<WorkSession>(`/work-sessions/${sessionId}/pause`).then((response) => response.data),
   close: (sessionId: string) => api.post<WorkSession>(`/work-sessions/${sessionId}/close`).then((response) => response.data),
 };

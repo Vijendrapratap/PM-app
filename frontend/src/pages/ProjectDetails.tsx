@@ -1,20 +1,21 @@
 import { useState } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import {
-  Bot, Calendar, CheckCircle2, ChevronRight, Columns3, FileCheck2,
+  Activity, Bot, Calendar, CheckCircle2, Columns3, FileCheck2,
   Layers3, ListTree, Lock, TrendingUp, Users,
 } from 'lucide-react';
 import AgentWorkflowPanel from '../components/AgentWorkflowPanel';
 import CaseStudyPanel from '../components/CaseStudyPanel';
 import FinishProjectModal from '../components/FinishProjectModal';
 import ProjectActivityRail from '../components/ProjectActivityRail';
+import ProjectDocumentsPanel from '../components/ProjectDocumentsPanel';
 import ProjectMilestonePanel from '../components/ProjectMilestonePanel';
 import ProjectTaskList from '../components/ProjectTaskList';
 import { useAuth } from '../context/AuthContext';
 import { useProjectDetails } from '../hooks/useProjectDetails';
 import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
 
-type Workspace = 'delivery' | 'documents' | 'assistant';
+type Workspace = 'delivery' | 'documents' | 'assistant' | 'activity';
 type DeliveryView = 'outline' | 'board';
 
 const getStatusBadge = (status: string) => ({
@@ -43,7 +44,7 @@ const ProjectDetails = () => {
   const [isFinishOpen, setIsFinishOpen] = useState(false);
 
   const requestedWorkspace = searchParams.get('workspace');
-  const workspace: Workspace = requestedWorkspace === 'documents' || requestedWorkspace === 'assistant'
+  const workspace: Workspace = requestedWorkspace === 'documents' || requestedWorkspace === 'assistant' || requestedWorkspace === 'activity'
     ? requestedWorkspace
     : 'delivery';
 
@@ -90,33 +91,30 @@ const ProjectDetails = () => {
           </div>
           <p>{project.description || 'Add a short objective so the team understands the expected result.'}</p>
         </div>
-        {!isCompleted && canManageStructure && <button className="project-finish-action" onClick={() => setIsFinishOpen(true)}><CheckCircle2 size={14}/>Finish project</button>}
+        <aside className="project-hero-side">
+          <div className="project-hero-team">
+            <span><Users size={14}/><strong>{projectPeople.length}</strong><small>team</small></span>
+            <div className="project-avatar-stack">
+              {projectPeople.slice(0, 6).map((person) => <span title={`${person.name} · ${person.role || 'Team member'}`} key={person._id}>
+                {person.photo ? <img src={person.photo} alt={person.name}/> : person.name.charAt(0).toUpperCase()}
+              </span>)}
+              {projectPeople.length > 6 && <b>+{projectPeople.length - 6}</b>}
+            </div>
+          </div>
+          <div className="project-hero-metrics">
+            <span><TrendingUp size={13}/><strong>{project.progress}%</strong><small>complete</small></span>
+            <span><Calendar size={13}/><strong>{formatTargetDate(project.estimatedCompletionDate || project.deadline)}</strong><small>target</small></span>
+          </div>
+          {!isCompleted && canManageStructure && <button className="project-finish-action" onClick={() => setIsFinishOpen(true)}><CheckCircle2 size={14}/>Finish project</button>}
+        </aside>
       </div>
       {!isCompleted && !canContribute && <div className="project-readonly-notice"><Lock size={14}/>You have read-only access to this project.</div>}
     </header>
 
-    <div className="project-command-strip">
-      <section className="project-compact-team">
-        <div><Users size={15}/><span><strong>Team</strong><small>{projectPeople.length} people</small></span></div>
-        <div className="project-avatar-stack">
-          {projectPeople.slice(0, 6).map((person) => <span title={`${person.name} · ${person.role || 'Team member'}`} key={person._id}>
-            {person.photo ? <img src={person.photo} alt=""/> : person.name.charAt(0).toUpperCase()}
-          </span>)}
-          {projectPeople.length > 6 && <b>+{projectPeople.length - 6}</b>}
-        </div>
-      </section>
-      <section className="project-compact-progress" aria-label="Calculated project progress">
-        <span><TrendingUp size={14}/><strong>{project.progress}%</strong><small>task completion</small></span>
-        <span><Calendar size={14}/><strong>{formatTargetDate(project.estimatedCompletionDate || project.deadline)}</strong><small>target</small></span>
-      </section>
-      <button className="project-ai-structure" onClick={() => changeWorkspace('assistant')}>
-        <Bot size={16}/><span><strong>Plan with AI</strong><small>Milestones <ChevronRight size={10}/> features <ChevronRight size={10}/> tasks</small></span><ChevronRight size={14}/>
-      </button>
-    </div>
-
     <nav className="project-workspace-tabs" aria-label="Project workspace">
       <button className={workspace === 'delivery' ? 'active' : ''} onClick={() => changeWorkspace('delivery')}><Columns3 size={15}/>Delivery</button>
       <button className={workspace === 'documents' ? 'active' : ''} onClick={() => changeWorkspace('documents')}><FileCheck2 size={15}/>Documents</button>
+      <button className={workspace === 'activity' ? 'active' : ''} onClick={() => changeWorkspace('activity')}><Activity size={15}/>Activity</button>
       <button className={workspace === 'assistant' ? 'active' : ''} onClick={() => changeWorkspace('assistant')}><Bot size={15}/>AI plan</button>
     </nav>
 
@@ -128,19 +126,24 @@ const ProjectDetails = () => {
           <button className={deliveryView === 'board' ? 'active' : ''} onClick={() => setDeliveryView('board')}><Columns3 size={14}/>Kanban</button>
         </div>
       </div>
-      <div className="project-execution-layout">
+      <div className="project-execution-layout project-execution-layout--full">
         <main>
           {deliveryView === 'outline'
             ? <ProjectMilestonePanel projectId={project._id} canManage={canManageStructure} compact members={project.assignedMembers} currentUserId={user?._id} refreshSignal={executionVersion} onTasksChanged={refreshExecution}/>
             : <ProjectTaskList projectId={project._id} members={project.assignedMembers} canManage={canManageStructure} currentUserId={user?._id} refreshSignal={executionVersion} onTasksChanged={refreshExecution}/>
           }
         </main>
-        <ProjectActivityRail project={project} updates={updates} canComment={Boolean(canContribute && !isCompleted)} onRefresh={refreshExecution}/>
       </div>
-    </> : <>
-      <AgentWorkflowPanel projectId={project._id} view={workspace === 'documents' ? 'documents' : 'plan'}/>
-      {workspace === 'documents' && isCompleted && <CaseStudyPanel projectId={project._id} canManage={canApproveAgentWork(user?.role)} canApprove={isSuperAdmin(user?.role)}/>}
+    </> : null}
+
+    {workspace === 'activity' && <ProjectActivityRail standalone project={project} updates={updates} canComment={Boolean(canContribute && !isCompleted)} onRefresh={refreshExecution}/>}
+
+    {workspace === 'documents' && <>
+      <ProjectDocumentsPanel project={project} canManage={Boolean(canContribute && !isCompleted)} onRefresh={refreshExecution}/>
+      {isCompleted && <CaseStudyPanel projectId={project._id} canManage={canApproveAgentWork(user?.role)} canApprove={isSuperAdmin(user?.role)}/>}
     </>}
+
+    {workspace === 'assistant' && <AgentWorkflowPanel projectId={project._id} view="plan"/>}
 
     {isFinishOpen && <FinishProjectModal
       project={project}

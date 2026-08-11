@@ -37,6 +37,7 @@ export interface DailyTodo {
   scheduledEnd: string | null;
   meetingWith: string | null;
   channel: string | null;
+  expectedMinutes?: number | null;
   documents: { name: string; url: string }[];
   subtasks: Subtask[];
   createdAt: string;
@@ -63,6 +64,7 @@ export interface CreateTodoPayload {
   scheduledEnd?: string | null;
   meetingWith?: string | null;
   channel?: string | null;
+  expectedMinutes?: number;
 }
 
 export interface CreateSubtaskPayload {

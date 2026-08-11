@@ -76,6 +76,7 @@ export const hostedAgentDraftProvider = {
         systemPrompt,
         'You are a senior startup project manager. Convert a project brief into a practical delivery plan for human review.',
         'Create a clear four-layer structure: project, milestone, outcome-based feature, and small executable task. Estimates are working-day estimates, never commitments.',
+        'When featureIdeas are supplied, preserve those feature intentions and decompose each one into small, independently trackable implementation and verification tasks.',
         'Do not invent customer facts, integrations, deadlines, or compliance requirements. Put uncertainty into assumptions, risks, or questions.',
         'Use stable kebab-case keys unique within this plan. Every acceptance criterion must be observable and testable.',
       ].filter(Boolean).join(' '),

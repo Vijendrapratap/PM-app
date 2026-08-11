@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { CalendarCheck2, CalendarClock, ChevronDown, ChevronRight, CircleDot, Clock3, Columns3, FileText, FolderKanban, List, ListChecks, Paperclip, Pencil, Plus, RefreshCw, RotateCcw, Search, Trash2, Users } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { useDailyTodos } from '../hooks/useDailyTodos';
@@ -13,6 +13,8 @@ import { getErrorMessage } from '../utils/errorMessage';
 import { projectTaskApi } from '../api/projectTaskApi';
 import { removeDemoTask, updateDemoTask } from '../context/demoTasks';
 import { TASK_DEPARTMENTS, taskDepartment, taskDepartmentLabel, type TaskDepartment } from '../utils/taskDepartments';
+import { workdayApi, type Workday } from '../api/workdayApi';
+import { workSessionApi } from '../api/workSessionApi';
 
 const PRIORITY_BADGE: Record<string, string> = { Low: 'badge-neutral', Medium: 'badge-info', High: 'badge-warning', Critical: 'badge-danger' };
 const TYPE_LABEL: Record<DailyTodo['workType'], string> = { TASK: 'Task', MEETING: 'Meeting', UPDATE: 'Update' };
@@ -75,6 +77,19 @@ const DailyPlanner = () => {
   const [projectFilter, setProjectFilter] = useState('ALL');
   const [workType, setWorkType] = useState<WorkTypeFilter>('ALL');
   const [search, setSearch] = useState('');
+  const [dailyPlan, setDailyPlan] = useState<Workday | null>(null);
+  const [activeTaskId, setActiveTaskId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (isDemo) return;
+    workdayApi.today().then(async (plan) => {
+      setDailyPlan(plan);
+      if (plan?.status === 'Open') {
+        const summary = await workSessionApi.summary(plan._id);
+        setActiveTaskId(summary.activeSession?.taskId || null);
+      }
+    }).catch(() => { /* Tasks remain usable if the daily-plan summary is unavailable. */ });
+  }, [isDemo]);
 
   const isAdmin = isSuperAdmin(user?.role);
   const canTickTodo = (todo: DailyTodo) => isDemo || isAdmin || todo.assignedTo?._id === user?._id || (canSeeTeamTasks && todo.source === 'PROJECT');
@@ -91,11 +106,12 @@ const DailyPlanner = () => {
     const today = dateKey();
     const tomorrow = dateKey(1);
     const groups: Record<Tab, DailyTodo[]> = { carry: [], today: [], tomorrow: [], upcoming: [], completed: [] };
+    const plannedTaskIds = new Set((dailyPlan?.items || []).map((item) => item.taskId).filter(Boolean));
     for (const todo of filteredTodos) {
       if (todo.status === 'Completed') groups.completed.push(todo);
       else {
         if (todo.carryForwardCount > 0 || todo.daysOverdue > 0) groups.carry.push(todo);
-        if (todo.dueDate && todo.dueDate <= today) groups.today.push(todo);
+        if (plannedTaskIds.has(todo._id) || (todo.dueDate && todo.dueDate <= today)) groups.today.push(todo);
         else if (todo.dueDate === tomorrow) groups.tomorrow.push(todo);
         else groups.upcoming.push(todo);
       }
@@ -103,12 +119,17 @@ const DailyPlanner = () => {
     const rank = { Critical: 0, High: 1, Medium: 2, Low: 3 };
     Object.values(groups).forEach((items) => items.sort((a, b) => rank[a.priority] - rank[b.priority] || (a.dueDate || '9999').localeCompare(b.dueDate || '9999')));
     return groups;
-  }, [filteredTodos]);
+  }, [dailyPlan?.items, filteredTodos]);
 
   const updateTodoStatus = async (todo: DailyTodo, status: DailyTodo['status']) => {
     try {
       if (isDemo) updateDemoTask(todo._id, status);
-      else if (todo.source === 'PROJECT' && todo.project) await projectTaskApi.update(todo.project._id, todo._id, { status });
+      else if (todo.source === 'PROJECT' && todo.project) {
+        const plannedItem = dailyPlan?.items.find((item) => item.taskId === todo._id);
+        const dailyStatus = status === 'Pending' ? 'Planned' : status === 'In Progress' ? 'In Progress' : status === 'Completed' ? 'Completed' : status === 'Blocked' ? 'Blocked' : null;
+        if (plannedItem && dailyStatus) setDailyPlan(await workdayApi.updateItem(plannedItem._id, { status: dailyStatus }));
+        else await projectTaskApi.update(todo.project._id, todo._id, { status });
+      }
       else await todoApi.update(todo._id, { status });
       void refetch();
     } catch (err) { setError(getErrorMessage(err, 'Failed to update work item.')); }
@@ -140,7 +161,8 @@ const DailyPlanner = () => {
   const boardColumns = [
     { status: 'Pending', label: 'To Do' }, { status: 'In Progress', label: 'In Progress' }, { status: 'In Review', label: 'In Review' }, { status: 'Completed', label: 'Done' },
   ] as const;
-  const todayItems = todos.filter((todo) => todo.dueDate && todo.dueDate <= dateKey() && todo.status !== 'Completed');
+  const plannedTaskIds = useMemo(() => new Set((dailyPlan?.items || []).map((item) => item.taskId).filter(Boolean)), [dailyPlan?.items]);
+  const todayItems = todos.filter((todo) => todo.status !== 'Completed' && (plannedTaskIds.has(todo._id) || Boolean(todo.dueDate && todo.dueDate <= dateKey())));
   const carryItems = todos.filter((todo) => todo.status !== 'Completed' && (todo.carryForwardCount > 0 || todo.daysOverdue > 0));
   const projectOptions = useMemo(() => {
     const projects = new Map<string, { id: string; name: string; count: number }>();
@@ -155,8 +177,8 @@ const DailyPlanner = () => {
 
   return <div className="animate-fade-in task-workspace-page task-first-layout">
     <header className="page-header task-page-header">
-      <div><span className="page-eyebrow">Daily task center</span><h1 className="page-title">Team tasks</h1><p className="page-subtitle">The work that needs attention now, organized by department and project.</p></div>
-      <div className="task-create-actions"><Link className="btn btn-primary" to={`/workday?plan=${Date.now()}`}><CalendarCheck2 size={15}/> Plan my day</Link><button className="btn btn-secondary" onClick={() => setCreateType('TASK')}><Plus size={15}/> Add task</button></div>
+      <div><span className="page-eyebrow">Daily task center</span><h1 className="page-title">Tasks</h1><p className="page-subtitle">See assigned, planned and carry-forward work without losing the task list below the fold.</p></div>
+      <div className="task-create-actions"><span className={`task-day-status ${dailyPlan?.status === 'Open' ? 'active' : dailyPlan?.status === 'Completed' ? 'complete' : ''}`}><CalendarCheck2 size={14}/><span><small>Today’s plan</small><strong>{dailyPlan?.status === 'Open' ? `${dailyPlan.items.filter((item) => item.status === 'Completed').length}/${dailyPlan.items.length} done` : dailyPlan?.status === 'Completed' ? 'Closed' : 'Not started'}</strong></span></span><button className="btn btn-secondary" onClick={() => setCreateType('TASK')}><Plus size={15}/> Add task</button></div>
     </header>
 
     {(error || loadError) && <div className="form-error">{error || loadError}</div>}
@@ -182,10 +204,10 @@ const DailyPlanner = () => {
 
     {loading ? <div className="flex flex-col gap-3">{[1,2,3].map((item) => <div key={item} className="skeleton" style={{ height: 88, borderRadius: 14 }}/>)}</div>
       : !visible.length ? <div className="section-card"><div className="empty-state"><div className="empty-state-icon"><ListChecks size={28}/></div><div className="empty-state-title">This view is clear</div><div className="empty-state-desc">There are no matching items. Change a filter or add your next task.</div><button className="btn btn-primary" onClick={() => setCreateType('TASK')}><Plus size={14}/> Add task</button></div></div>
-      : view === 'board' ? <div className="todo-board">{boardColumns.map((column) => { const items = visible.filter((todo) => todo.status === column.status || (column.status === 'Pending' && todo.status === 'Blocked')); return <section className={`todo-column todo-column-${column.status.toLowerCase().replace(' ', '-')}`} key={column.status}><header><span>{column.label}</span><strong>{items.length}</strong></header><div>{items.map((todo) => <article className={`todo-board-card priority-${todo.priority.toLowerCase()} domain-${taskDepartment(todo).toLowerCase()} type-${todo.workType.toLowerCase()}`} key={todo._id}><WorkMeta todo={todo} compact/><h3>{todo.title}</h3>{todo.description && <p>{todo.description}</p>}<div className="board-card-schedule"><Clock3 size={12}/><span>{scheduleLabel(todo)}</span>{todo.status === 'Blocked' && <b>Blocked</b>}</div>{canTickTodo(todo) && <select aria-label={`Update ${todo.title} status`} value={todo.status} onChange={(event) => updateTodoStatus(todo, event.target.value as DailyTodo['status'])}><option value="Pending">To Do</option><option value="In Progress">In Progress</option>{todo.source === 'PROJECT' && <option value="In Review">In Review</option>}<option value="Completed">Done</option><option value="Blocked">Blocked</option></select>}</article>)}</div>{!items.length && <p className="todo-column-empty">No work here</p>}</section>; })}</div>
+      : view === 'board' ? <div className="todo-board">{boardColumns.map((column) => { const items = visible.filter((todo) => todo.status === column.status || (column.status === 'Pending' && todo.status === 'Blocked')); return <section className={`todo-column todo-column-${column.status.toLowerCase().replace(' ', '-')}`} key={column.status}><header><span>{column.label}</span><strong>{items.length}</strong></header><div>{items.map((todo) => <article className={`todo-board-card priority-${todo.priority.toLowerCase()} domain-${taskDepartment(todo).toLowerCase()} type-${todo.workType.toLowerCase()} ${plannedTaskIds.has(todo._id) ? 'planned-today' : ''}`} key={todo._id}><WorkMeta todo={todo} compact/>{plannedTaskIds.has(todo._id) && <span className={`planned-today-badge ${activeTaskId === todo._id ? 'tracking' : ''}`}>{activeTaskId === todo._id ? <><Clock3 size={11}/>Tracking now</> : <><CalendarCheck2 size={11}/>Planned today</>}</span>}<h3>{todo.title}</h3>{todo.description && <p>{todo.description}</p>}<div className="board-card-schedule"><Clock3 size={12}/><span>{scheduleLabel(todo)}</span>{todo.status === 'Blocked' && <b>Blocked</b>}</div>{canTickTodo(todo) && <select aria-label={`Update ${todo.title} status`} value={todo.status} onChange={(event) => updateTodoStatus(todo, event.target.value as DailyTodo['status'])}><option value="Pending">To Do</option><option value="In Progress">In Progress</option>{todo.source === 'PROJECT' && <option value="In Review">In Review</option>}<option value="Completed">Done</option><option value="Blocked">Blocked</option></select>}</article>)}</div>{!items.length && <p className="todo-column-empty">No work here</p>}</section>; })}</div>
       : <div className="todo-list">{visible.map((todo) => { const isOpen = Boolean(expanded[todo._id]); return <article key={todo._id} className={`section-card todo-list-card priority-${todo.priority.toLowerCase()} domain-${taskDepartment(todo).toLowerCase()} type-${todo.workType.toLowerCase()}`}>
         <button className={`todo-check ${todo.status === 'Completed' ? 'done' : ''}`} aria-label={todo.status === 'Completed' ? `Reopen ${todo.title}` : `Complete ${todo.title}`} disabled={!canTickTodo(todo)} onClick={() => updateTodoStatus(todo, todo.status === 'Completed' ? 'Pending' : 'Completed')}>{todo.status === 'Completed' ? '✓' : ''}</button>
-        <div className="todo-list-main"><WorkMeta todo={todo}/><button className="todo-title-button" onClick={() => setExpanded((current) => ({ ...current, [todo._id]: !current[todo._id] }))}><span>{todo.title}</span>{isOpen ? <ChevronDown size={15}/> : <ChevronRight size={15}/>}</button>{todo.description && <p>{todo.description}</p>}<div className="todo-list-foot"><span><Clock3 size={12}/>{todo.daysOverdue > 0 ? `${todo.daysOverdue}d overdue` : scheduleLabel(todo)}</span><span>{todo.assignedTo?.name || 'Unassigned'}</span><span className={`badge ${PRIORITY_BADGE[todo.priority]}`}>{todo.priority}</span>{(todo.carryForwardCount > 0 || todo.daysOverdue > 0) && <span className="badge badge-warning" title={`Originally due ${todo.originalDueDate || todo.dueDate}`}><RotateCcw size={11}/>{todo.carryForwardCount > 0 ? `Carried ${todo.carryForwardCount}×` : 'Carry forward'}</span>}{todo.documents.length > 0 && <span><Paperclip size={11}/>{todo.documents.length}</span>}</div>{isOpen && <SubtaskList todo={todo} members={members} canManage={isAdmin} currentUserId={user?._id} onChange={refetch}/>}</div>
+        <div className="todo-list-main"><WorkMeta todo={todo}/><button className="todo-title-button" onClick={() => setExpanded((current) => ({ ...current, [todo._id]: !current[todo._id] }))}><span>{todo.title}</span>{isOpen ? <ChevronDown size={15}/> : <ChevronRight size={15}/>}</button>{todo.description && <p>{todo.description}</p>}<div className="todo-list-foot"><span><Clock3 size={12}/>{todo.expectedMinutes ? `${todo.expectedMinutes}m expected` : todo.daysOverdue > 0 ? `${todo.daysOverdue}d overdue` : scheduleLabel(todo)}</span><span>{todo.assignedTo?.name || 'Unassigned'}</span>{plannedTaskIds.has(todo._id) && <span className={`planned-today-badge ${activeTaskId === todo._id ? 'tracking' : ''}`}>{activeTaskId === todo._id ? 'Tracking now' : 'Planned today'}</span>}<span className={`badge ${PRIORITY_BADGE[todo.priority]}`}>{todo.priority}</span>{(todo.carryForwardCount > 0 || todo.daysOverdue > 0) && <span className="badge badge-warning" title={`Originally due ${todo.originalDueDate || todo.dueDate}`}><RotateCcw size={11}/>{todo.carryForwardCount > 0 ? `Carried ${todo.carryForwardCount}×` : 'Carry forward'}</span>}{todo.documents.length > 0 && <span><Paperclip size={11}/>{todo.documents.length}</span>}</div>{isOpen && <SubtaskList todo={todo} members={members} canManage={isAdmin} currentUserId={user?._id} onChange={refetch}/>}</div>
         {isAdmin && todo.source !== 'PROJECT' && <div className="todo-row-actions"><button className="icon-btn" aria-label={`Edit ${todo.title}`} onClick={() => setEditTarget(todo)}><Pencil size={14}/></button><button className="icon-btn todo-delete" aria-label={`Delete ${todo.title}`} onClick={() => setDeleteTarget(todo)}><Trash2 size={14}/></button></div>}
       </article>; })}</div>}
 

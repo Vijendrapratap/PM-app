@@ -3,6 +3,7 @@ import { activityLogRepository } from '../repositories/activityLogRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectRepository } from '../repositories/projectRepository';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
+import { notificationService } from './notificationService';
 
 interface Actor { id: string; role: string; organizationId?: string; departmentId?: string | null }
 
@@ -33,6 +34,7 @@ export const hierarchyService = {
       status: input.status || 'PLANNED', start_date: input.startDate || null, target_date: input.targetDate || null,
     });
     await activityLogRepository.create({ action: 'Milestone Created', user_id: actor.id, project_id: projectId, details: `Milestone ${milestone.name} was created.`, event: { eventType: 'MILESTONE_CREATED', entityType: 'MILESTONE', entityId: milestone.id } });
+    await notificationService.notifyProjectTeam(projectId, actor.id, 'project_structure_updated', 'Milestone added', `Milestone “${milestone.name}” was added to the project.`, { relatedType: 'milestone', relatedId: milestone.id });
     return milestone;
   },
   async updateMilestone(id: string, input: any, actor: Actor) {
@@ -50,6 +52,7 @@ export const hierarchyService = {
     };
     const updated = await hierarchyRepository.updateMilestone(id, patch);
     await activityLogRepository.create({ action: input.status === 'COMPLETED' ? 'Milestone Completed' : 'Milestone Updated', user_id: actor.id, project_id: existing.project_id, details: `Milestone ${updated.name} was updated.`, event: { eventType: input.status === 'COMPLETED' ? 'MILESTONE_COMPLETED' : 'MILESTONE_UPDATED', entityType: 'MILESTONE', entityId: id, payload: { changedFields: Object.keys(input) } } });
+    await notificationService.notifyProjectTeam(existing.project_id, actor.id, 'project_structure_updated', input.status === 'COMPLETED' ? 'Milestone completed' : 'Milestone updated', `Milestone “${updated.name}” was updated.`, { relatedType: 'milestone', relatedId: id });
     return updated;
   },
   async archiveMilestone(id: string, actor: Actor) {
@@ -67,6 +70,7 @@ export const hierarchyService = {
       owner_user_id: input.ownerUserId || null, status: input.status || 'PLANNED', acceptance_criteria_json: input.acceptanceCriteria || [], target_date: input.targetDate || null,
     });
     await activityLogRepository.create({ action: 'Deliverable Created', user_id: actor.id, project_id: milestone.project_id, details: `Deliverable ${deliverable.name} was created.`, event: { eventType: 'DELIVERABLE_CREATED', entityType: 'DELIVERABLE', entityId: deliverable.id, payload: { milestoneId } } });
+    await notificationService.notifyProjectTeam(milestone.project_id, actor.id, 'project_structure_updated', 'Feature added', `Feature “${deliverable.name}” was added to the delivery plan.`, { relatedType: 'deliverable', relatedId: deliverable.id });
     return deliverable;
   },
   async updateDeliverable(id: string, input: any, actor: Actor) {
@@ -82,6 +86,7 @@ export const hierarchyService = {
       ...(input.targetDate !== undefined && { target_date: input.targetDate || null }),
     });
     await activityLogRepository.create({ action: 'Deliverable Updated', user_id: actor.id, project_id: existing.project_id, details: `Deliverable ${updated.name} was updated.`, event: { eventType: 'DELIVERABLE_UPDATED', entityType: 'DELIVERABLE', entityId: id, payload: { changedFields: Object.keys(input) } } });
+    await notificationService.notifyProjectTeam(existing.project_id, actor.id, 'project_structure_updated', 'Feature updated', `Feature “${updated.name}” was updated.`, { relatedType: 'deliverable', relatedId: id });
     return updated;
   },
   async archiveDeliverable(id: string, actor: Actor) {

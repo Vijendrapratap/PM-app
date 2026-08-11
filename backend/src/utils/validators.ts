@@ -153,6 +153,11 @@ export const createTodoSchema = z.object({
   scheduledEnd: z.string().datetime().optional(),
   meetingWith: z.string().max(240).optional(),
   channel: z.string().max(120).optional(),
+  expectedMinutes: z.coerce.number().int().min(15).max(480).optional(),
+}).superRefine((value, context) => {
+  if ((value.workType || 'TASK') === 'TASK' && !value.expectedMinutes) {
+    context.addIssue({ code: 'custom', path: ['expectedMinutes'], message: 'Expected time is required for a task' });
+  }
 });
 
 export const updateTodoSchema = z.object({
@@ -169,6 +174,7 @@ export const updateTodoSchema = z.object({
   scheduledEnd: z.string().datetime().nullable().optional(),
   meetingWith: z.string().max(240).nullable().optional(),
   channel: z.string().max(120).nullable().optional(),
+  expectedMinutes: z.coerce.number().int().min(15).max(480).optional(),
 });
 
 export const createSubtaskSchema = z.object({
@@ -196,6 +202,7 @@ export const createProjectTaskSchema = z.object({
   assignedTo: z.string().optional(),
   milestoneId: z.string().uuid().optional(),
   deliverableId: z.string().uuid().optional(),
+  expectedMinutes: z.coerce.number().int().min(15).max(480),
 });
 
 export const updateProjectTaskSchema = z.object({
@@ -209,6 +216,7 @@ export const updateProjectTaskSchema = z.object({
   canonicalStatus: z.enum(['BACKLOG', 'READY', 'IN_PROGRESS', 'IN_REVIEW', 'DONE', 'CANCELLED', 'DEFERRED']).optional(),
   milestoneId: z.string().uuid().nullable().optional(),
   deliverableId: z.string().uuid().nullable().optional(),
+  expectedMinutes: z.coerce.number().int().min(15).max(480).optional(),
 });
 
 export const createTaskCommentSchema = z.object({ body: z.string().min(1).max(2000) });
@@ -263,7 +271,7 @@ export const startWorkdaySchema = z.object({
     plannedOutcome: z.string().trim().min(3).max(500),
     remarks: z.string().max(1000).optional(),
     source: z.enum(['CARRYOVER', 'ASSIGNED', 'ADDED_TODAY']).optional(),
-    plannedEstimateMinutes: z.coerce.number().int().min(0).max(1440).optional(),
+    plannedEstimateMinutes: z.coerce.number().int().min(15).max(480),
     carriedFromItemId: z.string().uuid().optional(),
     carryoverReason: z.string().max(1000).optional(),
     priority: z.enum(['Low', 'Medium', 'High', 'Critical']).optional(),
@@ -272,7 +280,7 @@ export const startWorkdaySchema = z.object({
 
 export const startWorkSessionSchema = z.object({
   dailyPlanId: z.string().uuid(),
-  taskId: z.string().uuid().optional(),
+  taskId: z.string().uuid(),
   note: z.string().max(1000).optional(),
 });
 export const workSessionNoteSchema = z.object({ note: z.string().max(1000) });
@@ -355,6 +363,9 @@ export const projectPlanContentSchema = z.object({
 });
 
 export const updatePlanDraftSchema = z.object({ content: projectPlanContentSchema });
-export const runAgentSchema = z.object({ force: z.boolean().optional() });
+export const runAgentSchema = z.object({
+  force: z.boolean().optional(),
+  featureIdeas: z.array(z.string().trim().min(2).max(240)).min(1).max(20).optional(),
+});
 export const updateKnowledgeDocumentSchema = z.object({ content: z.string().trim().min(20).max(100000) });
 export const updateAgentDefinitionSchema = z.object({ systemPrompt: z.string().trim().min(80).max(30000), changeNote: z.string().trim().max(500).optional() });

@@ -39,6 +39,7 @@ const projectTaskToTodo = (
   scheduledEnd: null,
   meetingWith: null,
   channel: null,
+  expectedMinutes: task.estimateMinutes || 60,
   source: 'PROJECT',
   project,
 });

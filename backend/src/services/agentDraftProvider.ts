@@ -7,6 +7,7 @@ export interface ProjectContext {
   department?: string | null;
   deadline?: string | null;
   tags?: string[];
+  featureIdeas?: string[];
 }
 
 const task = (key: string, title: string, description: string, estimateDays: number, acceptanceCriteria: string[]) => ({
@@ -20,6 +21,8 @@ export const localAgentDraftProvider = {
     const product = project.name;
     const description = project.description?.trim() || `Deliver the agreed outcome for ${product}.`;
     const isWeb = /web|site|portal|dashboard|saas|app/i.test(`${project.category || ''} ${description}`);
+    const featureIdeas = (project.featureIdeas || []).map((item) => item.trim()).filter(Boolean);
+    const featureKey = (value: string, index: number) => `${value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 70) || 'feature'}-${index + 1}`;
 
     return {
       summary: `A delivery plan for ${product} that moves from clarified scope through an approved, tested release. The plan uses estimate ranges as a starting point for Govind's review, not as a fixed commitment.`,
@@ -38,7 +41,21 @@ export const localAgentDraftProvider = {
         'Which user journey must work first for the initial release?',
         'What integrations, data sources, and compliance constraints are mandatory?',
       ],
-      features: [
+      features: featureIdeas.length ? featureIdeas.map((title, index) => {
+        const key = featureKey(title, index);
+        return {
+          key, milestone: 'Feature delivery', title,
+          outcome: `${title} works as an observable, reviewable part of ${product}.`,
+          description: `Break ${title} into small implementation and validation steps before assigning owners and dates.`,
+          acceptanceCriteria: [`The expected ${title} workflow is agreed`, `${title} can be reviewed end to end`, 'Failure and edge states are documented'],
+          priority: 'High' as const, estimateDays: 4, confidence: 'Medium' as const,
+          tasks: [
+            task(`${key}-clarify`, `Confirm ${title} behavior and acceptance`, `Define the user or business flow, boundaries, data needs, and observable finish conditions for ${title}.`, 0.5, ['Expected behavior is written', 'Acceptance criteria are testable']),
+            task(`${key}-build`, `Implement ${title}`, `Build the smallest complete version of ${title} against the confirmed acceptance criteria.`, 2.5, ['Primary workflow works', 'Validation and failure handling are included']),
+            task(`${key}-verify`, `Review and verify ${title}`, `Test the completed feature, record gaps, and prepare it for stakeholder review.`, 1, ['Acceptance checks pass', 'Known gaps have owners']),
+          ],
+        };
+      }) : [
         {
           key: 'discovery-alignment', milestone: 'Scope agreed', title: 'Discovery and scope alignment',
           outcome: 'The team shares one testable definition of the problem, users, scope, and success.',

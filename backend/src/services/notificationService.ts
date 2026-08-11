@@ -1,4 +1,5 @@
 import { notificationRepository } from '../repositories/notificationRepository';
+import { projectRepository } from '../repositories/projectRepository';
 import { logger } from '../config/logger';
 import { notificationDelivery } from '../utils/notificationRouting';
 
@@ -52,6 +53,32 @@ export const notificationService = {
       });
     } catch (error) {
       logger.error('Failed to create notification', { userId, type, error: error instanceof Error ? error.message : error });
+    }
+  },
+
+  async notifyProjectTeam(
+    projectId: string,
+    actorId: string | null | undefined,
+    type: string,
+    title: string,
+    message: string,
+    options?: { relatedType?: string; relatedId?: string }
+  ) {
+    try {
+      const project = await projectRepository.findById(projectId);
+      if (!project) return;
+      const recipients = new Set<string>([
+        project.owner_id,
+        ...(project.project_members || []).map((membership: any) => membership.user?.id),
+      ].filter(Boolean));
+      if (actorId) recipients.delete(actorId);
+      await Promise.all([...recipients].map((userId) => this.notify(userId, type, title, message, {
+        link: `/projects/${projectId}?workspace=activity`,
+        relatedType: options?.relatedType || 'project',
+        relatedId: options?.relatedId || projectId,
+      })));
+    } catch (error) {
+      logger.error('Failed to notify project team', { projectId, type, error: error instanceof Error ? error.message : error });
     }
   },
 

@@ -23,6 +23,7 @@ const AgentWorkflowPanel = ({ projectId, view }: { projectId: string; view: 'pla
   const [workspace, setWorkspace] = useState<AgentWorkspace>(emptyWorkspace);
   const [planDraft, setPlanDraft] = useState<ProjectPlanContent | null>(null);
   const [documentDraft, setDocumentDraft] = useState('');
+  const [featureIdeas, setFeatureIdeas] = useState('');
   const [selectedDocumentVersionId, setSelectedDocumentVersionId] = useState('');
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [loading, setLoading] = useState(true);
@@ -120,6 +121,14 @@ const AgentWorkflowPanel = ({ projectId, view }: { projectId: string; view: 'pla
     finally { setSaving(false); }
   };
 
+  const generateFeatureTasks = async (event: React.FormEvent) => {
+    event.preventDefault();
+    const ideas = parseList(featureIdeas);
+    if (!ideas.length || saving) return;
+    await act(() => agentWorkflowApi.runProjectManager(projectId, true, ideas), 'Feature task breakdown ready for review');
+    setFeatureIdeas('');
+  };
+
   if (loading) return <div className="agent-workspace"><div className="agent-hero skeleton"/><div className="agent-body-skeleton skeleton"/></div>;
 
   return (
@@ -140,6 +149,12 @@ const AgentWorkflowPanel = ({ projectId, view }: { projectId: string; view: 'pla
           return <div className={complete ? 'complete' : ''} key={stage}><span>{complete ? <Check size={11}/> : index + 1}</span><small>{stage}</small></div>;
         })}
       </div>
+
+      {view === 'plan' && canEdit && <form className="ai-feature-expander" onSubmit={generateFeatureTasks}>
+        <div><span><Sparkles size={16}/></span><div><strong>Turn features into trackable tasks</strong><small>Enter one feature per line. The agent proposes smaller executable tasks; nothing is stored in Delivery until you review and publish it.</small></div></div>
+        <textarea value={featureIdeas} onChange={(event) => setFeatureIdeas(event.target.value)} rows={3} placeholder={'Customer login and password reset\nBooking confirmation notifications\nAdmin reporting dashboard'}/>
+        <button disabled={saving || !parseList(featureIdeas).length}><Bot size={14}/>{saving ? 'Generating…' : `Generate task plan${parseList(featureIdeas).length > 1 ? ` for ${parseList(featureIdeas).length} features` : ''}`}</button>
+      </form>}
 
       {view === 'plan' ? !activePlan || !planDraft ? (
         <div className="agent-empty"><Sparkles size={25}/><h3>No planning draft yet</h3><p>Run the Project Manager Agent to turn the brief into editable milestones, features, tasks, acceptance criteria, and estimate ranges.</p>{canEdit && <button className="btn btn-primary" disabled={saving} onClick={() => act(() => agentWorkflowApi.runProjectManager(projectId), 'Planning draft created')}><Bot size={15}/>{saving ? 'Preparing…' : 'Create planning draft'}</button>}</div>

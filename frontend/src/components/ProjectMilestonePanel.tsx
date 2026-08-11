@@ -6,7 +6,7 @@ import type { Member, Priority } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
 import TaskDetailPanel from './TaskDetailPanel';
 
-type TaskDraft = { titles: string; assignedTo: string; dueDate: string; priority: Priority };
+type TaskDraft = { titles: string; assignedTo: string; dueDate: string; priority: Priority; expectedMinutes: number };
 type EditTarget = { type: 'milestone' | 'feature'; id: string; name: string } | null;
 
 const statusLabel = (value: string) => value.toLowerCase().replaceAll('_', ' ').replace(/^./, (letter) => letter.toUpperCase());
@@ -92,15 +92,15 @@ const ProjectMilestonePanel = ({
   };
 
   const addTask = async (milestone: Milestone, feature: Deliverable) => {
-    const draft = taskDraft[feature.id] || { titles: '', assignedTo: '', dueDate: '', priority: 'Medium' as Priority };
+    const draft = taskDraft[feature.id] || { titles: '', assignedTo: '', dueDate: '', priority: 'Medium' as Priority, expectedMinutes: 60 };
     const titles = draft.titles.split('\n').map((title) => title.trim()).filter(Boolean);
     if (!titles.length) return;
     setSaving(true); setError('');
     try {
       for (const title of titles) {
-        await projectTaskApi.create(projectId, { title, assignedTo: draft.assignedTo || undefined, dueDate: draft.dueDate || undefined, priority: draft.priority, milestoneId: milestone.id, deliverableId: feature.id });
+        await projectTaskApi.create(projectId, { title, assignedTo: draft.assignedTo || undefined, dueDate: draft.dueDate || undefined, priority: draft.priority, expectedMinutes: draft.expectedMinutes, milestoneId: milestone.id, deliverableId: feature.id });
       }
-      setTaskDraft((current) => ({ ...current, [feature.id]: { titles: '', assignedTo: '', dueDate: '', priority: 'Medium' } }));
+      setTaskDraft((current) => ({ ...current, [feature.id]: { titles: '', assignedTo: '', dueDate: '', priority: 'Medium', expectedMinutes: 60 } }));
       setAddingTaskTo(null);
       await load();
       onTasksChanged?.();
@@ -191,7 +191,7 @@ const ProjectMilestonePanel = ({
         <div className="delivery-features">
           {(activeMilestone.deliverables || []).map((feature) => {
             const featureTasks = tasks.filter((task) => task.deliverableId === feature.id);
-            const draft = taskDraft[feature.id] || { titles: '', assignedTo: '', dueDate: '', priority: 'Medium' as Priority };
+            const draft = taskDraft[feature.id] || { titles: '', assignedTo: '', dueDate: '', priority: 'Medium' as Priority, expectedMinutes: 60 };
             const taskCount = draft.titles.split('\n').map((title) => title.trim()).filter(Boolean).length;
             return <section className={`delivery-feature ${feature.status === 'COMPLETED' ? 'done' : ''}`} key={feature.id}>
               <header><span className="delivery-feature-icon"><Layers3 size={14}/></span><div>{editTarget?.type === 'feature' && editTarget.id === feature.id ? <div className="delivery-inline-edit"><input autoFocus value={editTarget.name} onChange={(event) => setEditTarget({ ...editTarget, name: event.target.value })}/><button onClick={saveName} disabled={saving}><Save size={13}/></button><button onClick={() => setEditTarget(null)}><X size={13}/></button></div> : <><small>Feature</small><strong>{feature.name}</strong><em>{featureTasks.length} task{featureTasks.length === 1 ? '' : 's'} · {progressOf(featureTasks)}% complete</em></>}</div>{canManage && <><select aria-label={`${feature.name} status`} value={feature.status} onChange={(event) => updateFeatureStatus(feature, event.target.value as Deliverable['status'])}>{['PLANNED','ACTIVE','IN_REVIEW','COMPLETED','CANCELLED'].map((status) => <option key={status} value={status}>{statusLabel(status)}</option>)}</select><button className="delivery-edit" aria-label={`Rename ${feature.name}`} onClick={() => setEditTarget({ type: 'feature', id: feature.id, name: feature.name })}><Pencil size={12}/></button><button className="delivery-add-task" onClick={() => setAddingTaskTo(addingTaskTo === feature.id ? null : feature.id)}><Plus size={12}/>Add tasks</button></>}</header>
@@ -202,7 +202,7 @@ const ProjectMilestonePanel = ({
               </div>)}{!featureTasks.length && <p>No tasks in this feature yet.</p>}</div>
               {canManage && addingTaskTo === feature.id && <form className="delivery-task-form delivery-task-bulk-form" onSubmit={(event) => { event.preventDefault(); void addTask(activeMilestone, feature); }}>
                 <label className="delivery-task-lines"><span>Tasks <small>one task per line</small></span><textarea autoFocus rows={Math.min(7, Math.max(3, taskCount + 1))} value={draft.titles} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, titles: event.target.value } }))} placeholder={'Create sign-in screen\nConnect sign-in API\nTest password reset'}/></label>
-                <div className="delivery-task-defaults"><label><span>Owner</span><select value={draft.assignedTo} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, assignedTo: event.target.value } }))}><option value="">Assign later</option>{members.map((member) => <option value={member._id} key={member._id}>{member.name}</option>)}</select></label><label><span>Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, dueDate: event.target.value } }))}/></label><label><span>Priority</span><select value={draft.priority} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, priority: event.target.value as Priority } }))}>{['Low','Medium','High','Critical'].map((priority) => <option key={priority}>{priority}</option>)}</select></label></div>
+                <div className="delivery-task-defaults"><label><span>Owner</span><select value={draft.assignedTo} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, assignedTo: event.target.value } }))}><option value="">Assign later</option>{members.map((member) => <option value={member._id} key={member._id}>{member.name}</option>)}</select></label><label><span>Due date</span><input type="date" value={draft.dueDate} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, dueDate: event.target.value } }))}/></label><label><span>Priority</span><select value={draft.priority} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, priority: event.target.value as Priority } }))}>{['Low','Medium','High','Critical'].map((priority) => <option key={priority}>{priority}</option>)}</select></label><label><span>Estimate</span><select value={draft.expectedMinutes} onChange={(event) => setTaskDraft((current) => ({ ...current, [feature.id]: { ...draft, expectedMinutes: Number(event.target.value) } }))}>{[[30,'30m'],[60,'1h'],[90,'1.5h'],[120,'2h'],[180,'3h'],[240,'4h']].map(([minutes,label]) => <option value={minutes} key={minutes}>{label}</option>)}</select></label></div>
                 <div className="delivery-task-bulk-actions"><small>{taskCount ? `${taskCount} task${taskCount === 1 ? '' : 's'} ready` : 'Paste or type a list to add tasks quickly.'}</small><button disabled={saving || !taskCount}>{saving ? 'Adding…' : `Add ${taskCount || ''} task${taskCount === 1 ? '' : 's'}`}</button></div>
               </form>}
             </section>;

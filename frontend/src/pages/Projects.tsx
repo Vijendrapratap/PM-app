@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown, MoreHorizontal } from 'lucide-react';
+import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown, MoreHorizontal, Flag } from 'lucide-react';
 import CreateProjectModal from '../components/CreateProjectModal';
 import EditProjectModal from '../components/EditProjectModal';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -12,6 +12,26 @@ import { getErrorMessage } from '../utils/errorMessage';
 import type { Project } from '../types';
 import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 import { projectProgressLabel, projectProgressTone } from '../utils/projectProgress';
+
+const getProjectDeadline = (project: Project) => {
+  const value = project.estimatedCompletionDate || project.deadline;
+  if (!value) return null;
+
+  const date = new Date(value.includes('T') ? value : `${value}T12:00:00`);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const dueDate = new Date(date);
+  dueDate.setHours(0, 0, 0, 0);
+  const days = Math.round((dueDate.getTime() - today.getTime()) / 86400000);
+
+  return {
+    label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: date.getFullYear() !== today.getFullYear() ? 'numeric' : undefined }),
+    relativeLabel: days < 0 ? `${Math.abs(days)}d overdue` : days === 0 ? 'Due today' : days === 1 ? 'Due tomorrow' : `In ${days} days`,
+    days,
+    urgent: days >= 0 && days <= 7,
+    overdue: days < 0,
+  };
+};
 
 const Projects = () => {
   const { user } = useAuth();
@@ -27,6 +47,8 @@ const Projects = () => {
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('All');
+  const [deadlineFilter, setDeadlineFilter] = useState('All');
+  const [priorityFilter, setPriorityFilter] = useState('All');
   const portfolioFilter = searchParams.get('portfolio') || 'All';
   const [sortBy, setSortBy] = useState('recent');
 
@@ -38,7 +60,18 @@ const Projects = () => {
       const query = search.trim().toLowerCase();
       const matchesSearch = !query || [project.name, project.description, project.category, project.department]
         .some((value) => value?.toLowerCase().includes(query));
-      return matchesSearch && (statusFilter === 'All' || project.status === statusFilter) && (portfolioFilter === 'All' || getProjectPortfolio(project) === portfolioFilter);
+      const deadline = getProjectDeadline(project);
+      const matchesDeadline = deadlineFilter === 'All'
+        || (deadlineFilter === 'overdue' && Boolean(deadline?.overdue))
+        || (deadlineFilter === 'week' && Boolean(deadline && deadline.days >= 0 && deadline.days <= 7))
+        || (deadlineFilter === 'month' && Boolean(deadline && deadline.days >= 0 && deadline.days <= 30))
+        || (deadlineFilter === 'none' && !deadline);
+
+      return matchesSearch
+        && (statusFilter === 'All' || project.status === statusFilter)
+        && (priorityFilter === 'All' || project.priority === priorityFilter)
+        && matchesDeadline
+        && (portfolioFilter === 'All' || getProjectPortfolio(project) === portfolioFilter);
     })
     .sort((a, b) => {
       if (sortBy === 'deadline') {
@@ -53,18 +86,6 @@ const Projects = () => {
       }
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
-
-  const formatDeadline = (project: Project) => {
-    const value = project.estimatedCompletionDate || project.deadline;
-    if (!value) return null;
-    const date = new Date(value);
-    const days = Math.ceil((date.getTime() - Date.now()) / 86400000);
-    return {
-      label: date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-      urgent: days >= 0 && days <= 7,
-      overdue: days < 0,
-    };
-  };
 
   const getStatusBadge = (status: string) => {
     const map: Record<string, string> = {
@@ -120,10 +141,21 @@ const Projects = () => {
     addProject(project);
     setSearch('');
     setStatusFilter('All');
+    setDeadlineFilter('All');
+    setPriorityFilter('All');
     setSortBy('recent');
     setShowArchived(false);
     setSearchParams({});
     navigate(`/projects/${project._id}`);
+  };
+
+  const hasActiveFilters = Boolean(search.trim()) || statusFilter !== 'All' || priorityFilter !== 'All' || deadlineFilter !== 'All' || portfolioFilter !== 'All';
+  const clearFilters = () => {
+    setSearch('');
+    setStatusFilter('All');
+    setPriorityFilter('All');
+    setDeadlineFilter('All');
+    setSearchParams({});
   };
 
   return (
@@ -173,6 +205,24 @@ const Projects = () => {
             {statuses.map((status) => <option key={status} value={status}>{status}</option>)}
           </select>
         </label>
+        <label className="project-select project-select--priority"><Flag size={14} /><span>Priority</span>
+          <select value={priorityFilter} onChange={(e) => setPriorityFilter(e.target.value)}>
+            <option value="All">All priorities</option>
+            <option value="Critical">Critical</option>
+            <option value="High">High</option>
+            <option value="Medium">Medium</option>
+            <option value="Low">Low</option>
+          </select>
+        </label>
+        <label className="project-select project-select--deadline"><Calendar size={14} /><span>Deadline</span>
+          <select value={deadlineFilter} onChange={(e) => setDeadlineFilter(e.target.value)}>
+            <option value="All">Any deadline</option>
+            <option value="overdue">Overdue</option>
+            <option value="week">Due in 7 days</option>
+            <option value="month">Due in 30 days</option>
+            <option value="none">No deadline</option>
+          </select>
+        </label>
         <label className="project-select"><ArrowUpDown size={14} /><span>Sort</span>
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
             <option value="recent">Recently updated</option>
@@ -191,22 +241,24 @@ const Projects = () => {
         })}
       </div>
 
-      {/* Projects Grid */}
+      {/* Horizontal project list */}
       {loading ? (
-        <div className="project-grid">
+        <div className="project-list project-list--loading">
           {[1,2,3,4,5,6].map(i => (
-            <div key={i} className="skeleton" style={{ height: '220px', borderRadius: '16px' }}></div>
+            <div key={i} className="skeleton project-row-skeleton"></div>
           ))}
         </div>
       ) : filtered.length === 0 ? (
         <div className="section-card">
           <div className="empty-state">
             <div className="empty-state-icon"><FolderKanban size={28} /></div>
-            <div className="empty-state-title">{search ? 'No results found' : 'No Active Projects'}</div>
+            <div className="empty-state-title">{hasActiveFilters ? 'No projects match these filters' : 'No Active Projects'}</div>
             <div className="empty-state-desc">
-              {search ? 'Try a different search term.' : 'Create your first project to get started.'}
+              {hasActiveFilters ? 'Adjust the deadline, priority, status, or portfolio filters.' : 'Create your first project to get started.'}
             </div>
-            {!search && canManage && (
+            {hasActiveFilters ? (
+              <button className="btn btn-secondary" onClick={clearFilters}>Clear filters</button>
+            ) : canManage && (
               <button className="btn btn-primary" onClick={() => setIsModalOpen(true)}>
                 <Plus size={15} /> Create Project
               </button>
@@ -214,30 +266,39 @@ const Projects = () => {
           </div>
         </div>
       ) : (
-        <div className="project-grid">
+        <div className="project-list">
+          <div className="project-list-head" aria-hidden="true">
+            <span>Project</span>
+            <span>Status &amp; priority</span>
+            <span>Progress</span>
+            <span>Team</span>
+            <span>Deadline</span>
+          </div>
           {filtered.map((project) => {
             const progressTone = projectProgressTone(project);
+            const deadline = getProjectDeadline(project);
             return (
-            <div key={project._id} className={`project-card-shell progress-${progressTone}`} style={{ position: 'relative' }}>
+            <div key={project._id} className={`project-row-shell project-card-shell progress-${progressTone}`}>
               <Link
                 to={`/projects/${project._id}`}
-                className={`project-card ${canManage ? 'project-card--managed' : ''}`}
+                className={`project-row ${canManage ? 'project-row--managed' : ''}`}
                 style={{ opacity: project.archived ? 0.6 : 1 }}
               >
                 <div className="project-priority-stripe" style={{ background: getPriorityColor(project.priority) }} />
 
-                <div className="project-card-header">
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div className="project-card-title">{project.name}</div>
-                    <div className="project-card-context">{getProjectPortfolio(project)}{project.category ? ` · ${project.category}` : ''}</div>
-                  </div>
-                  <div className="project-card-badges"><span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>{project.archived && <span className="badge badge-neutral">Archived</span>}</div>
+                <div className="project-row-identity">
+                  <div className="project-card-title">{project.name}</div>
+                  <div className="project-card-context">{getProjectPortfolio(project)}{project.category ? ` · ${project.category}` : ''}</div>
+                  <p className="project-card-desc">{project.description || 'No description provided.'}</p>
                 </div>
 
-                <p className="project-card-desc">{project.description || 'No description provided.'}</p>
+                <div className="project-row-state">
+                  <span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>
+                  <span className={`project-priority-badge priority-${project.priority.toLowerCase()}`}><Flag size={11} />{project.priority}</span>
+                  {project.archived && <span className="badge badge-neutral">Archived</span>}
+                </div>
 
-                {/* Progress */}
-                <div className="project-progress">
+                <div className="project-row-progress">
                   <div className="project-progress-label">
                     <span>{projectProgressLabel(project)}</span><strong>{project.progress}%</strong>
                   </div>
@@ -246,18 +307,18 @@ const Projects = () => {
                   </div>
                 </div>
 
-                {/* Meta */}
-                <div className="project-card-meta">
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                    <Users size={13} />
-                    <span>{project.assignedMembers?.length ?? 0} members</span>
-                  </div>
-                  {formatDeadline(project) && (
-                    <div className={`project-deadline ${formatDeadline(project)?.urgent ? 'is-urgent' : ''} ${formatDeadline(project)?.overdue ? 'is-overdue' : ''}`}>
-                      <Calendar size={13} />
-                      <span>{formatDeadline(project)?.overdue ? 'Overdue · ' : ''}{formatDeadline(project)?.label}</span>
-                    </div>
-                  )}
+                <div className="project-row-team">
+                  <Users size={15} />
+                  <span><strong>{project.assignedMembers?.length ?? 0}</strong> members</span>
+                  {project.owner?.name && <small>{project.owner.name}</small>}
+                </div>
+
+                <div className={`project-row-deadline ${deadline?.urgent ? 'is-urgent' : ''} ${deadline?.overdue ? 'is-overdue' : ''} ${!deadline ? 'is-empty' : ''}`}>
+                  <Calendar size={15} />
+                  <span>
+                    <strong>{deadline?.label || 'Not scheduled'}</strong>
+                    <small>{deadline?.relativeLabel || 'No deadline set'}</small>
+                  </span>
                 </div>
               </Link>
 
