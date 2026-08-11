@@ -106,10 +106,11 @@ const mapWorkspace = (workspace: any) => ({
   })),
 });
 
-const projectSnapshot = (project: any) => ({
+const projectSnapshot = (project: any, featureIdeas: string[] = []) => ({
   id: project.id, name: project.name, description: project.description, category: project.category,
   department: project.department, priority: project.priority, deadline: project.deadline,
   estimatedCompletionDate: project.estimated_completion_date, tags: project.tags || [],
+  ...(featureIdeas.length && { featureIdeas }),
 });
 
 const assertProjectView = async (projectId: string, actor: Actor) => {
@@ -204,7 +205,7 @@ export const agentWorkflowService = {
     return mapWorkspace(await agentWorkflowRepository.listWorkspace(projectId));
   },
 
-  async runProjectManagerAgent(projectId: string, actor: Actor, force = false) {
+  async runProjectManagerAgent(projectId: string, actor: Actor, force = false, featureIdeas: string[] = []) {
     const project = await assertDraftEdit(projectId, actor);
     const definition = await findAgentDefinition('project-manager');
     if (definition && !definition.active) throw badRequest('The Project Manager Agent is paused');
@@ -213,9 +214,10 @@ export const agentWorkflowService = {
       return mapWorkspace(await agentWorkflowRepository.listWorkspace(projectId));
     }
 
-    const snapshot = projectSnapshot(project);
+    const requestedFeatures = featureIdeas.map((item) => item.trim()).filter(Boolean).slice(0, 20);
+    const snapshot = projectSnapshot(project, requestedFeatures);
     const run = await agentWorkflowRepository.createRun({
-      project_id: projectId, agent_type: 'Project Manager', trigger_event: 'project.created',
+      project_id: projectId, agent_type: 'Project Manager', trigger_event: requestedFeatures.length ? 'project.features.expanded' : 'project.created',
       input_snapshot: snapshot, created_by: actor.id,
     });
     try {
@@ -418,6 +420,7 @@ export const agentWorkflowService = {
     const version = await agentWorkflowRepository.nextDocumentVersion(document.id);
     const created = await agentWorkflowRepository.createDocumentVersion({ document_id: document.id, agent_run_id: null, version, content: input.content || '', structured_content: { classifications: [] }, created_by: actor.id, sources_json: [{ type: 'PROJECT', id: projectId }], generated_by_agent: false });
     await activityLogRepository.create({ action: 'Document Created', user_id: actor.id, project_id: projectId, details: `${input.title} v${version} was created.`, event: { eventType: 'DOCUMENT_CREATED', entityType: 'DOCUMENT', entityId: document.id, payload: { versionId: created.id, documentType: input.documentType } } });
+    await notificationService.notifyProjectTeam(projectId, actor.id, 'project_document_added', 'Project link added', `“${input.title}” was added to ${project.name}.`, { relatedType: 'project_document', relatedId: document.id });
     return mapDocumentVersion(created);
   },
 

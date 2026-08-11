@@ -61,38 +61,27 @@ const CompletedProjects = () => {
             <Link
               to={`/projects/${project._id}`}
               key={project._id}
+              className="completed-project-card"
               style={{
                 display: 'block',
-                background: 'var(--surface-1)',
-                border: '1px solid var(--border-subtle)',
                 borderRadius: 'var(--radius-md)',
                 padding: '1.25rem 1.5rem',
                 textDecoration: 'none',
-                transition: 'all 0.2s',
                 cursor: 'pointer',
-              }}
-              onMouseEnter={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = 'rgba(16,185,129,0.3)';
-                (e.currentTarget as HTMLElement).style.background = 'var(--surface-2)';
-              }}
-              onMouseLeave={e => {
-                (e.currentTarget as HTMLElement).style.borderColor = 'var(--border-subtle)';
-                (e.currentTarget as HTMLElement).style.background = 'var(--surface-1)';
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
                 {/* Icon */}
-                <div style={{
+                <div className="completed-project-mark" style={{
                   width: '40px',
                   height: '40px',
                   borderRadius: 'var(--radius-sm)',
-                  background: 'rgba(16,185,129,0.12)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                   flexShrink: 0,
                 }}>
-                  <CheckCircle2 size={20} style={{ color: 'var(--success)' }} />
+                  <CheckCircle2 size={20} />
                 </div>
 
                 {/* Info */}

@@ -116,7 +116,7 @@ export const workdayRepository = {
     return data as WorkdayItem;
   },
 
-  async finish(id: string, input: { completed_summary: string; blockers?: string; remarks?: string }) {
+  async finish(id: string, input: { completed_summary: string; blockers?: string; remarks?: string; productive_minutes: number }) {
     const { data, error } = await supabase
       .from('workdays')
       .update({
@@ -128,6 +128,7 @@ export const workdayRepository = {
         generated_summary: input.completed_summary,
         blockers: input.blockers || null,
         remarks: input.remarks || null,
+        productive_minutes: input.productive_minutes,
         updated_at: new Date().toISOString(),
       })
       .eq('id', id)

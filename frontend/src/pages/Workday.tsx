@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   AlertCircle, ArrowRight, CalendarDays, Check, CheckCircle2, CircleDot,
   Clock3, Flag, Layers3, LockKeyhole, Pause, Play, Plus, RotateCcw,
@@ -14,7 +14,7 @@ import { getErrorMessage } from '../utils/errorMessage';
 import { canApproveAgentWork } from '../utils/roles';
 import { workSessionApi, type WorkSessionSummary } from '../api/workSessionApi';
 
-type DraftItem = { key: string; projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks: string; carriedOver: boolean; carriedFromItemId?: string; priority: Priority };
+type DraftItem = { key: string; projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks: string; carriedOver: boolean; carriedFromItemId?: string; priority: Priority; expectedMinutes: number };
 type EndState = 'DONE' | 'CARRY_OVER' | 'RESCHEDULED' | 'BACKLOG' | 'BLOCKED' | 'NO_LONGER_REQUIRED';
 type ItemDraft = { status: WorkdayItemStatus; progressNote: string; blockerReason: string; endState: EndState; carryoverReason: string };
 type View = 'my-day' | 'team';
@@ -36,7 +36,8 @@ const formatWorkedTime = (minutes: number) => {
 };
 
 const Workday = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [view, setView] = useState<View>(searchParams.get('view') === 'team' && canSeeTeam(user?.role) ? 'team' : 'my-day');
   const [workday, setWorkday] = useState<WorkdayRecord | null>(null);
@@ -50,6 +51,7 @@ const Workday = () => {
   const [customProject, setCustomProject] = useState('');
   const [customTitle, setCustomTitle] = useState('');
   const [customPriority, setCustomPriority] = useState<Priority>('Medium');
+  const [customExpectedMinutes, setCustomExpectedMinutes] = useState(60);
   const [itemDrafts, setItemDrafts] = useState<Record<string, ItemDraft>>({});
   const [completedSummary, setCompletedSummary] = useState('');
   const [dayBlockers, setDayBlockers] = useState('');
@@ -135,9 +137,10 @@ const Workday = () => {
               carriedOver: true,
               carriedFromItemId: item._id,
               priority: item.task?.priority || 'Medium',
+              expectedMinutes: item.plannedEstimateMinutes || 60,
             }));
           const assignedDrafts: DraftItem[] = openTasks
-            .filter((task) => task.project && ['Critical', 'High'].includes(task.priority) && !carriedTaskIds.has(task._id) && !carriedKeys.has(`${task.projectId}:${task.title.toLowerCase()}`))
+            .filter((task) => task.project && (['Critical', 'High'].includes(task.priority) || Boolean(task.dueDate && task.dueDate < dateKey())) && !carriedTaskIds.has(task._id) && !carriedKeys.has(`${task.projectId}:${task.title.toLowerCase()}`))
             .sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority])
             .map((task) => ({
               key: task._id,
@@ -148,6 +151,7 @@ const Workday = () => {
               remarks: '',
               carriedOver: false,
               priority: task.priority,
+              expectedMinutes: task.estimateMinutes || 60,
             }));
           setDraftItems([...carriedDrafts.sort((a, b) => priorityRank[a.priority] - priorityRank[b.priority]), ...assignedDrafts].slice(0, MAX_DAILY_ITEMS));
         }
@@ -162,9 +166,12 @@ const Workday = () => {
 
   useEffect(() => {
     if (!timeSummary?.activeSession) return;
-    const timer = window.setInterval(() => setClockTick(Date.now()), 15000);
+    const timer = window.setInterval(() => {
+      setClockTick(Date.now());
+      if (workday?._id) void refreshTimeSummary(workday._id);
+    }, 60000);
     return () => window.clearInterval(timer);
-  }, [timeSummary?.activeSession]);
+  }, [refreshTimeSummary, timeSummary?.activeSession, workday?._id]);
 
   useEffect(() => {
     if (view !== 'team' || !canSeeTeam(user?.role)) return;
@@ -190,24 +197,34 @@ const Workday = () => {
   const addTask = (task: AssignedProjectTask) => {
     if (!task.project || draftItems.length >= MAX_DAILY_ITEMS || selectedTaskIds.has(task._id)) return;
     setDraftItems((current) => [...current, {
-      key: task._id, projectId: task.projectId, taskId: task._id, title: task.title, plannedOutcome: task.title, remarks: '', carriedOver: false, priority: task.priority,
+      key: task._id, projectId: task.projectId, taskId: task._id, title: task.title, plannedOutcome: task.title, remarks: '', carriedOver: false, priority: task.priority, expectedMinutes: task.estimateMinutes || 60,
     }]);
   };
 
   const addCustomOutcome = () => {
     if (!customProject || !customTitle.trim() || draftItems.length >= MAX_DAILY_ITEMS) return;
     setDraftItems((current) => [...current, {
-      key: `custom-${Date.now()}`, projectId: customProject, title: customTitle.trim(), plannedOutcome: customTitle.trim(), remarks: '', carriedOver: false, priority: customPriority,
+      key: `custom-${Date.now()}`, projectId: customProject, title: customTitle.trim(), plannedOutcome: customTitle.trim(), remarks: '', carriedOver: false, priority: customPriority, expectedMinutes: customExpectedMinutes,
     }]);
     setCustomTitle('');
   };
 
+  const sessionMinutes = useCallback((session: WorkSessionSummary['sessions'][number]) => {
+    if (session.status !== 'ACTIVE') return Number(session.durationMinutes || 0);
+    const estimate = workday?.items.find((item) => item.taskId === session.taskId)?.plannedEstimateMinutes || 90;
+    return Math.min(Math.max(0, Math.floor((clockTick - new Date(session.startedAt).getTime()) / 60000)), Math.min(estimate, 120));
+  }, [clockTick, workday?.items]);
+
   const trackedMinutes = useMemo(() => {
     if (!timeSummary) return 0;
-    return timeSummary.sessions.reduce((total, session) => total + (session.status === 'ACTIVE'
-      ? Math.max(0, Math.floor((clockTick - new Date(session.startedAt).getTime()) / 60000))
-      : Number(session.durationMinutes || 0)), 0);
-  }, [clockTick, timeSummary]);
+    return timeSummary.sessions.reduce((total, session) => total + sessionMinutes(session), 0);
+  }, [sessionMinutes, timeSummary]);
+  const plannedMinutes = useMemo(() => workday
+    ? workday.items.reduce((total, item) => total + Number(item.plannedEstimateMinutes || 0), 0)
+    : draftItems.reduce((total, item) => total + item.expectedMinutes, 0), [draftItems, workday]);
+  const trackedForTask = useCallback((taskId: string) => timeSummary?.sessions
+    .filter((session) => session.taskId === taskId)
+    .reduce((total, session) => total + sessionMinutes(session), 0) || 0, [sessionMinutes, timeSummary]);
 
   const startTaskTimer = async (item: WorkdayItem) => {
     if (!workday || !item.taskId) return;
@@ -240,7 +257,7 @@ const Workday = () => {
       const record = await workdayApi.start({
         focus: focus.trim(),
         remarks: remarks.trim(),
-        items: draftItems.map(({ projectId, taskId, title, plannedOutcome, remarks: itemRemarks, carriedOver, carriedFromItemId, priority }) => ({
+        items: draftItems.map(({ projectId, taskId, title, plannedOutcome, remarks: itemRemarks, carriedOver, carriedFromItemId, priority, expectedMinutes }) => ({
           projectId,
           taskId,
           title,
@@ -249,6 +266,7 @@ const Workday = () => {
           source: carriedOver ? 'CARRYOVER' : taskId ? 'ASSIGNED' : 'ADDED_TODAY',
           carriedFromItemId,
           priority,
+          plannedEstimateMinutes: expectedMinutes,
         })),
       });
       setWorkday(record); hydrateDrafts(record); await refreshTimeSummary(record._id);
@@ -296,7 +314,9 @@ const Workday = () => {
         completedSummary: completedSummary.trim(), blockers: dayBlockers.trim(), remarks: remarks.trim(),
         items: workday.items.map((item) => ({ id: item._id, ...itemDrafts[item._id] })),
       });
-      setWorkday(record); hydrateDrafts(record); await refreshTimeSummary(record._id);
+      setWorkday(record); hydrateDrafts(record);
+      logout();
+      navigate('/login', { replace: true });
     } catch (saveError) {
       setError(getErrorMessage(saveError, 'We could not close your workday.'));
     } finally { setSaving(false); }
@@ -316,8 +336,8 @@ const Workday = () => {
       <header className="workday-header">
         <div>
           <div className="eyebrow"><CircleDot size={13} /> Daily operating rhythm</div>
-          <h1>{view === 'team' ? 'Team pulse' : 'Today, with intention'}</h1>
-          <p>{view === 'team' ? 'See commitments, progress and blockers without another status meeting.' : 'Choose a small number of outcomes, make progress visible, then close the loop.'}</p>
+          <h1>{view === 'team' ? 'Team pulse' : 'Plan my day'}</h1>
+          <p>{view === 'team' ? 'See commitments, progress and blockers without another status meeting.' : 'Start with carry-forward work, choose today’s tasks, and keep the list realistic.'}</p>
         </div>
         <div className="workday-date"><CalendarDays size={16} /><span>{new Date(`${teamDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</span></div>
       </header>
@@ -343,7 +363,7 @@ const Workday = () => {
                   <div className="pulse-focus"><Target size={13} /><span>{entry.workday.focus}</span></div>
                   <div className="pulse-outcomes">{entry.workday.items.map((item) => <div key={item._id}><span className={`outcome-dot ${statusClass(item.status)}`}><Check size={10} /></span><p><strong>{item.title}</strong><small>{item.project?.name || 'Project unavailable'} · {item.status}</small></p></div>)}</div>
                   {(entry.workday.blockers || entry.workday.items.some((item) => item.blockerReason)) && <div className="pulse-blocker"><Flag size={13} /><span>{entry.workday.blockers || entry.workday.items.find((item) => item.blockerReason)?.blockerReason}</span></div>}
-                  {entry.workday.completedSummary && <p className="pulse-summary"><CheckCircle2 size={13} />{entry.workday.completedSummary}</p>}
+                  {entry.workday.completedSummary && <p className="pulse-summary"><CheckCircle2 size={13} />{entry.workday.completedSummary}<small>{formatWorkedTime(entry.workday.productiveMinutes || 0)} productive time</small></p>}
                 </>}
               </article>)}
             </div>
@@ -355,11 +375,11 @@ const Workday = () => {
             <div className="workday-step"><span>01</span><div><h2>Set the finish line</h2><p>One sentence that keeps the day pointed in the right direction.</p></div></div>
             <label className="focus-field"><span>Today will be successful if…</span><textarea value={focus} maxLength={240} onChange={(event) => setFocus(event.target.value)} placeholder="The client can review the new onboarding flow." /></label>
 
-            <div className="workday-step outcomes-step"><span>02</span><div><h2>Review today’s priority</h2><p>Unfinished work from yesterday and high-priority assigned tasks are included automatically.</p></div><b>{draftItems.length} tasks</b></div>
+            <div className="workday-step outcomes-step"><span>02</span><div><h2>Build today’s task list</h2><p>Carry-forward, overdue, and high-priority work is included automatically.</p></div><b>{draftItems.length} tasks</b></div>
             {carryoverCount > 0 && <div className="carryover-note"><RotateCcw size={17} /><div><strong>{carryoverCount} unfinished {carryoverCount === 1 ? 'task was' : 'tasks were'} carried forward</strong><span>Nothing gets lost between workdays. Review the expected result and add any useful context.</span></div></div>}
-            {draftItems.length < MAX_DAILY_ITEMS && <section className="quick-add-task"><div><span><Plus size={15} /> Add task</span><p>Add a missing task directly to today’s plan.</p></div><div className="custom-outcome"><select aria-label="Project" value={customProject} onChange={(event) => setCustomProject(event.target.value)}><option value="">Choose project</option>{assignedProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="Describe a clear, finishable task…" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomOutcome(); } }} /><select aria-label="Priority" value={customPriority} onChange={(event) => setCustomPriority(event.target.value as Priority)}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select><button className="btn btn-primary" disabled={!customProject || !customTitle.trim()} onClick={addCustomOutcome}><Plus size={14} /> Add to today</button></div></section>}
+            {draftItems.length < MAX_DAILY_ITEMS && <section className="quick-add-task"><div><span><Plus size={15} /> Add task</span><p>Add a missing task directly to today’s plan with a realistic focus estimate.</p></div><div className="custom-outcome"><select aria-label="Project" value={customProject} onChange={(event) => setCustomProject(event.target.value)}><option value="">Choose project</option>{assignedProjects.map((project) => <option key={project.id} value={project.id}>{project.name}</option>)}</select><input value={customTitle} onChange={(event) => setCustomTitle(event.target.value)} placeholder="Describe a clear, finishable task…" onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); addCustomOutcome(); } }} /><select aria-label="Expected focused time" value={customExpectedMinutes} onChange={(event) => setCustomExpectedMinutes(Number(event.target.value))}>{[[30,'30m'],[60,'1h'],[90,'1.5h'],[120,'2h'],[180,'3h'],[240,'4h']].map(([minutes,label]) => <option value={minutes} key={minutes}>{label}</option>)}</select><select aria-label="Priority" value={customPriority} onChange={(event) => setCustomPriority(event.target.value as Priority)}><option>Critical</option><option>High</option><option>Medium</option><option>Low</option></select><button className="btn btn-primary" disabled={!customProject || !customTitle.trim()} onClick={addCustomOutcome}><Plus size={14} /> Add to today</button></div></section>}
             <div className="selected-outcomes">
-              {draftItems.map((item, index) => <article key={item.key}><span className="outcome-number">{index + 1}</span><div><div className="outcome-title"><span><small>{assignedProjects.find((project) => project.id === item.projectId)?.name}</small><strong>{item.title}</strong></span><span className="outcome-badges"><b className={`task-priority ${item.priority.toLowerCase()}`}>{item.priority}</b>{item.carriedOver && <b className="carryover-badge"><RotateCcw size={11} /> Carried over</b>}</span></div><div className="outcome-fields"><label><span>Expected result</span><textarea aria-label={`Expected outcome for ${item.title}`} value={item.plannedOutcome} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, plannedOutcome: event.target.value } : draft))} placeholder="What should be true when this task is finished?" /></label><label><span>Remarks <small>optional</small></span><textarea aria-label={`Remarks for ${item.title}`} value={item.remarks} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, remarks: event.target.value } : draft))} placeholder="Dependency, handover note, link or context…" /></label></div></div><button aria-label={`Remove ${item.title}`} onClick={() => setDraftItems((current) => current.filter((draft) => draft.key !== item.key))}><X size={15} /></button></article>)}
+              {draftItems.map((item, index) => <article key={item.key}><span className="outcome-number">{index + 1}</span><div><div className="outcome-title"><span><small>{assignedProjects.find((project) => project.id === item.projectId)?.name}</small><strong>{item.title}</strong></span><span className="outcome-badges"><b className="task-estimate-badge"><Clock3 size={11}/>{formatWorkedTime(item.expectedMinutes)}</b><b className={`task-priority ${item.priority.toLowerCase()}`}>{item.priority}</b>{item.carriedOver && <b className="carryover-badge"><RotateCcw size={11} /> Carried over</b>}</span></div><div className="outcome-fields"><label><span>Expected result</span><textarea aria-label={`Expected outcome for ${item.title}`} value={item.plannedOutcome} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, plannedOutcome: event.target.value } : draft))} placeholder="What should be true when this task is finished?" /></label><label><span>Focused time</span><select aria-label={`Expected focused time for ${item.title}`} value={item.expectedMinutes} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, expectedMinutes: Number(event.target.value) } : draft))}>{[[30,'30 minutes'],[45,'45 minutes'],[60,'1 hour'],[90,'1.5 hours'],[120,'2 hours'],[180,'3 hours'],[240,'4 hours']].map(([minutes,label]) => <option value={minutes} key={minutes}>{label}</option>)}</select></label><label><span>Remarks <small>optional</small></span><textarea aria-label={`Remarks for ${item.title}`} value={item.remarks} onChange={(event) => setDraftItems((current) => current.map((draft) => draft.key === item.key ? { ...draft, remarks: event.target.value } : draft))} placeholder="Dependency, handover note, link or context…" /></label></div></div><button aria-label={`Remove ${item.title}`} onClick={() => setDraftItems((current) => current.filter((draft) => draft.key !== item.key))}><X size={15} /></button></article>)}
               {!draftItems.length && <div className="outcome-empty"><Layers3 size={20} /><span>Select assigned work below or add a project outcome.</span></div>}
             </div>
 
@@ -369,7 +389,7 @@ const Workday = () => {
 
           <aside className="assigned-work-panel"><div><h2>Other pending tasks</h2><span>{pendingTasks.length} remaining</span></div><p className="assigned-work-help">Critical, high-priority and carried work starts in your plan. Add other pending work only when today has room.</p>{pendingTasks.length ? <div className="assigned-task-list">{pendingTasks.map((task) => <button key={task._id} disabled={!task.project || draftItems.length >= MAX_DAILY_ITEMS} onClick={() => addTask(task)}><span><small>{task.project?.name}</small><strong>{task.title}</strong><em className={`task-priority ${task.priority.toLowerCase()}`}>{task.priority}</em></span><Plus size={15} /></button>)}</div> : <p className="assigned-empty">All open tasks are already in today’s plan.</p>}</aside>
 
-          <div className="start-day-action"><div><Sparkles size={17} /><span><strong>Your plan is ready.</strong> Unfinished work is included automatically; adjust the list to a realistic day before starting.</span></div><button className="btn btn-primary" disabled={saving || !focus.trim() || !draftItems.length || draftItems.some((item) => !item.plannedOutcome.trim())} onClick={startDay}>{saving ? 'Starting…' : 'Start my day'}<ArrowRight size={15} /></button></div>
+          <div className="start-day-action"><div><Sparkles size={17} /><span><strong>{formatWorkedTime(plannedMinutes)} planned.</strong> Starting the day starts the first task timer; focus blocks pause at the estimate or two hours so forgotten timers do not inflate productive time.</span></div><button className="btn btn-primary" disabled={saving || !focus.trim() || !draftItems.length || draftItems.some((item) => !item.plannedOutcome.trim() || !item.expectedMinutes)} onClick={startDay}>{saving ? 'Starting…' : 'Start my day'}<ArrowRight size={15} /></button></div>
         </section>
       ) : workday.status === 'Completed' ? (
         <section className="day-closed" id="plan-my-day">
@@ -381,7 +401,7 @@ const Workday = () => {
         </section>
       ) : (
         <section className="active-day" id="plan-my-day">
-          <div className="active-focus"><div><span className="live-indicator"><i /> Workday open</span><h2>{workday.focus}</h2><p>Started {new Date(workday.checkInAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · Start a task to connect tracked time to the work.</p></div><div className="active-time-card"><Timer size={20}/><span><small>Tracked today</small><strong>{formatWorkedTime(trackedMinutes)}</strong><em>{timeSummary?.activeSession?.taskId ? `Tracking ${workday.items.find((item) => item.taskId === timeSummary.activeSession?.taskId)?.title || 'active task'}` : timeSummary?.activeSession ? 'General work session' : 'Timer paused'}</em></span></div></div>
+          <div className="active-focus"><div><span className="live-indicator"><i /> Workday open</span><h2>{workday.focus}</h2><p>Started {new Date(workday.checkInAt).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} · Productive time is the sum of focused task sessions, not the span between login and logout.</p></div><div className="active-time-card"><Timer size={20}/><span><small>Focused / planned</small><strong>{formatWorkedTime(trackedMinutes)} <i>/ {formatWorkedTime(plannedMinutes)}</i></strong><em>{timeSummary?.activeSession?.taskId ? `Tracking ${workday.items.find((item) => item.taskId === timeSummary.activeSession?.taskId)?.title || 'active task'}` : 'Timer paused'}</em></span></div></div>
           <div className="active-outcomes"><div className="section-heading"><div><span>Today’s outcomes</span><h2>Move the work, then move the status.</h2></div><b>{workday.items.filter((item) => itemDrafts[item._id]?.status === 'Completed').length}/{workday.items.length} done</b></div>
             {workday.items.map((item, index) => {
               const draft = itemDrafts[item._id];
@@ -395,7 +415,7 @@ const Workday = () => {
                     <option>Planned</option><option>In Progress</option><option>Completed</option><option>Blocked</option><option>Deferred</option>
                   </select>
                 </div>
-                {item.taskId && <div className={`outcome-timer ${timeSummary?.activeSession?.taskId === item.taskId ? 'is-active' : ''}`}><div><Timer size={14}/><span>{timeSummary?.activeSession?.taskId === item.taskId ? 'Time is being recorded against this task' : 'Track focused time for this task'}</span></div>{timeSummary?.activeSession?.taskId === item.taskId ? <button className="btn btn-secondary" disabled={saving} onClick={pauseTaskTimer}><Pause size={13}/> Pause timer</button> : <button className="btn btn-secondary" disabled={saving || draft.status === 'Completed'} onClick={() => startTaskTimer(item)}><Play size={13}/> Start task</button>}</div>}
+                {item.taskId && <div className={`outcome-timer ${timeSummary?.activeSession?.taskId === item.taskId ? 'is-active' : ''}`}><div><Timer size={14}/><span><strong>{formatWorkedTime(trackedForTask(item.taskId))} / {formatWorkedTime(item.plannedEstimateMinutes || 60)}</strong>{timeSummary?.activeSession?.taskId === item.taskId ? ' · recording focused time' : ' · task timer paused'}</span></div>{timeSummary?.activeSession?.taskId === item.taskId ? <button className="btn btn-secondary" disabled={saving} onClick={pauseTaskTimer}><Pause size={13}/> Pause timer</button> : <button className="btn btn-secondary" disabled={saving || draft.status === 'Completed'} onClick={() => startTaskTimer(item)}><Play size={13}/> Start task</button>}</div>}
                 <div className="outcome-update">
                   <label><span>Progress note <small>optional</small></span><textarea value={draft.progressNote} onChange={(event) => setItemDrafts((current) => ({ ...current, [item._id]: { ...draft, progressNote: event.target.value } }))} placeholder="What changed since you started?" /></label>
                   {draft.status === 'Blocked' && <label className="blocker-field"><span>What is blocking this? <b>required</b></span><textarea value={draft.blockerReason} onChange={(event) => setItemDrafts((current) => ({ ...current, [item._id]: { ...draft, blockerReason: event.target.value, endState: 'BLOCKED' } }))} placeholder="Name the dependency or decision needed." /></label>}
@@ -407,7 +427,7 @@ const Workday = () => {
             })}
           </div>
 
-          <aside className="close-day-panel" id="close-day"><div className="close-day-title"><div className="close-icon"><Clock3 size={18} /></div><div><span>End-of-day closeout</span><p>Capture facts, not a long report.</p></div></div><div className="close-day-time"><Timer size={17}/><span><small>Time worked today</small><strong>{formatWorkedTime(trackedMinutes)}</strong></span></div><label><span>What did you complete? <b>required</b></span><textarea value={completedSummary} onChange={(event) => setCompletedSummary(event.target.value)} placeholder="Shipped the review build and resolved the login edge case." /></label><label><span>Blockers or decisions needed</span><textarea value={dayBlockers} onChange={(event) => setDayBlockers(event.target.value)} placeholder="Nothing blocked, or name who can unblock you." /></label><label><span>Other remarks</span><textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Useful context for tomorrow…" /></label><div className="close-day-note"><RotateCcw size={14} /><span>Closing the day stops the timer and sends PMs, Tech Leads and the CEO one concise digest.</span></div><button className="btn btn-primary" disabled={saving || !completedSummary.trim()} onClick={finishDay}>{saving ? 'Closing…' : 'Close my workday'}<CheckCircle2 size={15} /></button></aside>
+          <aside className="close-day-panel" id="close-day"><div className="close-day-title"><div className="close-icon"><Clock3 size={18} /></div><div><span>End-of-day closeout</span><p>Capture facts, not a long report.</p></div></div><div className="close-day-time"><Timer size={17}/><span><small>Productive time today</small><strong>{formatWorkedTime(trackedMinutes)} <em>of {formatWorkedTime(plannedMinutes)} planned</em></strong></span></div><label><span>What did you complete? <b>required</b></span><textarea value={completedSummary} onChange={(event) => setCompletedSummary(event.target.value)} placeholder="Shipped the review build and resolved the login edge case." /></label><label><span>Blockers or decisions needed</span><textarea value={dayBlockers} onChange={(event) => setDayBlockers(event.target.value)} placeholder="Nothing blocked, or name who can unblock you." /></label><label><span>Other remarks</span><textarea value={remarks} onChange={(event) => setRemarks(event.target.value)} placeholder="Useful context for tomorrow…" /></label><div className="close-day-note"><RotateCcw size={14} /><span>Save &amp; log off stops the active task timer. Unfinished tasks return as carry-forward work tomorrow.</span></div><button className="btn btn-primary" disabled={saving || !completedSummary.trim()} onClick={finishDay}>{saving ? 'Saving…' : 'Save & log off'}<CheckCircle2 size={15} /></button></aside>
         </section>
       )}
     </main>

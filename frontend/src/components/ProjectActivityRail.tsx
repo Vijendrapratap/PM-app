@@ -10,12 +10,13 @@ type UpdateKind = 'Progress update' | 'Blocker or risk' | 'Decision' | 'Comment'
 const eventLabel = (value: string) => value.toLowerCase().split('_')
   .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
-const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRefresh }: {
+const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRefresh, standalone = false }: {
   project: Project;
   updates: ProjectUpdate[];
   dailyReports: DailyReport[];
   canComment: boolean;
   onRefresh: () => void | Promise<void>;
+  standalone?: boolean;
 }) => {
   const [events, setEvents] = useState<ProjectActivityEvent[]>([]);
   const [filter, setFilter] = useState<RailFilter>('all');
@@ -36,7 +37,7 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
   const timeline = useMemo(() => {
     const updateItems = updates.map((update) => ({
       id: `update-${update._id}`,
-      kind: update.title === 'Comment' || update.title === 'Project comment' ? 'comment' as const : 'update' as const,
+      kind: update.title === 'Comment' || update.title === 'Project comment' ? 'comment' as const : 'worklog' as const,
       title: update.title === 'Comment' || update.title === 'Project comment' ? 'Comment added' : update.title,
       description: update.description,
       actor: update.createdBy?.name || 'Team member',
@@ -84,7 +85,7 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
     finally { setSaving(false); }
   };
 
-  return <aside className="project-activity-rail section-card" aria-label="Project updates and comments">
+  return <aside className={`project-activity-rail section-card ${standalone ? 'is-workspace' : ''}`} aria-label="Project updates and comments">
     <header><div><Activity size={16}/><span><strong>Live project log</strong><small>Work, decisions and discussion</small></span></div><b>{timeline.length}</b></header>
     <div className="project-calculated-status"><Gauge size={15}/><div><small>Calculated from tasks</small><strong>{project.status} · {project.progress}%</strong></div><span><i style={{ width: `${project.progress}%` }}/></span></div>
     {canComment && <form className="project-comment-box" onSubmit={submitComment}>
@@ -100,7 +101,7 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
       {loading ? <div className="skeleton project-log-skeleton"/> : timeline.length === 0 ? <div className="project-log-empty"><MessageSquare size={18}/><strong>Nothing here yet</strong><span>Comments and work history will appear with clear dates.</span></div> : timeline.map((item) => {
         const date = new Date(item.createdAt);
         return <article className={`project-log-item ${item.kind}`} key={item.id}>
-          <span className="project-log-icon">{item.agent ? <Bot size={13}/> : item.kind === 'comment' ? <MessageSquare size={13}/> : <UserRound size={13}/>}</span>
+          <span className="project-log-icon">{item.agent ? <Bot size={13}/> : item.kind === 'comment' ? <MessageSquare size={13}/> : item.kind === 'worklog' ? <Activity size={13}/> : <UserRound size={13}/>}</span>
           <div><header><strong>{item.title}</strong><time dateTime={item.createdAt}>{date.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' })}</time></header><p>{item.description}</p><small>{item.actor} · {date.toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' })}</small></div>
         </article>;
       })}

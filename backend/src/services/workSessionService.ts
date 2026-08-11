@@ -4,6 +4,7 @@ import { workSessionRepository } from '../repositories/workSessionRepository';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { elapsedMinutes } from '../utils/duration';
 import { projectTaskService } from './projectTaskService';
+import { boundedFocusMinutes, focusBlockLimitMinutes } from '../utils/focusSession';
 
 interface Actor { id: string; role: string; organizationId?: string }
 
@@ -25,17 +26,18 @@ const assertOwner = async (sessionId: string, actor: Actor) => {
   return session;
 };
 
+const plannedMinutesFor = (plan: any, taskId?: string | null) =>
+  taskId ? (plan.items || []).find((item: any) => item.task_id === taskId)?.planned_estimate_minutes : null;
+
 export const workSessionService = {
-  async start(input: { dailyPlanId: string; taskId?: string; note?: string }, actor: Actor) {
+  async start(input: { dailyPlanId: string; taskId: string; note?: string }, actor: Actor) {
     if (!actor.organizationId) throw badRequest('Your account is not assigned to an organization');
     const plan = await workdayRepository.findById(input.dailyPlanId);
     if (!plan) throw notFound('Daily plan not found');
     if (plan.user_id !== actor.id) throw forbidden('You can only start a session for your own plan');
     if (plan.status === 'Completed') throw badRequest('Reopen the daily plan before starting another session');
-    if (input.taskId) {
-      const plannedItem = (plan.items || []).find((item: any) => item.task_id === input.taskId);
-      if (!plannedItem) throw forbidden('You can only track time against a task in today\'s plan');
-    }
+    const plannedItem = (plan.items || []).find((item: any) => item.task_id === input.taskId);
+    if (!plannedItem) throw forbidden('You can only track time against a task in today\'s plan');
 
     const active = await workSessionRepository.findActiveForUser(actor.id);
     if (active?.daily_plan_id === input.dailyPlanId && active.task_id === (input.taskId || null)) return toDto(active);
@@ -45,17 +47,14 @@ export const workSessionService = {
       organization_id: actor.organizationId,
       user_id: actor.id,
       daily_plan_id: input.dailyPlanId,
-      task_id: input.taskId || null,
+      task_id: input.taskId,
       note: input.note?.trim() || null,
     });
-    if (input.taskId) {
-      const plannedItem = (plan.items || []).find((item: any) => item.task_id === input.taskId);
-      if (plannedItem?.status !== 'Completed') {
-        await workdayRepository.updateItem(plannedItem.id, { status: 'In Progress' });
-        const task = plannedItem.task;
-        if (task && task.status !== 'In Progress') {
-          await projectTaskService.update(plannedItem.project_id, input.taskId, { status: 'In Progress' }, actor);
-        }
+    if (plannedItem.status !== 'Completed') {
+      await workdayRepository.updateItem(plannedItem.id, { status: 'In Progress' });
+      const task = plannedItem.task;
+      if (task && task.status !== 'In Progress') {
+        await projectTaskService.update(plannedItem.project_id, input.taskId, { status: 'In Progress' }, actor);
       }
     }
     await activityLogRepository.create({
@@ -69,11 +68,16 @@ export const workSessionService = {
     const plan = await workdayRepository.findById(dailyPlanId);
     if (!plan) throw notFound('Daily plan not found');
     if (plan.user_id !== actor.id) throw forbidden('You can only view time tracked for your own daily plan');
-    const sessions = await workSessionRepository.findForPlan(dailyPlanId);
+    let sessions = await workSessionRepository.findForPlan(dailyPlanId);
     const now = new Date().toISOString();
-    const totalMinutes = sessions.reduce((total, session) => total + (
+    const active = sessions.find((session) => session.status === 'ACTIVE');
+    if (active && elapsedMinutes(active.started_at, now) >= focusBlockLimitMinutes(plannedMinutesFor(plan, active.task_id))) {
+      await this.stop(active.id, 'PAUSED', actor);
+      sessions = await workSessionRepository.findForPlan(dailyPlanId);
+    }
+    const totalMinutes = sessions.filter((session) => Boolean(session.task_id)).reduce((total, session) => total + (
       session.status === 'ACTIVE'
-        ? elapsedMinutes(session.started_at, now)
+        ? boundedFocusMinutes(elapsedMinutes(session.started_at, now), plannedMinutesFor(plan, session.task_id))
         : Number(session.duration_minutes || 0)
     ), 0);
     return {
@@ -88,10 +92,11 @@ export const workSessionService = {
     const session = await assertOwner(id, actor);
     if (session.status === 'CLOSED') return toDto(session);
     const endedAt = new Date().toISOString();
+    const plan = await workdayRepository.findById(session.daily_plan_id);
     const updated = await workSessionRepository.update(id, {
       status,
       ended_at: endedAt,
-      duration_minutes: elapsedMinutes(session.started_at, endedAt),
+      duration_minutes: boundedFocusMinutes(elapsedMinutes(session.started_at, endedAt), plannedMinutesFor(plan, session.task_id)),
     });
     await activityLogRepository.create({
       action: status === 'PAUSED' ? 'Work Session Paused' : 'Work Session Closed',

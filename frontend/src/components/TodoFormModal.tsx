@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { CalendarClock, ChevronDown, FileText, ListChecks, Paperclip, RefreshCw, X } from 'lucide-react';
+import { CalendarClock, ChevronDown, Clock3, FileText, ListChecks, Paperclip, RefreshCw, X } from 'lucide-react';
 import { todoApi, type DailyTodo } from '../api/todoApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import { useAuth } from '../context/AuthContext';
@@ -67,6 +67,7 @@ const TodoFormModal = ({
     endTime: localTime(existing?.scheduledEnd) || (startingType === 'MEETING' ? '10:30' : ''),
     meetingWith: existing?.meetingWith || '',
     channel: existing?.channel || (startingType === 'UPDATE' ? 'LinkedIn' : ''),
+    expectedMinutes: existing?.expectedMinutes || 60,
   });
   const [showDetails, setShowDetails] = useState(false);
   const [files, setFiles] = useState<File[]>([]);
@@ -97,6 +98,7 @@ const TodoFormModal = ({
         title: form.title, description: form.description || undefined, dueDate: form.dueDate, priority: form.priority,
         assignedTo: form.assignedTo, domainType: form.domainType, workType: form.workType, recurrence: form.recurrence,
         scheduledStart, scheduledEnd, meetingWith: form.meetingWith || null, channel: form.channel || null,
+        expectedMinutes: form.workType === 'TASK' ? form.expectedMinutes : undefined,
       };
       if (existing && isDemo) {
         task = updateDemoTaskDetails(existing._id, personalPayload) || existing;
@@ -125,6 +127,7 @@ const TodoFormModal = ({
           dueDate: form.dueDate,
           priority: form.priority,
           assignedTo: form.assignedTo,
+          expectedMinutes: form.expectedMinutes,
         }, files);
         task = {
           ...created,
@@ -200,6 +203,8 @@ const TodoFormModal = ({
               {form.workType === 'MEETING' && <div className="form-group"><label className="form-label">Ends</label><input type="time" className="form-input" value={form.endTime} onChange={(event) => setForm((current) => ({ ...current, endTime: event.target.value }))} /></div>}
               <div className="form-group"><label className="form-label">Repeats</label><select className="form-select" value={form.recurrence} onChange={(event) => setForm((current) => ({ ...current, recurrence: event.target.value as DailyTodo['recurrence'] }))}>{RECURRENCE_OPTIONS.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></div>
             </div>
+
+            {form.workType === 'TASK' && <div className="task-estimate-field"><Clock3 size={16}/><label><span>Expected focused time <b>required</b></span><select className="form-select" required value={form.expectedMinutes} onChange={(event) => setForm((current) => ({ ...current, expectedMinutes: Number(event.target.value) }))}>{[[30,'30 minutes'],[45,'45 minutes'],[60,'1 hour'],[90,'1.5 hours'],[120,'2 hours'],[180,'3 hours'],[240,'4 hours']].map(([minutes, label]) => <option value={minutes} key={minutes}>{label}</option>)}</select><small>This becomes the planning baseline; only active task sessions count as productive time.</small></label></div>}
 
             <button className="work-more-toggle" type="button" onClick={() => setShowDetails((current) => !current)} aria-expanded={showDetails}><ChevronDown size={15} className={showDetails ? 'open' : ''}/> More details <span>notes, priority, assignee and files</span></button>
             {showDetails && <div className="work-more-panel">

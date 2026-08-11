@@ -36,6 +36,7 @@ export interface Workday {
   completedSummary: string | null;
   blockers: string | null;
   remarks: string | null;
+  productiveMinutes: number;
   items: WorkdayItem[];
   createdAt: string;
   updatedAt: string;

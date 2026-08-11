@@ -212,6 +212,7 @@ export const projectService = {
     const uploaded = await uploadFiles(`projects/${id}`, files);
     await projectRepository.addInitialDocuments(id, uploaded.map((file) => ({ name: file.name, storage_path: file.storagePath })));
     await activityLogRepository.create({ action: 'Project Documents Added', user_id: actorId, project_id: id, details: `${files.length} document${files.length === 1 ? '' : 's'} added to ${project.name}.` });
+    await notificationService.notifyProjectTeam(id, actorId, 'project_document_added', 'Project documents updated', `${files.length} document${files.length === 1 ? ' was' : 's were'} added to “${project.name}”.`, { relatedType: 'project_document' });
     return mapProject(await projectRepository.findById(id));
   },
 
@@ -257,6 +258,7 @@ export const projectService = {
       details: `Project ${updated.name} was updated.`,
       event: { eventType: 'PROJECT_UPDATED', entityType: 'PROJECT', entityId: id, payload: { changedFields: Object.keys(patch) } },
     });
+    if (actorId) await notificationService.notifyProjectTeam(id, actorId, 'project_updated', 'Project details updated', `Project details for “${updated.name}” were updated.`);
 
     const full = await projectRepository.findById(id);
     return mapProject(full);
@@ -350,7 +352,6 @@ export const projectService = {
       project_id: input.projectId,
       details: `Daily report saved for ${workDate}`,
     });
-
     const full = await dailyReportRepository.findById(report.id);
     return mapDailyReport(full);
   },
@@ -404,6 +405,7 @@ export const projectService = {
       details: `${input.title}: ${input.description}`,
       event: { eventType: 'PROJECT_WORK_LOG_UPDATED', entityType: 'PROJECT', entityId: input.projectId, payload: { updateId: update.id, progress: execution.progress, status: execution.status } },
     });
+    await notificationService.notifyProjectTeam(input.projectId, actorId, 'project_work_log_updated', `${input.title} · ${project.name}`, input.description, { relatedType: 'project_update', relatedId: update.id });
 
     const rows = await updateRepository.findByProject(input.projectId);
     return mapUpdate(rows[0]);

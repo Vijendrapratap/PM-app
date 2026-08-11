@@ -83,6 +83,7 @@ const mapTodo = (todo: DailyTodo & { assignee?: any; creator?: any; subtasks?: a
     scheduledEnd: todo.scheduled_end,
     meetingWith: todo.meeting_with,
     channel: todo.channel,
+    expectedMinutes: todo.estimate_minutes,
     documents: (todo.documents || []).map(mapDocument),
     subtasks: (todo.subtasks || []).map(mapSubtask),
     createdAt: todo.created_at,
@@ -148,6 +149,7 @@ interface CreateTodoInput {
   scheduledEnd?: string | null;
   meetingWith?: string | null;
   channel?: string | null;
+  expectedMinutes?: number;
   files?: Express.Multer.File[];
 }
 
@@ -177,6 +179,7 @@ export const todoService = {
       scheduled_end: input.scheduledEnd || null,
       meeting_with: input.meetingWith || null,
       channel: input.channel || null,
+      estimate_minutes: input.workType === 'TASK' || !input.workType ? input.expectedMinutes || 60 : null,
     });
 
     if (input.files?.length) {
@@ -224,6 +227,7 @@ export const todoService = {
       ...(allowedPatch.scheduledEnd !== undefined && { scheduled_end: allowedPatch.scheduledEnd }),
       ...(allowedPatch.meetingWith !== undefined && { meeting_with: allowedPatch.meetingWith }),
       ...(allowedPatch.channel !== undefined && { channel: allowedPatch.channel }),
+      ...(allowedPatch.expectedMinutes !== undefined && { estimate_minutes: allowedPatch.expectedMinutes }),
       ...(allowedPatch.status !== undefined && {
         status: allowedPatch.status as any,
         completed_at: allowedPatch.status === 'Completed' ? new Date().toISOString() : null,

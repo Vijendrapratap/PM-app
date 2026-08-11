@@ -94,6 +94,7 @@ const mapWorkday = (row: any) => row ? ({
   completedSummary: row.completed_summary,
   blockers: row.blockers,
   remarks: row.remarks,
+  productiveMinutes: Number(row.productive_minutes || 0),
   items: (row.items || [])
     .map((item: any) => ({
       _id: item.id,
@@ -158,7 +159,7 @@ export const workdayService = {
   async start(input: {
     focus: string;
     remarks?: string;
-    items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes?: number; carriedFromItemId?: string; carryoverReason?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
+    items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes: number; carriedFromItemId?: string; carryoverReason?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
   }, actor: Actor) {
     const existing = await workdayRepository.findForUserAndDate(actor.id, actorWorkDate(actor));
     if (existing && (existing.items || []).length) return mapWorkday(existing);
@@ -200,6 +201,8 @@ export const workdayService = {
         canonical_status: 'READY',
         priority: item.priority || 'Medium',
         due_date: actorWorkDate(actor),
+        estimate_minutes: item.plannedEstimateMinutes,
+        remaining_estimate_minutes: item.plannedEstimateMinutes,
       });
       await activityLogRepository.create({
         action: 'Task Created', user_id: actor.id, project_id: item.projectId, details: `${task.title} was added from Plan My Day.`,
@@ -245,7 +248,9 @@ export const workdayService = {
         remarks: input.remarks?.trim() || null,
       });
     await workdayRepository.addItems(workday.id, preparedItems);
-    await workSessionService.start({ dailyPlanId: workday.id }, actor);
+    const firstTaskId = resolvedItems[0]?.taskId;
+    if (!firstTaskId) throw badRequest('The first planned item could not be linked to a task');
+    await workSessionService.start({ dailyPlanId: workday.id, taskId: firstTaskId, note: resolvedItems[0]?.title }, actor);
     await activityLogRepository.create({
       action: 'Workday Started', user_id: actor.id, project_id: resolvedItems[0]?.projectId,
       details: `Committed to ${resolvedItems.length} outcome${resolvedItems.length === 1 ? '' : 's'} for today.`,
@@ -379,6 +384,7 @@ export const workdayService = {
       completed_summary: input.completedSummary.trim(),
       blockers: input.blockers?.trim(),
       remarks: input.remarks?.trim(),
+      productive_minutes: timeSummary.totalMinutes,
     });
     await activityLogRepository.create({
       action: 'Workday Closed', user_id: actor.id,
@@ -404,7 +410,8 @@ export const workdayService = {
     if (workday.user_id !== actor.id) throw forbidden('You can only reopen your own daily plan');
     if (workday.status !== 'Completed') return mapWorkday(workday);
     const reopened = await workdayRepository.reopen(id, Number(workday.reopened_count || 0) + 1);
-    await workSessionService.start({ dailyPlanId: id, note: 'Daily plan reopened' }, actor);
+    const nextTask = (workday.items || []).find((item: any) => item.status !== 'Completed' && item.task_id);
+    if (nextTask?.task_id) await workSessionService.start({ dailyPlanId: id, taskId: nextTask.task_id, note: 'Daily plan reopened' }, actor);
     await activityLogRepository.create({
       action: 'Daily Plan Reopened', user_id: actor.id, details: 'The daily plan was reopened with audit history.',
       event: { eventType: 'DAILY_PLAN_REOPENED', entityType: 'DAILY_PLAN', entityId: id, payload: { reopenedCount: Number(workday.reopened_count || 0) + 1 } },

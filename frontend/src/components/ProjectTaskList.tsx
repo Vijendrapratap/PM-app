@@ -203,6 +203,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId, refresh
   const [assignedTo, setAssignedTo] = useState('');
   const [dueDate, setDueDate] = useState('');
   const [priority, setPriority] = useState<Priority>('Medium');
+  const [expectedMinutes, setExpectedMinutes] = useState(60);
   const [files, setFiles] = useState<File[]>([]);
   const fileRef = useRef<HTMLInputElement>(null);
   const [saving, setSaving] = useState(false);
@@ -235,11 +236,12 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId, refresh
     setSaving(true);
     setError('');
     try {
-      await projectTaskApi.create(projectId, { title, assignedTo: assignedTo || undefined, dueDate: dueDate || undefined, priority }, files);
+      await projectTaskApi.create(projectId, { title, assignedTo: assignedTo || undefined, dueDate: dueDate || undefined, priority, expectedMinutes }, files);
       setTitle('');
       setAssignedTo('');
       setDueDate('');
       setPriority('Medium');
+      setExpectedMinutes(60);
       setFiles([]);
       setShowForm(false);
       await refetch();
@@ -293,6 +295,7 @@ const ProjectTaskList = ({ projectId, members, canManage, currentUserId, refresh
               <div>
                 <label><span>Due date</span><input type="date" className="form-input" value={dueDate} onChange={(e) => setDueDate(e.target.value)} /></label>
                 <label><span>Priority</span><select className="form-select" value={priority} onChange={(e) => setPriority(e.target.value as Priority)}>{['Low', 'Medium', 'High', 'Critical'].map((p) => <option key={p}>{p}</option>)}</select></label>
+                <label><span>Expected time</span><select className="form-select" required value={expectedMinutes} onChange={(e) => setExpectedMinutes(Number(e.target.value))}>{[[30,'30 minutes'],[60,'1 hour'],[90,'1.5 hours'],[120,'2 hours'],[180,'3 hours'],[240,'4 hours']].map(([minutes,label]) => <option value={minutes} key={minutes}>{label}</option>)}</select></label>
                 <div><input ref={fileRef} type="file" multiple style={{ display: 'none' }} onChange={(e) => e.target.files && setFiles(Array.from(e.target.files).slice(0, 5))} /><button type="button" className="btn btn-ghost" onClick={() => fileRef.current?.click()}><Paperclip size={12}/>{files.length ? `${files.length} file(s)` : 'Attach files'}</button></div>
               </div>
             </details>

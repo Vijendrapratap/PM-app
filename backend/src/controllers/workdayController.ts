@@ -46,7 +46,8 @@ export const startDailyPlan = asyncHandler(async (req: Request, res: Response) =
   const actor = actorOf(req);
   const plan = await workdayService.getById(param(req, 'id'), actor);
   if (!plan) throw notFound('Daily plan not found');
-  await workSessionService.start({ dailyPlanId: plan._id }, actor);
+  const nextTask = plan.items.find((item: any) => item.status !== 'Completed' && item.taskId);
+  if (nextTask?.taskId) await workSessionService.start({ dailyPlanId: plan._id, taskId: nextTask.taskId, note: nextTask.title }, actor);
   res.json(plan);
 });
 

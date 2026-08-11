@@ -30,7 +30,7 @@ export const getAgentWorkspace = asyncHandler(async (req: Request, res: Response
 });
 
 export const runProjectManagerAgent = asyncHandler(async (req: Request, res: Response) => {
-  res.status(201).json(await agentWorkflowService.runProjectManagerAgent(param(req, 'id'), actorOf(req), req.body.force === true));
+  res.status(201).json(await agentWorkflowService.runProjectManagerAgent(param(req, 'id'), actorOf(req), req.body.force === true, req.body.featureIdeas || []));
 });
 
 export const updatePlanDraft = asyncHandler(async (req: Request, res: Response) => {

@@ -86,6 +86,8 @@ const mapTask = (task: ProjectTask & { assignee?: any; creator?: any; subtasks?:
   title: task.title,
   description: task.description,
   blockerReason: task.blocker_reason,
+  estimateMinutes: task.estimate_minutes || 60,
+  remainingEstimateMinutes: task.remaining_estimate_minutes,
   dueDate: task.due_date,
   priority: task.priority,
   status: task.status,
@@ -109,6 +111,7 @@ interface CreateTaskInput {
   assignedTo?: string;
   milestoneId?: string;
   deliverableId?: string;
+  expectedMinutes: number;
   files?: Express.Multer.File[];
 }
 
@@ -129,6 +132,8 @@ export const projectTaskService = {
       priority: t.priority,
       status: t.status,
       completedAt: t.completed_at,
+      estimateMinutes: t.estimate_minutes || 60,
+      remainingEstimateMinutes: t.remaining_estimate_minutes,
     }));
   },
 
@@ -161,6 +166,8 @@ export const projectTaskService = {
       created_by: actor.id,
       reporter_user_id: actor.id,
       canonical_status: 'BACKLOG',
+      estimate_minutes: input.expectedMinutes,
+      remaining_estimate_minutes: input.expectedMinutes,
     });
 
     if (input.files?.length) {
@@ -183,6 +190,7 @@ export const projectTaskService = {
       details: `Task ${task.title} was created.`,
       event: { eventType: 'TASK_CREATED', entityType: 'TASK', entityId: task.id, payload: { assignedTo: input.assignedTo || null } },
     });
+    await notificationService.notifyProjectTeam(projectId, actor.id, 'project_task_updated', 'Task added', `Task “${task.title}” was added to the project.`, { relatedType: 'project_task', relatedId: task.id });
     await projectProgressService.sync(projectId);
 
     const full = await projectTaskRepository.findById(task.id);
@@ -192,7 +200,7 @@ export const projectTaskService = {
   async update(
     projectId: string,
     taskId: string,
-    patch: { title?: string; description?: string; blockerReason?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string; canonicalStatus?: NonNullable<ProjectTask['canonical_status']>; milestoneId?: string | null; deliverableId?: string | null },
+    patch: { title?: string; description?: string; blockerReason?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string; canonicalStatus?: NonNullable<ProjectTask['canonical_status']>; milestoneId?: string | null; deliverableId?: string | null; expectedMinutes?: number },
     actor: Actor
   ) {
     const existing = await projectTaskRepository.findById(taskId);
@@ -225,6 +233,7 @@ export const projectTaskService = {
       ...(patch.assignedTo !== undefined && { assigned_to: patch.assignedTo || null }),
       ...((patch.milestoneId !== undefined || patch.deliverableId !== undefined) && { milestone_id: nextMilestoneId || null }),
       ...(patch.deliverableId !== undefined && { deliverable_id: patch.deliverableId || null }),
+      ...(patch.expectedMinutes !== undefined && { estimate_minutes: patch.expectedMinutes, remaining_estimate_minutes: patch.expectedMinutes }),
       ...(patch.canonicalStatus !== undefined && {
         canonical_status: patch.canonicalStatus,
         status: ({ BACKLOG: 'Pending', READY: 'Pending', IN_PROGRESS: 'In Progress', IN_REVIEW: 'In Review', DONE: 'Completed', CANCELLED: 'Pending', DEFERRED: 'Pending' } as Record<string, ProjectTask['status']>)[patch.canonicalStatus],
@@ -260,6 +269,7 @@ export const projectTaskService = {
         },
       },
     });
+    await notificationService.notifyProjectTeam(projectId, actor.id, 'project_task_updated', eventType === 'TASK_COMPLETED' ? 'Task completed' : eventType === 'TASK_REVIEW_REQUESTED' ? 'Task ready for review' : 'Task updated', `${existing.title} was updated${patch.status ? ` to ${patch.status}` : ''}.`, { relatedType: 'project_task', relatedId: taskId });
 
     if (patch.assignedTo && patch.assignedTo !== wasAssignedTo) {
       const project = await projectRepository.findById(projectId);
@@ -304,6 +314,7 @@ export const projectTaskService = {
         payload: { taskTitle: task.title, details: body },
       },
     });
+    await notificationService.notifyProjectTeam(projectId, actor.id, 'project_task_comment', 'Task comment added', `${task.title}: ${body}`, { relatedType: 'project_task', relatedId: taskId });
     return mapTask(await projectTaskRepository.findById(taskId));
   },
 
