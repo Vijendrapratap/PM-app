@@ -22,6 +22,12 @@ export const dailyWorkService = {
     const session = await dailyWorkRepository.current(actor.id, dateOf(actor));
     return session ? dto(session, await dailyWorkRepository.logs(session.id)) : null;
   },
+  async history(month: string, actor: Actor) {
+    if (!/^\d{4}-\d{2}$/.test(month)) throw badRequest('Choose a valid history month');
+    const [year, monthNumber] = month.split('-').map(Number);
+    const endDate = new Date(Date.UTC(year, monthNumber, 0)).toISOString().slice(0, 10);
+    return (await dailyWorkRepository.history(actor.id, `${month}-01`, endDate)).map((session: any) => dto(session, session.logs || []));
+  },
   async start(actor: Actor) {
     if (!actor.organizationId) throw badRequest('Your account is not assigned to an organization');
     const existing = await dailyWorkRepository.current(actor.id, dateOf(actor));
@@ -48,7 +54,7 @@ export const dailyWorkService = {
     const log = await dailyWorkRepository.addLog({ session_id: session.id, organization_id: session.organization_id, user_id: actor.id, project_id: input.projectId || null, task_id: input.taskId || null, title: input.title.trim(), description: input.description.trim() });
     return { ...dto(session), logs: [dto(session, [log]).logs[0]] };
   },
-  async admin(filters: { date?: string; userId?: string; status?: string; projectId?: string }, actor: Actor) {
+  async admin(filters: { date?: string; startDate?: string; endDate?: string; userId?: string; status?: string; projectId?: string }, actor: Actor) {
     if (!isManager(actor.role)) throw forbidden('You do not have permission to view team work logs');
     if (!actor.organizationId) throw badRequest('Your account is not assigned to an organization');
     return (await dailyWorkRepository.adminSessions(filters)).filter((session: any) => session.organization_id === actor.organizationId).map((session: any) => dto(session, session.logs || []));

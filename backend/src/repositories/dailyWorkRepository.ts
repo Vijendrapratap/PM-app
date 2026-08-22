@@ -10,6 +10,17 @@ export const dailyWorkRepository = {
     if (error) throw error;
     return data;
   },
+  async history(userId: string, startDate: string, endDate: string) {
+    const { data, error } = await supabase
+      .from('daily_work_sessions')
+      .select(`${SESSION_SELECT}, logs:work_logs(${LOG_SELECT})`)
+      .eq('user_id', userId)
+      .gte('work_date', startDate)
+      .lte('work_date', endDate)
+      .order('work_date', { ascending: false });
+    if (error) throw error;
+    return data || [];
+  },
   async create(input: Pick<DailyWorkSession, 'organization_id' | 'user_id' | 'work_date' | 'timezone'>) {
     const { data, error } = await supabase.from('daily_work_sessions').insert(input).select(SESSION_SELECT).single();
     if (error) throw error;
@@ -35,9 +46,11 @@ export const dailyWorkRepository = {
     if (error) throw error;
     return data || [];
   },
-  async adminSessions(filters: { date?: string; userId?: string; status?: string; projectId?: string }) {
+  async adminSessions(filters: { date?: string; startDate?: string; endDate?: string; userId?: string; status?: string; projectId?: string }) {
     let query = supabase.from('daily_work_sessions').select(`${SESSION_SELECT}, logs:work_logs(${LOG_SELECT})`).order('work_date', { ascending: false }).limit(500);
     if (filters.date) query = query.eq('work_date', filters.date);
+    if (filters.startDate) query = query.gte('work_date', filters.startDate);
+    if (filters.endDate) query = query.lte('work_date', filters.endDate);
     if (filters.userId) query = query.eq('user_id', filters.userId);
     if (filters.status) query = query.eq('status', filters.status);
     const { data, error } = await query;

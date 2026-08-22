@@ -26,8 +26,9 @@ export interface DailyWorkSession {
 
 export const dailyWorkApi = {
   current: () => api.get<DailyWorkSession | null>('/daily-work/current').then((response) => response.data),
+  history: (month: string) => api.get<DailyWorkSession[]>('/daily-work/history', { params: { month } }).then((response) => expectArray<DailyWorkSession>(response.data)),
   start: () => api.post<DailyWorkSession>('/daily-work/start').then((response) => response.data),
   end: () => api.post<DailyWorkSession>('/daily-work/end').then((response) => response.data),
   addLog: (payload: { projectId?: string; taskId?: string; title: string; description: string }) => api.post<DailyWorkSession>('/daily-work/logs', payload).then((response) => response.data),
-  admin: (params: { date?: string; userId?: string; projectId?: string; status?: string } = {}) => api.get<DailyWorkSession[]>('/daily-work/admin', { params }).then((response) => expectArray<DailyWorkSession>(response.data)),
+  admin: (params: { date?: string; startDate?: string; endDate?: string; userId?: string; projectId?: string; status?: string } = {}) => api.get<DailyWorkSession[]>('/daily-work/admin', { params }).then((response) => expectArray<DailyWorkSession>(response.data)),
 };

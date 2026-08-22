@@ -45,3 +45,5 @@ drop trigger if exists work_logs_immutable on work_logs;
 create trigger work_logs_immutable
 before update or delete on work_logs
 for each row execute function prevent_work_log_mutation();
+
+
