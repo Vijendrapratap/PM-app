@@ -5,8 +5,6 @@ import type { DailyReport, Project, ProjectUpdate } from '../types';
 import { getErrorMessage } from '../utils/errorMessage';
 
 type RailFilter = 'all' | 'comments' | 'activity';
-type UpdateKind = 'Progress update' | 'Blocker or risk' | 'Decision' | 'Comment';
-
 const eventLabel = (value: string) => value.toLowerCase().split('_')
   .map((word) => word.charAt(0).toUpperCase() + word.slice(1)).join(' ');
 
@@ -21,7 +19,7 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
   const [events, setEvents] = useState<ProjectActivityEvent[]>([]);
   const [filter, setFilter] = useState<RailFilter>('all');
   const [comment, setComment] = useState('');
-  const [updateKind, setUpdateKind] = useState<UpdateKind>('Progress update');
+  const [progress, setProgress] = useState(project.progress);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
@@ -33,6 +31,7 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
   }, [project._id]);
 
   useEffect(() => { loadEvents(); }, [loadEvents]);
+  useEffect(() => { setProgress(project.progress); }, [project.progress]);
 
   const timeline = useMemo(() => {
     const updateItems = updates.map((update) => ({
@@ -74,9 +73,9 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
     setSaving(true); setError('');
     try {
       const data = new FormData();
-      data.append('title', updateKind);
+      data.append('title', 'Comment');
       data.append('description', comment.trim());
-      data.append('comments', updateKind);
+      data.append('comments', 'Comment');
       await projectApi.addUpdate(project._id, data);
       setComment('');
       await onRefresh();
@@ -85,13 +84,31 @@ const ProjectActivityRail = ({ project, updates, dailyReports, canComment, onRef
     finally { setSaving(false); }
   };
 
+  const saveProgress = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (saving) return;
+    setSaving(true); setError('');
+    try {
+      const value = Math.max(0, Math.min(100, Number(progress)));
+      const data = new FormData();
+      data.append('title', 'Progress update');
+      data.append('description', `Project progress updated to ${value}%.`);
+      data.append('progress', String(value));
+      await projectApi.addUpdate(project._id, data);
+      setProgress(value);
+      await onRefresh();
+      await loadEvents();
+    } catch (reason) { setError(getErrorMessage(reason, 'Project progress could not be updated.')); }
+    finally { setSaving(false); }
+  };
+
   return <aside className={`project-activity-rail section-card ${standalone ? 'is-workspace' : ''}`} aria-label="Project updates and comments">
-    <header><div><Activity size={16}/><span><strong>Live project log</strong><small>Work, decisions and discussion</small></span></div><b>{timeline.length}</b></header>
-    <div className="project-calculated-status"><Gauge size={15}/><div><small>Calculated from tasks</small><strong>{project.status} · {project.progress}%</strong></div><span><i style={{ width: `${project.progress}%` }}/></span></div>
+    <header><div><Activity size={16}/><span><strong>Comments & activity</strong></span></div><b>{timeline.length}</b></header>
+    <form className="project-calculated-status project-progress-edit" onSubmit={saveProgress}><Gauge size={15}/><label><span>Project progress</span><input aria-label="Project progress percentage" type="number" min="0" max="100" value={progress} disabled={!canComment || saving} onChange={(event) => setProgress(Number(event.target.value))}/><b>%</b></label>{canComment && <button disabled={saving || progress === project.progress}>Save</button>}<span><i style={{ width: `${Math.max(0, Math.min(100, progress))}%` }}/></span></form>
     {canComment && <form className="project-comment-box" onSubmit={submitComment}>
-      <div className="project-log-compose-head"><label htmlFor="project-comment">Post to work log</label><select aria-label="Update type" value={updateKind} onChange={(event) => setUpdateKind(event.target.value as UpdateKind)}><option>Progress update</option><option>Blocker or risk</option><option>Decision</option><option>Comment</option></select></div>
-      <textarea id="project-comment" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="What changed, what needs attention, or what should the team know?" rows={3}/>
-      <footer><small>Your login and posting time are attached automatically.</small><button type="submit" disabled={!comment.trim() || saving}><Send size={13}/>{saving ? 'Posting…' : 'Post update'}</button></footer>
+      <label htmlFor="project-comment">Comment</label>
+      <textarea id="project-comment" value={comment} onChange={(event) => setComment(event.target.value)} placeholder="Write a comment" rows={3}/>
+      <footer><button type="submit" disabled={!comment.trim() || saving}><Send size={13}/>{saving ? 'Sending…' : 'Send comment'}</button></footer>
     </form>}
     <div className="project-log-filters" role="tablist" aria-label="Filter project log">
       {(['all', 'comments', 'activity'] as RailFilter[]).map((item) => <button type="button" role="tab" aria-selected={filter === item} className={filter === item ? 'active' : ''} onClick={() => setFilter(item)} key={item}>{item === 'all' ? 'All' : item === 'comments' ? 'Comments' : 'Work log'}</button>)}

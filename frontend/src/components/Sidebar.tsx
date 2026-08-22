@@ -1,35 +1,23 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
-  Archive, BarChart3, Bell, Bot, CalendarCheck2, CheckSquare2, FolderKanban,
-  LayoutDashboard, Lightbulb, LogOut, MessageSquareText, Target, Users,
+  Archive, BarChart3, Bell, Bot, CalendarCheck2, CalendarRange, CheckSquare2, FolderKanban,
+  Lightbulb, LogOut, MessageSquareText, Target, Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
-import { workdayApi } from '../api/workdayApi';
 
 const Sidebar = () => {
   const { user, logout, isDemo } = useAuth();
   const navigate = useNavigate();
 
-  const handleSignOut = async () => {
-    if (!isDemo) {
-      try {
-        const workday = await workdayApi.today();
-        if (workday?.status === 'Open') {
-          navigate('/workday?closeout=1');
-          return;
-        }
-      } catch {
-        // Do not trap someone in the app if the closeout check is unavailable.
-      }
-    }
+  const handleSignOut = () => {
     logout();
     navigate('/login', { replace: true });
   };
 
   const handlePlanMyDay = () => {
     const request = Date.now();
-    navigate(isDemo ? `/?plan=${request}` : `/workday?plan=${request}`);
+    navigate(isDemo ? `/?plan=${request}` : `/workday?start=${request}`);
   };
 
   const linkClass = ({ isActive }: { isActive: boolean }) => `rail-link ${isActive ? 'active' : ''}`;
@@ -44,15 +32,15 @@ const Sidebar = () => {
         <span className="rail-tooltip">Pratap AI</span>
       </NavLink>
 
-      <button type="button" onClick={handlePlanMyDay} className="sidebar-plan-cta" aria-label="Plan my day">
+      {!isCEO && <button type="button" onClick={handlePlanMyDay} className="sidebar-plan-cta" aria-label="Start my day">
         <span className="sidebar-plan-icon"><CalendarCheck2 size={18}/></span>
-        <span className="sidebar-plan-copy"><strong>Plan my day</strong><small>Set today’s focus</small></span>
-      </button>
+        <span className="sidebar-plan-copy"><strong>Start my day</strong><small>Choose assigned work</small></span>
+      </button>}
 
       <nav className="sidebar-nav">
         <span className="sidebar-section-label">Daily work</span>
-        <NavLink to="/overview" className={linkClass} aria-label="Overview"><LayoutDashboard size={19}/><span className="rail-tooltip">Overview</span></NavLink>
-        <NavLink to="/" end className={linkClass} aria-label="Today"><Target size={19}/><span className="rail-tooltip">Today</span></NavLink>
+        <NavLink to="/" end className={linkClass} aria-label="Home"><Target size={19}/><span className="rail-tooltip">Home</span></NavLink>
+        {!isCEO && <NavLink to="/workday?history=1" className={linkClass} aria-label="Work history"><CalendarRange size={19}/><span className="rail-tooltip">Work history</span></NavLink>}
         <NavLink to="/daily-todo" className={linkClass} aria-label="Tasks"><CheckSquare2 size={19}/><span className="rail-tooltip">Tasks</span></NavLink>
 
         <span className="sidebar-section-label">Projects &amp; ideas</span>

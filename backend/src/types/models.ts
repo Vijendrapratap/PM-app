@@ -319,6 +319,31 @@ export interface WorkSession {
   updated_at: string;
 }
 
+export interface DailyWorkSession {
+  id: string;
+  organization_id: string;
+  user_id: string;
+  work_date: string;
+  timezone: string;
+  start_at: string;
+  end_at: string | null;
+  status: 'ACTIVE' | 'COMPLETED' | 'AUTO_COMPLETED';
+  created_at: string;
+  updated_at: string;
+}
+
+export interface WorkLog {
+  id: string;
+  session_id: string;
+  organization_id: string;
+  user_id: string;
+  project_id: string | null;
+  task_id: string | null;
+  title: string;
+  description: string;
+  created_at: string;
+}
+
 export type AgentType = 'Project Manager' | 'Business Analyst' | 'Case Study' | 'Daily Summary';
 export type AgentRunStatus = 'Queued' | 'Working' | 'Ready for review' | 'Approved' | 'Changes requested' | 'Failed';
 export type ReviewStatus = 'Draft' | 'In review' | 'Approved' | 'Superseded';

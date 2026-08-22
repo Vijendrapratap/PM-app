@@ -62,7 +62,7 @@ const ProjectDocumentsPanel = ({ project, canManage, onRefresh }: {
 
   return <section className="project-documents-panel section-card">
     <header className="project-documents-head">
-      <div><FileText size={17}/><span><strong>Project documents</strong><small>Keep files and reference links in one shared place.</small></span></div>
+      <div><FileText size={17}/><span><strong>Documents</strong></span></div>
       <b>{project.documents.length + links.length}</b>
     </header>
 
@@ -70,7 +70,7 @@ const ProjectDocumentsPanel = ({ project, canManage, onRefresh }: {
 
     {canManage && <div className="project-document-actions">
       <button type="button" className="project-upload-action" disabled={saving} onClick={() => inputRef.current?.click()}>
-        <span><UploadCloud size={19}/></span><div><strong>{saving ? 'Saving…' : 'Upload documents'}</strong><small>PDF, Word, images, or project files · up to 5 at once</small></div><Plus size={15}/>
+        <span><UploadCloud size={19}/></span><div><strong>{saving ? 'Adding…' : 'Add documents'}</strong></div><Plus size={15}/>
       </button>
       <input ref={inputRef} type="file" multiple hidden onChange={(event) => void uploadFiles(event.target.files)}/>
 
@@ -89,7 +89,7 @@ const ProjectDocumentsPanel = ({ project, canManage, onRefresh }: {
       {links.map(({ document, url }) => <a href={url} target="_blank" rel="noreferrer" key={document._id}>
         <span className="link"><Link2 size={15}/></span><div><strong>{document.title}</strong><small>{hostnameOf(url)}</small></div><ExternalLink size={14}/>
       </a>)}
-      {!project.documents.length && !links.length && <div className="project-documents-empty"><FileText size={22}/><strong>No documents yet</strong><span>Upload a file or add the first shared link.</span></div>}
+      {!project.documents.length && !links.length && <div className="project-documents-empty"><FileText size={22}/><strong>No documents yet</strong></div>}
     </div>
   </section>;
 };

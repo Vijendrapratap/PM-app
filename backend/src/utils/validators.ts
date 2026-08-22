@@ -265,7 +265,7 @@ export const startWorkdaySchema = z.object({
   focus: z.string().trim().min(3).max(240),
   remarks: z.string().max(2000).optional(),
   items: z.array(z.object({
-    projectId: z.string().uuid(),
+    projectId: z.string().uuid().optional(),
     taskId: z.string().uuid().optional(),
     title: z.string().trim().min(1).max(180),
     plannedOutcome: z.string().trim().min(3).max(500),
@@ -280,10 +280,14 @@ export const startWorkdaySchema = z.object({
 
 export const startWorkSessionSchema = z.object({
   dailyPlanId: z.string().uuid(),
-  taskId: z.string().uuid(),
+  taskId: z.string().uuid().nullable().optional(),
   note: z.string().max(1000).optional(),
 });
 export const workSessionNoteSchema = z.object({ note: z.string().max(1000) });
+export const dailyWorkLogSchema = z.object({
+  projectId: z.string().uuid().optional(), taskId: z.string().uuid().optional(),
+  title: z.string().trim().min(1).max(180), description: z.string().trim().min(1).max(3000),
+});
 
 export const reportBlockerSchema = z.object({
   summary: z.string().trim().min(1).max(240),

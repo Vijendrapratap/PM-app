@@ -120,7 +120,7 @@ const ProjectDetails = () => {
 
     {workspace === 'delivery' ? <>
       <div className="project-delivery-toolbar">
-        <div><strong>Delivery workspace</strong><small>Switch between the structured plan and an execution board. The work log remains visible.</small></div>
+        <div><strong>Project work</strong></div>
         <div className="project-delivery-view" role="group" aria-label="Delivery view">
           <button className={deliveryView === 'outline' ? 'active' : ''} onClick={() => setDeliveryView('outline')}><ListTree size={14}/>Structure</button>
           <button className={deliveryView === 'board' ? 'active' : ''} onClick={() => setDeliveryView('board')}><Columns3 size={14}/>Kanban</button>
@@ -129,7 +129,7 @@ const ProjectDetails = () => {
       <div className="project-execution-layout project-execution-layout--full">
         <main>
           {deliveryView === 'outline'
-            ? <ProjectMilestonePanel projectId={project._id} canManage={canManageStructure} compact members={project.assignedMembers} currentUserId={user?._id} refreshSignal={executionVersion} onTasksChanged={refreshExecution}/>
+            ? <ProjectMilestonePanel projectId={project._id} canManage={canManageStructure} canAddMilestone={canContribute} compact members={project.assignedMembers} currentUserId={user?._id} refreshSignal={executionVersion} onTasksChanged={refreshExecution}/>
             : <ProjectTaskList projectId={project._id} members={project.assignedMembers} canManage={canManageStructure} currentUserId={user?._id} refreshSignal={executionVersion} onTasksChanged={refreshExecution}/>
           }
         </main>

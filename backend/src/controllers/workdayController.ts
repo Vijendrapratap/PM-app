@@ -18,6 +18,10 @@ export const getCarryover = asyncHandler(async (req: Request, res: Response) => 
   res.json(await workdayService.getCarryover(actorOf(req)));
 });
 
+export const getWorkdayHistory = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await workdayService.history(String(req.query.month || ''), actorOf(req)));
+});
+
 export const getDailyPlan = asyncHandler(async (req: Request, res: Response) => {
   res.json(await workdayService.getById(param(req, 'id'), actorOf(req)));
 });

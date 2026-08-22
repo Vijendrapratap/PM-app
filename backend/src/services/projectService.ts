@@ -16,7 +16,6 @@ import { blockerRepository } from '../repositories/blockerRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { recommendProjectHealth } from '../utils/projectHealth';
-import { projectProgressService } from './projectProgressService';
 
 interface Actor {
   id: string;
@@ -372,17 +371,17 @@ export const projectService = {
     if (project.is_locked) throw badRequest('Project is locked and cannot be updated');
 
     const actorId = input.actorId || (await getSystemUserId());
-    // Progress and lifecycle status are execution facts. Recalculate them
-    // from the task board instead of trusting a manually entered percentage
-    // or letting a comment silently move the project.
-    const execution = await projectProgressService.sync(input.projectId);
+    const progress = input.progress === undefined
+      ? Number(project.progress || 0)
+      : Math.max(0, Math.min(100, Number(input.progress)));
+    if (input.progress !== undefined) await projectRepository.update(input.projectId, { progress });
 
     const update = await updateRepository.create({
       project_id: input.projectId,
       title: input.title,
       description: input.description,
-      progress: execution.progress,
-      status: execution.status,
+      progress,
+      status: project.status,
       comments: input.comments,
       created_by: actorId,
     });
@@ -403,7 +402,7 @@ export const projectService = {
       user_id: actorId,
       project_id: input.projectId,
       details: `${input.title}: ${input.description}`,
-      event: { eventType: 'PROJECT_WORK_LOG_UPDATED', entityType: 'PROJECT', entityId: input.projectId, payload: { updateId: update.id, progress: execution.progress, status: execution.status } },
+      event: { eventType: 'PROJECT_WORK_LOG_UPDATED', entityType: 'PROJECT', entityId: input.projectId, payload: { updateId: update.id, progress, status: project.status } },
     });
     await notificationService.notifyProjectTeam(input.projectId, actorId, 'project_work_log_updated', `${input.title} · ${project.name}`, input.description, { relatedType: 'project_update', relatedId: update.id });
 

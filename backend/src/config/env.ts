@@ -38,4 +38,5 @@ export const env = {
   openAIAgentModel: process.env.OPENAI_AGENT_MODEL || 'gpt-5.5',
   openRouterApiKey: process.env.OPENROUTER_API_KEY,
   openRouterAgentModel: normalizeOpenRouterModelId(process.env.OPENROUTER_AGENT_MODEL || 'deepseek/deepseek-v4-flash'),
+  workdayEndTime: /^([01]\d|2[0-3]):[0-5]\d$/.test(process.env.WORKDAY_END_TIME || '') ? process.env.WORKDAY_END_TIME! : '18:00',
 };

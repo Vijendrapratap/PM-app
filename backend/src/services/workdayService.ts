@@ -3,7 +3,7 @@ import { projectRepository } from '../repositories/projectRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { workdayRepository } from '../repositories/workdayRepository';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
-import { isManager, isSuperAdmin } from '../utils/roles';
+import { isSuperAdmin } from '../utils/roles';
 import { projectTaskService } from './projectTaskService';
 import { WorkdayItemStatus } from '../types/models';
 import { workDateForTimezone } from '../utils/workDate';
@@ -16,6 +16,7 @@ import { notificationService } from './notificationService';
 import { logger } from '../config/logger';
 import { projectProgressService } from './projectProgressService';
 import { dailyReportRepository } from '../repositories/dailyReportRepository';
+import { updateRepository } from '../repositories/updateRepository';
 
 interface Actor {
   id: string;
@@ -149,7 +150,7 @@ export const workdayService = {
     const previous = mapWorkday(await workdayRepository.findLatestBeforeDate(actor.id, actorWorkDate(actor)));
     if (!previous) return [];
     return previous.items.filter((item: any) =>
-      Boolean(item.project) &&
+      (!item.projectId || Boolean(item.project)) &&
       item.status !== 'Completed' &&
       item.task?.status !== 'Completed' &&
       item.project?.status !== 'Completed'
@@ -159,7 +160,7 @@ export const workdayService = {
   async start(input: {
     focus: string;
     remarks?: string;
-    items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes: number; carriedFromItemId?: string; carryoverReason?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
+    items: Array<{ projectId?: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes: number; carriedFromItemId?: string; carryoverReason?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
   }, actor: Actor) {
     const existing = await workdayRepository.findForUserAndDate(actor.id, actorWorkDate(actor));
     if (existing && (existing.items || []).length) return mapWorkday(existing);
@@ -168,6 +169,10 @@ export const workdayService = {
 
     const projectById = new Map<string, any>();
     for (const item of input.items) {
+      if (!item.projectId) {
+        if (item.taskId) throw badRequest('Other work cannot reference a project task');
+        continue;
+      }
       const project = await projectRepository.findById(item.projectId);
       if (!project || project.archived || project.status === 'Completed') throw badRequest('Choose an active project for every outcome');
       projectById.set(item.projectId, project);
@@ -186,6 +191,7 @@ export const workdayService = {
     // the daily-plan item so Tasks, Kanban and Today all reference one record.
     const resolvedItems = await Promise.all(input.items.map(async (item) => {
       if (item.taskId) return item;
+      if (!item.projectId) return item;
       const project = projectById.get(item.projectId);
       const task = await projectTaskRepository.create({
         organization_id: actor.organizationId!,
@@ -248,8 +254,19 @@ export const workdayService = {
         remarks: input.remarks?.trim() || null,
       });
     await workdayRepository.addItems(workday.id, preparedItems);
-    const firstTaskId = resolvedItems[0]?.taskId;
-    if (!firstTaskId) throw badRequest('The first planned item could not be linked to a task');
+    await Promise.all(resolvedItems.filter((item) => item.projectId).map((item) => {
+      const project = projectById.get(item.projectId!);
+      return updateRepository.create({
+        project_id: item.projectId!,
+        title: 'Comment',
+        description: `${item.title}: ${item.plannedOutcome}`,
+        progress: Number(project?.progress || 0),
+        status: project?.status || 'In Progress',
+        comments: 'Started from My Day',
+        created_by: actor.id,
+      });
+    }));
+    const firstTaskId = resolvedItems[0]?.taskId || null;
     await workSessionService.start({ dailyPlanId: workday.id, taskId: firstTaskId, note: resolvedItems[0]?.title }, actor);
     await activityLogRepository.create({
       action: 'Workday Started', user_id: actor.id, project_id: resolvedItems[0]?.projectId,
@@ -268,7 +285,7 @@ export const workdayService = {
     if (!item) throw notFound('Work item not found');
     const workday = await workdayRepository.findById(item.workday_id);
     if (!workday) throw notFound('Workday not found');
-    if (workday.user_id !== actor.id && !isSuperAdmin(actor.role)) throw forbidden('You can only update your own workday');
+    if (workday.user_id !== actor.id) throw forbidden('Daily work is read-only for everyone except its owner');
     if (workday.status === 'Completed') throw badRequest('This workday is already closed');
     if (input.status === 'Blocked' && !input.blockerReason?.trim() && !item.blocker_reason) {
       throw badRequest('Add a blocker reason before marking this outcome blocked');
@@ -420,21 +437,9 @@ export const workdayService = {
   },
 
   async getTeam(date: string, actor: Actor) {
-    if (!isSuperAdmin(actor.role) && !isManager(actor.role)) throw forbidden('Only managers can view the team pulse');
+    if (!isSuperAdmin(actor.role)) throw forbidden('Only Founder or Super Admin can view employee daily work');
     if (!actor.organizationId) throw badRequest('Your account is not assigned to an organization');
-    let { users, workdays } = await workdayRepository.findTeamForDate(date || actorWorkDate(actor), actor.organizationId);
-    if (!isSuperAdmin(actor.role)) {
-      const projects = await projectRepository.findForUser(actor.id);
-      const scopedUserIds = new Set<string>([actor.id]);
-      projects.forEach((project: any) => {
-        if (project.owner_id === actor.id || (project.project_members || []).some((membership: any) => membership.user?.id === actor.id && membership.project_role === 'MANAGER')) {
-          (project.project_members || []).forEach((membership: any) => membership.user?.id && scopedUserIds.add(membership.user.id));
-        }
-      });
-      users = users.filter((user: any) => scopedUserIds.has(user.id) || (actor.departmentId && user.department_id === actor.departmentId));
-      const visibleIds = new Set(users.map((user: any) => user.id));
-      workdays = workdays.filter((workday: any) => visibleIds.has(workday.user_id));
-    }
+    const { users, workdays } = await workdayRepository.findTeamForDate(date || actorWorkDate(actor), actor.organizationId);
     const workdayByUser = new Map(workdays.map((workday: any) => [workday.user_id, workday]));
     return users.map((user: any) => ({
       user: { _id: user.id, name: user.name, email: user.email, role: user.role, department: user.department, departmentId: user.department_id, photo: user.photo },
@@ -442,5 +447,13 @@ export const workdayService = {
       state: !workdayByUser.has(user.id) ? 'Not started' : workdayByUser.get(user.id)?.status === 'Completed' ? 'Closed' : 'Working',
       workday: mapWorkday(workdayByUser.get(user.id)),
     }));
+  },
+
+  async history(month: string, actor: Actor) {
+    if (!/^\d{4}-\d{2}$/.test(month)) throw badRequest('Choose a valid history month');
+    const start = `${month}-01`;
+    const endDate = new Date(Date.UTC(Number(month.slice(0, 4)), Number(month.slice(5, 7)), 0));
+    const end = endDate.toISOString().slice(0, 10);
+    return (await workdayRepository.findHistoryForUser(actor.id, start, end)).map(mapWorkday);
   },
 };

@@ -81,7 +81,7 @@ export const workdayRepository = {
   },
 
   async addItems(workdayId: string, items: Array<{
-    project_id: string;
+    project_id?: string | null;
     task_id?: string | null;
     title: string;
     planned_outcome: string;
@@ -170,5 +170,17 @@ export const workdayRepository = {
     if (usersError) throw usersError;
     if (workdaysError) throw workdaysError;
     return { users: users || [], workdays: workdays || [] };
+  },
+
+  async findHistoryForUser(userId: string, start: string, end: string) {
+    const { data, error } = await supabase
+      .from('workdays')
+      .select(WORKDAY_SELECT)
+      .eq('user_id', userId)
+      .gte('work_date', start)
+      .lte('work_date', end)
+      .order('work_date');
+    if (error) throw error;
+    return data || [];
   },
 };

@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { CalendarDays, Check, ChevronRight, CircleDot, Flag, Layers3, ListChecks, Pencil, Plus, Save, UserRound, X } from 'lucide-react';
+import { CalendarDays, Check, CircleDot, Flag, Layers3, ListChecks, Pencil, Plus, Save, UserRound, X } from 'lucide-react';
 import { hierarchyApi, type Deliverable, type Milestone } from '../api/hierarchyApi';
 import { projectTaskApi, type ProjectTask } from '../api/projectTaskApi';
 import type { Member, Priority } from '../types';
@@ -16,6 +16,7 @@ const progressOf = (tasks: ProjectTask[]) => tasks.length ? Math.round(tasks.fil
 const ProjectMilestonePanel = ({
   projectId,
   canManage,
+  canAddMilestone = canManage,
   compact = false,
   members = [],
   currentUserId,
@@ -24,6 +25,7 @@ const ProjectMilestonePanel = ({
 }: {
   projectId: string;
   canManage: boolean;
+  canAddMilestone?: boolean;
   compact?: boolean;
   members?: Member[];
   currentUserId?: string;
@@ -62,7 +64,6 @@ const ProjectMilestonePanel = ({
 
   useEffect(() => { void load(); }, [load, refreshSignal]);
 
-  const featureCount = useMemo(() => items.reduce((count, milestone) => count + (milestone.deliverables || []).length, 0), [items]);
   const unplannedTasks = useMemo(() => tasks.filter((task) => !task.milestoneId && !task.deliverableId), [tasks]);
   const activeMilestone = items.find((milestone) => milestone.id === selectedMilestoneId) || items[0] || null;
   const selectedTask = tasks.find((task) => task._id === selectedTaskId) || null;
@@ -151,22 +152,14 @@ const ProjectMilestonePanel = ({
 
   return <section className={`section-card delivery-map ${compact ? 'compact' : ''}`}>
     <header className="delivery-map-header">
-      <div><span className="delivery-map-icon"><Layers3 size={17}/></span><span><strong>Project breakdown</strong><small>Milestones hold features. Features hold the executable tasks your team works on.</small></span></div>
-      {canManage && <button className="btn btn-secondary" onClick={() => setShowMilestoneForm((current) => !current)}><Plus size={14}/>Milestone</button>}
+      <div><span className="delivery-map-icon"><Flag size={17}/></span><span><strong>Milestones</strong></span></div>
+      {canAddMilestone && <button className="btn btn-secondary" onClick={() => setShowMilestoneForm((current) => !current)}><Plus size={14}/>Add milestone</button>}
     </header>
 
-    <div className="delivery-layer-path" aria-label="Project hierarchy"><span>Project</span><ChevronRight size={13}/><span>Milestone</span><ChevronRight size={13}/><span>Feature</span><ChevronRight size={13}/><span>Task</span></div>
-    <div className="delivery-map-summary" aria-label="Delivery breakdown summary">
-      <div><Flag size={14}/><span><strong>{items.length}</strong><small>Milestones</small></span></div>
-      <ChevronRight size={14}/><div><Layers3 size={14}/><span><strong>{featureCount}</strong><small>Features</small></span></div>
-      <ChevronRight size={14}/><div><ListChecks size={14}/><span><strong>{tasks.length}</strong><small>Tasks</small></span></div>
-      <div className="delivery-overall-progress"><span><b style={{ width: `${progressOf(tasks)}%` }}/></span><strong>{progressOf(tasks)}% complete</strong></div>
-    </div>
-
     {error && <div className="delivery-map-error" role="alert"><CircleDot size={14}/><span>{error}</span><button onClick={() => setError('')} aria-label="Dismiss error"><X size={13}/></button></div>}
-    {showMilestoneForm && canManage && <form className="delivery-milestone-form" onSubmit={addMilestone}><label><span>Milestone name</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="e.g. Working product ready for review"/></label><label><span>Target date</span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)}/></label><button className="btn btn-primary" disabled={saving || !name.trim()}>{saving ? 'Adding…' : 'Add milestone'}</button><button type="button" className="btn btn-ghost" onClick={() => setShowMilestoneForm(false)}>Cancel</button></form>}
+    {showMilestoneForm && canAddMilestone && <form className="delivery-milestone-form" onSubmit={addMilestone}><label><span>Milestone</span><input autoFocus value={name} onChange={(event) => setName(event.target.value)} placeholder="Milestone name"/></label><label><span>Date</span><input type="date" value={targetDate} onChange={(event) => setTargetDate(event.target.value)}/></label><button className="btn btn-primary" disabled={saving || !name.trim()}>{saving ? 'Adding…' : 'Add'}</button><button type="button" className="btn btn-ghost" onClick={() => setShowMilestoneForm(false)}>Cancel</button></form>}
 
-    {loading ? <div className="delivery-map-loading"><div className="skeleton"/><div className="skeleton"/></div> : !items.length ? <div className="delivery-map-empty"><Flag size={22}/><strong>Start with one meaningful milestone</strong><p>Describe the next outcome stakeholders can review. Add features and executable tasks inside it.</p>{canManage && <button className="btn btn-primary" onClick={() => setShowMilestoneForm(true)}><Plus size={14}/>Create first milestone</button>}</div> : <>
+    {loading ? <div className="delivery-map-loading"><div className="skeleton"/><div className="skeleton"/></div> : !items.length ? <div className="delivery-map-empty"><Flag size={22}/><strong>No milestones yet</strong>{canAddMilestone && <button className="btn btn-primary" onClick={() => setShowMilestoneForm(true)}><Plus size={14}/>Add milestone</button>}</div> : <>
       <nav className="delivery-stage-nav" aria-label="Project milestones">
         {items.map((milestone, milestoneIndex) => {
           const milestoneTasks = tasks.filter((task) => task.milestoneId === milestone.id);

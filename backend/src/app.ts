@@ -27,6 +27,7 @@ import { agentProposalsRouter, agentRunsRouter, agentsRouter } from './routes/ag
 import documentRoutes from './routes/documentRoutes';
 import caseStudyRoutes from './routes/caseStudyRoutes';
 import reportRoutes from './routes/reportRoutes';
+import dailyWorkRoutes from './routes/dailyWorkRoutes';
 import { getAgentDraftProviderStatus } from './services/openAIAgentDraftProvider';
 
 const app = express();
@@ -106,6 +107,7 @@ app.use('/api/agent-proposals', agentProposalsRouter);
 app.use('/api/documents', documentRoutes);
 app.use('/api/case-studies', caseStudyRoutes);
 app.use('/api/reports', reportRoutes);
+app.use('/api/daily-work', dailyWorkRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

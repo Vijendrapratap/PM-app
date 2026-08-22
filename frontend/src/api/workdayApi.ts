@@ -52,7 +52,7 @@ export interface TeamPulseEntry {
 export interface StartWorkdayPayload {
   focus: string;
   remarks?: string;
-  items: Array<{ projectId: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes?: number; carriedFromItemId?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
+  items: Array<{ projectId?: string; taskId?: string; title: string; plannedOutcome: string; remarks?: string; source?: 'CARRYOVER' | 'ASSIGNED' | 'ADDED_TODAY'; plannedEstimateMinutes?: number; carriedFromItemId?: string; carryoverReason?: string; priority?: 'Low' | 'Medium' | 'High' | 'Critical' }>;
 }
 
 export const workdayApi = {
@@ -68,4 +68,5 @@ export const workdayApi = {
     items: Array<{ id: string; status: WorkdayItemStatus; progressNote?: string; blockerReason?: string; endState?: 'DONE' | 'CARRY_OVER' | 'RESCHEDULED' | 'BACKLOG' | 'BLOCKED' | 'NO_LONGER_REQUIRED'; carryoverReason?: string }>;
   }) => api.post<Workday>('/workdays/finish', payload).then((response) => response.data),
   team: (date: string) => api.get<TeamPulseEntry[]>('/workdays/team', { params: { date } }).then((response) => expectArray<TeamPulseEntry>(response.data)),
+  history: (month: string) => api.get<Workday[]>('/workdays/history', { params: { month } }).then((response) => expectArray<Workday>(response.data)),
 };

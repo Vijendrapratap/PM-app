@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { BrowserRouter as Router, Navigate, Routes, Route } from 'react-router-dom';
 import { lazy, Suspense } from 'react';
 import Layout from './components/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
@@ -19,7 +19,6 @@ const AgentStudio = lazy(() => import('./pages/AgentStudio'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Reports = lazy(() => import('./pages/Reports'));
-const Dashboard = lazy(() => import('./pages/Dashboard'));
 
 const Home = () => {
   const { isDemo } = useAuth();
@@ -45,7 +44,7 @@ function App() {
             }
           >
             <Route index element={<Home />} />
-            <Route path="overview" element={<Dashboard />} />
+            <Route path="overview" element={<Navigate to="/" replace />} />
             <Route path="onboarding" element={<Onboarding />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetails />} />
