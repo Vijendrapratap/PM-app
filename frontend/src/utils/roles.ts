@@ -7,3 +7,6 @@ export const isSuperAdmin = (role: string | undefined): boolean => role === SUPE
 export const isProjectManager = (role: string | undefined): boolean => role === 'Project Manager' || role === 'Manager' || role === 'MANAGER';
 export const isLead = (role: string | undefined): boolean => role === 'Lead';
 export const canApproveAgentWork = (role: string | undefined): boolean => isSuperAdmin(role) || isProjectManager(role);
+
+export const canManageDocumentsLinks = (role: string | undefined, platformRole?: string): boolean =>
+  platformRole === 'CEO' || ['CEO', 'FOUNDER', 'Founder', SUPER_ADMIN_ROLE].includes(role || '');

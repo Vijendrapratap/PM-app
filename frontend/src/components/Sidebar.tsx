@@ -1,7 +1,7 @@
 import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Archive, BarChart3, Bell, Bot, CalendarCheck2, CalendarRange, CheckSquare2, FolderKanban,
-  Lightbulb, LogOut, MessageSquareText, Target, Users,
+  Lightbulb, Link2, LogOut, MessageSquareText, Target, Users,
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { canApproveAgentWork, isLead, isSuperAdmin } from '../utils/roles';
@@ -45,6 +45,7 @@ const Sidebar = () => {
 
         <span className="sidebar-section-label">Projects &amp; ideas</span>
         <NavLink to="/projects" className={linkClass} aria-label={isTeamMember ? 'My Projects' : 'Projects'}><FolderKanban size={19}/><span className="rail-tooltip">{isTeamMember ? 'My Projects' : 'Projects'}</span></NavLink>
+        <NavLink to="/documents-links" className={linkClass} aria-label="Documents and Links"><Link2 size={19}/><span className="rail-tooltip">Documents &amp; Links</span></NavLink>
         <NavLink to="/completed" className={linkClass} aria-label="Completed projects"><Archive size={19}/><span className="rail-tooltip">Completed projects</span></NavLink>
         <NavLink to="/ideas" className={linkClass} aria-label="Idea bucket"><Lightbulb size={19}/><span className="rail-tooltip">Idea bucket</span></NavLink>
 

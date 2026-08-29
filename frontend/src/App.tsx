@@ -19,6 +19,7 @@ const AgentStudio = lazy(() => import('./pages/AgentStudio'));
 const Notifications = lazy(() => import('./pages/Notifications'));
 const Onboarding = lazy(() => import('./pages/Onboarding'));
 const Reports = lazy(() => import('./pages/Reports'));
+const DocumentsLinks = lazy(() => import('./pages/DocumentsLinks'));
 
 const Home = () => {
   const { isDemo } = useAuth();
@@ -48,6 +49,7 @@ function App() {
             <Route path="onboarding" element={<Onboarding />} />
             <Route path="projects" element={<Projects />} />
             <Route path="projects/:id" element={<ProjectDetails />} />
+            <Route path="documents-links" element={<DocumentsLinks />} />
             <Route path="completed" element={<CompletedProjects />} />
             <Route path="team" element={<Team />} />
             <Route path="messages" element={<Messages />} />

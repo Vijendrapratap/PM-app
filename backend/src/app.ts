@@ -8,6 +8,7 @@ import { errorHandler, notFoundHandler } from './middleware/errorHandler';
 import authRoutes from './routes/authRoutes';
 import userRoutes from './routes/userRoutes';
 import projectRoutes from './routes/projectRoutes';
+import documentsLinksRoutes from './routes/documentsLinksRoutes';
 import messageRoutes from './routes/messageRoutes';
 import todoRoutes from './routes/todoRoutes';
 import ideaRoutes from './routes/ideaRoutes';
@@ -84,6 +85,7 @@ app.get('/api/health', (_req, res) => res.json({
 
 app.use('/api/auth', authRoutes);
 app.use('/api/users', userRoutes);
+app.use('/api/projects/documents-links', documentsLinksRoutes);
 app.use('/api/projects', projectRoutes);
 app.use('/api/messages', messageRoutes);
 app.use('/api/todos', todoRoutes);
