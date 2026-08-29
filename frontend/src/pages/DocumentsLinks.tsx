@@ -152,7 +152,7 @@ const DocumentsLinks = () => {
     finally { setSaving(false); }
   };
 
-  return <div className="documents-links-page animate-fade-in">
+  return <div className="documents-links-page">
     <header className="documents-links-header">
       <div><span className="page-eyebrow">Project resources</span><h1 className="page-title">Documents &amp; Links</h1><p className="page-subtitle">A shared directory for project websites, specifications, proposals and working files.</p></div>
       {canEdit && <button type="button" className="btn btn-primary" onClick={() => setEditing(null)}><Plus size={16}/>Add Project</button>}
