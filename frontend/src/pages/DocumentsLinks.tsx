@@ -13,11 +13,12 @@ import './DocumentsLinks.css';
 interface FormState {
   projectName: string;
   liveLink: string;
+  privateNotes: string;
   files: File[];
   removedDocumentIds: string[];
 }
 
-const emptyForm = (): FormState => ({ projectName: '', liveLink: '', files: [], removedDocumentIds: [] });
+const emptyForm = (): FormState => ({ projectName: '', liveLink: '', privateNotes: '', files: [], removedDocumentIds: [] });
 
 const ProjectForm = ({ project, saving, onClose, onSave }: {
   project: DocumentsLinksProject | null;
@@ -28,6 +29,7 @@ const ProjectForm = ({ project, saving, onClose, onSave }: {
   const [form, setForm] = useState<FormState>(() => project ? {
     projectName: project.projectName,
     liveLink: project.liveLink,
+    privateNotes: project.privateNotes || '',
     files: [],
     removedDocumentIds: [],
   } : emptyForm());
@@ -76,6 +78,11 @@ const ProjectForm = ({ project, saving, onClose, onSave }: {
           <span className="documents-link-input"><Link2 size={16}/><input className="form-input" required type="url" value={form.liveLink} onChange={(event) => setForm((current) => ({ ...current, liveLink: event.target.value }))} placeholder="https://example.com"/></span>
         </label>
         <section className="documents-form-files">
+          <label className="form-group">
+            <span className="form-label">Private IDs / Passwords</span>
+            <textarea className="form-input documents-private-notes" maxLength={5000} rows={5} value={form.privateNotes} onChange={(event) => setForm((current) => ({ ...current, privateNotes: event.target.value }))} placeholder="Write IDs, passwords, or other private notes here"/>
+            <small className="documents-private-hint">Visible only to CEO, Founder, and Super Admin.</small>
+          </label>
           <div className="documents-form-label"><span><Paperclip size={15}/>Documents</span><small>PDF, Office, images, text or ZIP · max 10MB each</small></div>
           <input ref={fileRef} hidden type="file" multiple accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.zip,.jpg,.jpeg,.png,.gif,.txt" onChange={(event) => addFiles(event.target.files)}/>
           <button type="button" className="documents-upload-button" onClick={() => fileRef.current?.click()} disabled={saving}><UploadCloud size={18}/><span><strong>Add Documents</strong><small>Select one or more files</small></span><Plus size={15}/></button>
@@ -119,12 +126,12 @@ const DocumentsLinks = () => {
     setError('');
     try {
       if (editing) {
-        await documentsLinksApi.update(editing.id, form.projectName, form.liveLink);
+        await documentsLinksApi.update(editing.id, form.projectName, form.liveLink, form.privateNotes);
         await Promise.all(form.removedDocumentIds.map((id) => documentsLinksApi.deleteDocument(editing.id, id)));
         if (form.files.length) await documentsLinksApi.addDocuments(editing.id, form.files);
         setNotice('Project updated successfully.');
       } else {
-        await documentsLinksApi.create(form.projectName, form.liveLink, form.files);
+        await documentsLinksApi.create(form.projectName, form.liveLink, form.privateNotes, form.files);
         setNotice('Project added successfully.');
       }
       setEditing(undefined);
@@ -159,12 +166,13 @@ const DocumentsLinks = () => {
       {canEdit && <button type="button" className="btn btn-primary" onClick={() => setEditing(null)}><Plus size={16}/>Add Project</button>}
     </section> : <section className="section-card documents-links-table-wrap">
       <table className="data-table documents-links-table">
-        <thead><tr><th>S.No</th><th>Project Name</th><th>Live Link</th><th>Documents</th>{canEdit && <th>Actions</th>}</tr></thead>
+        <thead><tr><th>S.No</th><th>Project Name</th><th>Live Link</th><th>Documents</th>{canEdit && <th>Private Info</th>}{canEdit && <th>Actions</th>}</tr></thead>
         <tbody>{projects.map((project) => <tr key={project.id}>
           <td data-label="S.No"><span className="documents-serial">{project.serialNumber}</span></td>
           <td data-label="Project Name"><strong className="documents-project-name">{project.projectName}</strong></td>
           <td data-label="Live Link"><a className="documents-live-link" href={project.liveLink} target="_blank" rel="noopener noreferrer">Open Link<ExternalLink size={14}/></a></td>
           <td data-label="Documents">{project.documents.length ? <details className="documents-cell"><summary><Paperclip size={14}/>{project.documents.length} Document{project.documents.length === 1 ? '' : 's'}</summary><div>{project.documents.map((document) => <a key={document.id} href={document.url} target="_blank" rel="noreferrer"><FileText size={14}/><span>{document.fileName}</span><ExternalLink size={12}/></a>)}</div></details> : <span className="documents-none">No documents</span>}</td>
+          {canEdit && <td data-label="Private Info"><span className="documents-private-value">{project.privateNotes || 'No private info'}</span></td>}
           {canEdit && <td data-label="Actions"><div className="documents-actions"><button type="button" onClick={() => setEditing(project)}><Pencil size={14}/>Edit</button><button type="button" className="danger" onClick={() => setDeleting(project)}><Trash2 size={14}/>Delete</button></div></td>}
         </tr>)}</tbody>
       </table>

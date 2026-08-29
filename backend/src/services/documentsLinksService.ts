@@ -2,8 +2,9 @@ import { documentsLinksRepository } from '../repositories/documentsLinksReposito
 import { deleteFile, getPublicUrl, uploadFile } from '../lib/storage';
 import { badRequest, notFound } from '../utils/httpError';
 import { logger } from '../config/logger';
+import { canManageDocumentsLinks } from '../policies/documentsLinksPolicy';
 
-interface Actor { id: string; organizationId?: string }
+interface Actor { id: string; organizationId?: string; role?: string; platformRole?: string }
 
 const organizationOf = (actor: Actor): string => {
   if (!actor.organizationId) throw badRequest('Your account is not assigned to an organization');
@@ -13,21 +14,24 @@ const organizationOf = (actor: Actor): string => {
 const fieldsOf = (input: Record<string, unknown>) => {
   const projectName = typeof input.projectName === 'string' ? input.projectName.trim() : '';
   const liveLink = typeof input.liveLink === 'string' ? input.liveLink.trim() : '';
+  const privateNotes = typeof input.privateNotes === 'string' ? input.privateNotes.trim() : '';
   if (!projectName) throw badRequest('Project name is required');
+  if (privateNotes.length > 5000) throw badRequest('Private info cannot exceed 5000 characters');
   try {
     const url = new URL(liveLink);
     if (!['http:', 'https:'].includes(url.protocol)) throw new Error();
   } catch {
     throw badRequest('Live link must be a valid http or https URL');
   }
-  return { project_name: projectName, live_link: liveLink };
+  return { project_name: projectName, live_link: liveLink, private_notes: privateNotes };
 };
 
-const mapProject = (row: any) => ({
+const mapProject = (row: any, actor: Actor) => ({
   id: row.id,
   serialNumber: row.serial_number,
   projectName: row.project_name,
   liveLink: row.live_link,
+  ...(canManageDocumentsLinks(actor) ? { privateNotes: row.private_notes || '' } : {}),
   documents: (row.documents || []).map((document: any) => ({
     id: document.id,
     fileName: document.file_name,
@@ -69,7 +73,7 @@ const removeStoredFiles = async (paths: string[]) => {
 
 export const documentsLinksService = {
   async list(actor: Actor) {
-    return (await documentsLinksRepository.list(organizationOf(actor))).map(mapProject);
+    return (await documentsLinksRepository.list(organizationOf(actor))).map((row) => mapProject(row, actor));
   },
 
   async create(input: Record<string, unknown>, files: Express.Multer.File[], actor: Actor) {
@@ -84,19 +88,19 @@ export const documentsLinksService = {
       await documentsLinksRepository.delete(project.id, organizationOf(actor));
       throw error;
     }
-    return mapProject(await findProject(project.id, actor));
+    return mapProject(await findProject(project.id, actor), actor);
   },
 
   async update(id: string, input: Record<string, unknown>, actor: Actor) {
     await findProject(id, actor);
-    return mapProject(await documentsLinksRepository.update(id, organizationOf(actor), fieldsOf(input)));
+    return mapProject(await documentsLinksRepository.update(id, organizationOf(actor), fieldsOf(input)), actor);
   },
 
   async addDocuments(id: string, files: Express.Multer.File[], actor: Actor) {
     await findProject(id, actor);
     if (!files.length) throw badRequest('Select at least one document');
     await uploadDocuments(id, files);
-    return mapProject(await findProject(id, actor));
+    return mapProject(await findProject(id, actor), actor);
   },
 
   async deleteDocument(projectId: string, documentId: string, actor: Actor) {

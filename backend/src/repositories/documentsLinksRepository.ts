@@ -24,7 +24,7 @@ export const documentsLinksRepository = {
     return data;
   },
 
-  async create(input: { organization_id: string; project_name: string; live_link: string; created_by: string }) {
+  async create(input: { organization_id: string; project_name: string; live_link: string; private_notes: string; created_by: string }) {
     const { data, error } = await supabase
       .from('document_link_projects')
       .insert(input)
@@ -34,7 +34,7 @@ export const documentsLinksRepository = {
     return data;
   },
 
-  async update(id: string, organizationId: string, input: { project_name: string; live_link: string }) {
+  async update(id: string, organizationId: string, input: { project_name: string; live_link: string; private_notes: string }) {
     const { data, error } = await supabase
       .from('document_link_projects')
       .update({ ...input, updated_at: new Date().toISOString() })
