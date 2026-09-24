@@ -57,4 +57,39 @@ export const dailyWorkRepository = {
     if (error) throw error;
     return (data || []).filter((session: any) => !filters.projectId || (session.logs || []).some((log: any) => log.project_id === filters.projectId));
   },
+  async commitments(sessionId: string) {
+    const { data, error } = await supabase.from('daily_work_commitments')
+      .select('*, task:task_id(id, title, project_id, status, canonical_status, carry_forward_count, project:project_id(id, name))')
+      .eq('session_id', sessionId).order('position');
+    if (error) throw error;
+    return data || [];
+  },
+  async addCommitments(rows: { session_id: string; task_id: string; position: number }[]) {
+    const { error } = await supabase.from('daily_work_commitments').insert(rows);
+    if (error) throw error;
+  },
+  async setOutcome(sessionId: string, taskId: string, outcome: string, carryReason: string | null) {
+    const { error } = await supabase.from('daily_work_commitments').update({ outcome, carry_reason: carryReason }).eq('session_id', sessionId).eq('task_id', taskId);
+    if (error) throw error;
+  },
+  async markUnresolvedCarried(sessionId: string) {
+    const { data, error } = await supabase.from('daily_work_commitments').update({ outcome: 'CARRIED' }).eq('session_id', sessionId).is('outcome', null).select('task_id');
+    if (error) throw error;
+    return (data || []).map((row) => row.task_id as string);
+  },
+  // ponytail: read-then-write increments; a concurrent write can lose one count. Move to an RPC (update … set x = x + 1) if two people ever log on the same task in the same second.
+  async incrementCarry(taskIds: string[]) {
+    for (const id of taskIds) {
+      const { data, error } = await supabase.from('project_tasks').select('carry_forward_count').eq('id', id).single();
+      if (error) throw error;
+      const { error: updateError } = await supabase.from('project_tasks').update({ carry_forward_count: (data.carry_forward_count || 0) + 1 }).eq('id', id);
+      if (updateError) throw updateError;
+    }
+  },
+  async addActualMinutes(taskId: string, minutes: number) {
+    const { data, error } = await supabase.from('project_tasks').select('actual_minutes').eq('id', taskId).single();
+    if (error) throw error;
+    const { error: updateError } = await supabase.from('project_tasks').update({ actual_minutes: (data.actual_minutes || 0) + minutes }).eq('id', taskId);
+    if (updateError) throw updateError;
+  },
 };

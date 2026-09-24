@@ -343,6 +343,7 @@ export interface WorkLog {
   task_id: string | null;
   title: string;
   description: string;
+  minutes: number | null;
   created_at: string;
 }
 
