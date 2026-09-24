@@ -19,6 +19,7 @@ import {
   getProjectOverview,
   setProjectHealth,
   getProjectActivity,
+  transitionProject,
 } from '../controllers/projectController';
 import { upload } from '../middleware/upload';
 import { protect, requireManager, requireProjectAccess, requireSuperAdmin } from '../middleware/auth';
@@ -31,6 +32,7 @@ import {
   finishProjectSchema,
   addProjectMemberSchema,
   setProjectHealthSchema,
+  projectLifecycleSchema,
 } from '../utils/validators';
 import projectTaskRoutes from './projectTaskRoutes';
 import {
@@ -70,6 +72,7 @@ router.route('/:id')
 
 router.post('/:id/archive', requireManager, archiveProject);
 router.post('/:id/restore', requireManager, restoreProject);
+router.post('/:id/lifecycle', validateBody(projectLifecycleSchema), transitionProject);
 
 // Updates/daily-reports/finish are gated per-request inside the controller
 // via projectService.assertProjectEditAccess (Super Admin or an assigned

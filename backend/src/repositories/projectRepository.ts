@@ -102,6 +102,7 @@ export const projectRepository = {
       archived: true,
       archived_at: new Date().toISOString(),
       status: 'Cancelled',
+      canonical_status: 'CANCELLED',
       updated_at: new Date().toISOString(),
     }).eq('id', id);
     if (error) throw error;
@@ -137,6 +138,7 @@ export const projectRepository = {
       .from('projects')
       .update({
         status: 'Completed',
+        canonical_status: 'COMPLETED',
         is_locked: true,
         completion_date: new Date().toISOString(),
         progress: 100,

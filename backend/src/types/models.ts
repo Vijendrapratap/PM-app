@@ -61,6 +61,8 @@ export interface Project {
   category: string | null;
   department: string | null;
   status: ProjectStatus;
+  canonical_status?: string | null;
+  kind?: 'DELIVERY' | 'STANDING';
   priority: ProjectPriority;
   start_date: string | null;
   estimated_completion_date: string | null;

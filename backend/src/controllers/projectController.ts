@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { asyncHandler } from '../utils/asyncHandler';
 import { projectService } from '../services/projectService';
+import { projectLifecycleService } from '../services/projectLifecycleService';
 import { param } from '../utils/params';
 import { unauthorized } from '../utils/httpError';
 import { activityLogRepository } from '../repositories/activityLogRepository';
@@ -42,7 +43,11 @@ export const getProjectActivity = asyncHandler(async (req: Request, res: Respons
 });
 
 export const updateProject = asyncHandler(async (req: Request, res: Response) => {
-  res.json(await projectService.updateProject(param(req, 'id'), req.body, req.user?.id));
+  res.json(await projectService.updateProject(param(req, 'id'), req.body, actorOf(req)));
+});
+
+export const transitionProject = asyncHandler(async (req: Request, res: Response) => {
+  res.json(await projectLifecycleService.transition(param(req, 'id'), req.body.to, { reason: req.body.reason, override: req.body.override }, actorOf(req)));
 });
 
 export const deleteProject = asyncHandler(async (req: Request, res: Response) => {

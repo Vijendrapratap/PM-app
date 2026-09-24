@@ -16,6 +16,8 @@ import { blockerRepository } from '../repositories/blockerRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { recommendProjectHealth } from '../utils/projectHealth';
+import { projectLifecycleService } from './projectLifecycleService';
+import { stageForLegacyStatus } from './projectLifecycleStages';
 
 interface Actor {
   id: string;
@@ -114,7 +116,9 @@ export const projectService = {
       estimated_completion_date: input.estimatedCompletionDate || null,
       deadline: input.deadline || null,
       budget: input.budget,
-      status: (input.status as any) || 'Draft',
+      // Every project starts Proposed; the brief and activation gate come later.
+      status: 'Draft',
+      canonical_status: 'DRAFT',
       tags: toArray(input.tags) as string[],
       owner_id: ownerId,
       organization_id: input.organizationId,
@@ -231,10 +235,21 @@ export const projectService = {
       github: string;
       demoVideo: string;
     }>,
-    actorId?: string,
+    actor?: { id: string; role: string; organizationId?: string; departmentId?: string | null },
   ) {
     const existing = await projectRepository.findById(id);
     if (!existing) throw notFound('Project not found');
+
+    // The Edit modal re-sends the current legacy status on every save; only a
+    // real change is a lifecycle transition.
+    if (patch.status !== undefined && patch.status !== existing.status) {
+      const target = stageForLegacyStatus(patch.status);
+      if (!target) throw badRequest(patch.status === 'Completed' ? 'Use Finish project to deliver a project' : `Unknown project status ${patch.status}`);
+      if (target !== (existing.canonical_status || 'DRAFT')) {
+        if (!actor) throw badRequest('A signed-in user is required to change the project stage');
+        await projectLifecycleService.transition(id, target, {}, actor);
+      } else await projectRepository.update(id, { status: patch.status as any });
+    }
 
     const updated = await projectRepository.update(id, {
       ...(patch.name !== undefined && { name: patch.name }),
@@ -246,18 +261,17 @@ export const projectService = {
       ...(patch.estimatedCompletionDate !== undefined && { estimated_completion_date: patch.estimatedCompletionDate }),
       ...(patch.deadline !== undefined && { deadline: patch.deadline }),
       ...(patch.budget !== undefined && { budget: patch.budget }),
-      ...(patch.status !== undefined && { status: patch.status as any }),
       ...(patch.github !== undefined && { final_github: patch.github || null }),
       ...(patch.demoVideo !== undefined && { final_demo_video: patch.demoVideo || null }),
     });
     if (!updated) throw notFound('Project not found');
 
-    if (actorId) await activityLogRepository.create({
-      action: 'Project Updated', user_id: actorId, project_id: id,
+    if (actor?.id) await activityLogRepository.create({
+      action: 'Project Updated', user_id: actor.id, project_id: id,
       details: `Project ${updated.name} was updated.`,
       event: { eventType: 'PROJECT_UPDATED', entityType: 'PROJECT', entityId: id, payload: { changedFields: Object.keys(patch) } },
     });
-    if (actorId) await notificationService.notifyProjectTeam(id, actorId, 'project_updated', 'Project details updated', `Project details for “${updated.name}” were updated.`);
+    if (actor?.id) await notificationService.notifyProjectTeam(id, actor.id, 'project_updated', 'Project details updated', `Project details for “${updated.name}” were updated.`);
 
     const full = await projectRepository.findById(id);
     return mapProject(full);

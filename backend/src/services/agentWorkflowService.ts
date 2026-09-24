@@ -292,7 +292,6 @@ export const agentWorkflowService = {
         status: 'Approved', reviewed_by: actor.id, reviewed_at: new Date().toISOString(), review_note: 'Plan approved and published.',
       });
     }
-    await projectRepository.update(projectId, { status: 'Planning' });
     await activityLogRepository.create({
       action: 'Project Plan Approved', user_id: actor.id, project_id: projectId,
       details: `Plan v${plan.version} was approved; ${content.features.length} modules were published to the project.`,

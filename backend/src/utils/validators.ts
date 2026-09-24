@@ -100,6 +100,12 @@ export const updateProjectSchema = z.object({
   demoVideo: z.string().optional(),
 });
 
+export const projectLifecycleSchema = z.object({
+  to: z.enum(['DRAFT', 'PLANNING', 'ACTIVE', 'ON_HOLD', 'CANCELLED']),
+  reason: z.string().trim().max(500).optional(),
+  override: z.boolean().optional(),
+});
+
 export const addUpdateSchema = z.object({
   title: z.string().min(1),
   description: z.string().min(1),

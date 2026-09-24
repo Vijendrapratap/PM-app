@@ -32,6 +32,8 @@ export const mapProject = (row: any) => ({
   category: row.category,
   department: row.department,
   status: row.status,
+  stage: row.canonical_status || 'DRAFT',
+  kind: row.kind || 'DELIVERY',
   priority: row.priority,
   startDate: row.start_date,
   estimatedCompletionDate: row.estimated_completion_date,
