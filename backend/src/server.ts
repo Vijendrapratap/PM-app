@@ -3,6 +3,7 @@ import { env } from './config/env';
 import { logger } from './config/logger';
 import { ensureSuperAdminSeeded } from './services/bootstrapService';
 import { dailyWorkService } from './services/dailyWorkService';
+import { runDailySignals } from './jobs/dailySignals';
 
 // Keep a module-level reference to the listener. Some development runtimes
 // aggressively collect an otherwise unreferenced server returned from a
@@ -14,5 +15,8 @@ ensureSuperAdminSeeded()
   .catch((error) => logger.error('Failed to seed Super Admin account', { error }))
   .finally(() => {
     httpServer = app.listen(env.port, () => logger.info(`Server started on port ${env.port}`));
-    setInterval(() => dailyWorkService.autoCloseExpired().catch((error) => logger.error('Failed to auto-close daily work sessions', { error })), 60_000);
+    setInterval(() => {
+      dailyWorkService.autoCloseExpired().catch((error) => logger.error('Failed to auto-close daily work sessions', { error }));
+      runDailySignals().catch((error) => logger.error('Failed to compute daily signals', { error }));
+    }, 60_000);
   });
