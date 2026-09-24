@@ -201,3 +201,10 @@ On a hosted database that already applied them, record the new versions once:
     supabase migration repair --status applied 00211 00221
 
 Do not re-run the SQL; both files are idempotent anyway.
+
+## Task-first gate release (0026)
+
+1. Back up production, restore it locally, run `supabase db reset` with the dump, and check that the standing ops projects exist (`select name from projects where kind='STANDING'`).
+2. Deploy backend and frontend together: the new My Day requires the new API.
+3. After release the Projects list may show more ACTIVE projects than the cap (2 per owner, 6 company-wide). Existing work continues; new activations are blocked until the PM parks projects or the CEO overrides with a reason.
+4. Limits live in `org_settings`; change them with SQL until the Settings screen ships (Plan 2).
