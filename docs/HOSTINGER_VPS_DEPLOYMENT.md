@@ -190,3 +190,14 @@ DOMAIN=your-domain.com bash deploy/hostinger/setup-vps.sh
 ```
 
 The script expects `backend/.env` to exist first with your Supabase, JWT, and frontend origin values.
+
+## Migration version repair (one time, 2026-09)
+
+Two migrations were renamed so every version is unique:
+`0021_users_account_status_schema_cache.sql` → `00211_…` and
+`0022_productive_workday_time.sql` → `00221_…`.
+On a hosted database that already applied them, record the new versions once:
+
+    supabase migration repair --status applied 00211 00221
+
+Do not re-run the SQL; both files are idempotent anyway.
