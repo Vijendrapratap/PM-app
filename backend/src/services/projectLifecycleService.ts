@@ -31,12 +31,12 @@ export const projectLifecycleService = {
       reason: options.reason, override: options.override, brief, activeCounts, limits,
     });
     if (!result.ok) throw new HttpError(result.status, result.message);
-    const updated = await projectRepository.update(projectId, { canonical_status: to, status: STAGE_TO_LEGACY[to] as any } as any);
+    await projectRepository.update(projectId, { canonical_status: to, status: STAGE_TO_LEGACY[to] as any } as any);
     await activityLogRepository.create({
       action: 'Project Stage Changed', user_id: actor.id, project_id: projectId,
       details: `${project.name} moved from ${from} to ${to}${options.reason ? `: ${options.reason.trim()}` : ''}.`,
       event: { eventType: result.overrideUsed ? 'PROJECT_CAP_OVERRIDDEN' : 'PROJECT_STAGE_CHANGED', entityType: 'PROJECT', entityId: projectId, payload: { from, to, reason: options.reason?.trim() || null, override: Boolean(result.overrideUsed) } },
     });
-    return mapProject(updated);
+    return mapProject(await projectRepository.findById(projectId));
   },
 };
