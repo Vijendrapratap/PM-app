@@ -11,7 +11,7 @@ import { activityLogRepository } from '../repositories/activityLogRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectProgressService } from './projectProgressService';
 import { checkStartTask } from '../policies/workGatePolicy';
-import { workGateRepository, taskStage } from '../repositories/workGateRepository';
+import { workGateRepository, taskStage, LEGACY_TASK_STAGE } from '../repositories/workGateRepository';
 import { supabase } from '../config/supabase';
 
 interface Actor {
@@ -206,7 +206,10 @@ export const projectTaskService = {
   // request-review → approve, or a project manager.
   async updateFromClient(projectId: string, taskId: string, patch: TaskPatch, actor: Actor) {
     const toDone = patch.canonicalStatus === 'DONE' || patch.status === 'Completed';
-    if (toDone) await assertCanManageTasks(projectId, actor).catch(() => { throw forbidden('Send the task for review instead of marking it complete'); });
+    if (toDone) await assertCanManageTasks(projectId, actor).catch((error) => {
+      if (error instanceof HttpError && error.statusCode === 403) throw forbidden('Send the task for review instead of marking it complete');
+      throw error;
+    });
     return this.update(projectId, taskId, patch, actor);
   },
 
@@ -225,9 +228,12 @@ export const projectTaskService = {
       await assertCanManageTasks(projectId, actor);
     }
 
-    const nextStage = patch.canonicalStatus ?? ({ Pending: 'BACKLOG', 'In Progress': 'IN_PROGRESS', 'In Review': 'IN_REVIEW', Completed: 'DONE', Blocked: 'IN_PROGRESS' } as Record<string, string>)[patch.status || ''];
+    const nextStage = patch.canonicalStatus ?? (patch.status ? LEGACY_TASK_STAGE[patch.status] : undefined);
+    const resultingStage = nextStage ?? taskStage(existing);
     const assignee = patch.assignedTo !== undefined ? patch.assignedTo : existing.assigned_to;
-    if (nextStage === 'IN_PROGRESS' && taskStage(existing) !== 'IN_PROGRESS' && assignee) {
+    const stageEnteringInProgress = nextStage === 'IN_PROGRESS' && taskStage(existing) !== 'IN_PROGRESS';
+    const assigneeChanging = assignee !== existing.assigned_to;
+    if (resultingStage === 'IN_PROGRESS' && (stageEnteringInProgress || assigneeChanging) && assignee) {
       const project = await projectRepository.findById(projectId);
       const gate = checkStartTask({ inProgressCount: await workGateRepository.inProgressCount(assignee, taskId), limits: await workGateRepository.limits(project.organization_id) });
       if (!gate.ok) throw new HttpError(gate.status, gate.message);

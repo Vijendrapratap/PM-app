@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 import { DEFAULT_LIMITS, type BriefFacts, type ProjectStage, type TaskStage, type WorkLimits } from '../policies/workGatePolicy';
 
-const LEGACY_TASK_STAGE: Record<string, TaskStage> = { Pending: 'BACKLOG', 'In Progress': 'IN_PROGRESS', 'In Review': 'IN_REVIEW', Completed: 'DONE', Blocked: 'IN_PROGRESS', Cancelled: 'CANCELLED', Deferred: 'DEFERRED' };
+export const LEGACY_TASK_STAGE: Record<string, TaskStage> = { Pending: 'BACKLOG', 'In Progress': 'IN_PROGRESS', 'In Review': 'IN_REVIEW', Completed: 'DONE', Blocked: 'IN_PROGRESS', Cancelled: 'CANCELLED', Deferred: 'DEFERRED' };
 export const taskStage = (task: any): TaskStage => task.canonical_status || LEGACY_TASK_STAGE[task.status] || 'BACKLOG';
 export const projectStage = (project: any): ProjectStage => project.canonical_status || 'DRAFT';
 
