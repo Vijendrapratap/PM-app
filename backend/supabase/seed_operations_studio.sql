@@ -206,4 +206,8 @@ select document.id,1,'In review','# AI Interviewer Business Requirements\n\n> AI
 from project_knowledge_documents document join projects project on project.id=document.project_id and project.name='AI Interviewer Platform' join users govind on govind.email='govind@pratap.local'
 where not exists (select 1 from project_knowledge_document_versions version where version.document_id=document.id and version.version=1);
 
+-- Create standing ops projects now that departments/users exist (0026 calls
+-- this too, but on a fresh reset it runs before departments/users are seeded).
+select ensure_standing_projects();
+
 commit;
