@@ -35,7 +35,7 @@ export const projectTaskRepository = {
   async findAssignedToUser(userId: string) {
     const { data, error } = await supabase
       .from(TASKS_TABLE)
-      .select('*, project:project_id(id, name, department)')
+      .select('*, project:project_id(id, name, department, kind, canonical_status)')
       .eq('assigned_to', userId)
       .order('due_date', { ascending: true, nullsFirst: false });
     if (error) throw error;

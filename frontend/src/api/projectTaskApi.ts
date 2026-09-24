@@ -45,7 +45,7 @@ export interface ProjectTask {
 export interface AssignedProjectTask {
   _id: string;
   projectId: string;
-  project: { _id: string; name: string; department?: string | null } | null;
+  project: { _id: string; name: string; department?: string | null; stage?: string; kind?: 'DELIVERY' | 'STANDING' } | null;
   title: string;
   dueDate: string | null;
   priority: Priority;

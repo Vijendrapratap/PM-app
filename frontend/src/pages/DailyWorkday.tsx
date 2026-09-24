@@ -16,6 +16,7 @@ const duration = (session: DailyWorkSession) => {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 };
 const currentMonth = () => new Date().toISOString().slice(0, 7);
+const isWorkable = (task: AssignedProjectTask) => !['Completed', 'In Review', 'Cancelled'].includes(task.status) && (task.project?.kind === 'STANDING' || task.project?.stage === 'ACTIVE');
 
 export default function DailyWorkday() {
   const { user } = useAuth();
@@ -45,8 +46,8 @@ export default function DailyWorkday() {
   useEffect(() => {
     Promise.all([dailyWorkApi.current(), projectApi.list(), projectTaskApi.assignedToMe()]).then(([current, available, tasks]) => {
       setSession(current);
-      setProjects(available.filter((project) => !project.archived && (project.kind === 'STANDING' || project.stage === 'ACTIVE')));
-      setMyTasks(tasks.filter((task) => !['Completed', 'In Review', 'Cancelled'].includes(task.status)));
+      setProjects(available.filter((project) => !project.archived && (project.kind === 'STANDING' || (project.stage === 'ACTIVE' && (project.owner?._id === user?._id || project.assignedMembers.some((member) => member._id === user?._id))))));
+      setMyTasks(tasks.filter(isWorkable));
     }).catch((loadError) => setError(getErrorMessage(loadError, 'We could not load your day.'))).finally(() => setLoading(false));
   }, [user?._id]);
 
@@ -85,7 +86,7 @@ export default function DailyWorkday() {
       await dailyWorkApi.addLog({ title, description, minutes: minutes ? Number(minutes) : undefined, ...(taskId ? { taskId } : { newTask: { title: newTaskTitle, projectId: newTaskProjectId || undefined } }) });
       setTitle(''); setDescription(''); setTaskId(''); setNewTaskTitle(''); setNewTaskProjectId(''); setMinutes(''); setAdding(false);
       await refresh();
-      setMyTasks((await projectTaskApi.assignedToMe()).filter((task) => !['Completed', 'In Review', 'Cancelled'].includes(task.status)));
+      setMyTasks((await projectTaskApi.assignedToMe()).filter(isWorkable));
     } catch (saveError) { setError(getErrorMessage(saveError, 'We could not save this work record.')); } finally { setSaving(false); }
   };
 
@@ -125,17 +126,17 @@ export default function DailyWorkday() {
         </details>)}
       </div>}
     </section>}
-    {adding && <div className="modal-backdrop" role="presentation"><div className="modal-container" role="dialog" aria-modal="true"><div className="modal-header"><div><div className="modal-title">Add work record</div><p className="modal-subtitle">Saved records cannot be edited or deleted.</p></div><button className="icon-btn" aria-label="Close" onClick={() => setAdding(false)}><X size={18} /></button></div><div className="modal-body start-work-form"><label><span>Work title</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength={180} /></label>
+    {adding && <div className="modal-backdrop" role="presentation"><div className="modal-container" role="dialog" aria-modal="true"><div className="modal-header"><div><div className="modal-title">Add work record</div><p className="modal-subtitle">Saved records cannot be edited or deleted.</p></div><button className="icon-btn" aria-label="Close" onClick={() => setAdding(false)}><X size={18} /></button></div><div className="modal-body start-work-form">{error && <div className="workday-error" role="alert"><span>{error}</span></div>}<label><span>Work title</span><input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} maxLength={180} /></label>
       <label><span>Task</span><select value={taskId} onChange={(event) => setTaskId(event.target.value)}><option value="">+ New task…</option>{myTasks.map((task) => <option key={task._id} value={task._id}>{task.title} · {task.project?.name}</option>)}</select></label>
       {!taskId && <><label><span>New task title</span><input value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} maxLength={180} placeholder="e.g. Fix OTP retry on login" /></label>
       <label><span>Project</span><select value={newTaskProjectId} onChange={(event) => setNewTaskProjectId(event.target.value)}><option value="">My department ops project</option>{projects.map((project) => <option key={project._id} value={project._id}>{project.name}{project.kind === 'STANDING' ? ' (ops)' : ''}</option>)}</select></label></>}
       <label><span>Minutes spent (optional)</span><input type="number" min={1} max={720} value={minutes} onChange={(event) => setMinutes(event.target.value)} /></label>
       <label><span>Details</span><textarea value={description} onChange={(event) => setDescription(event.target.value)} maxLength={3000} /></label></div><div className="modal-footer"><button className="btn btn-ghost" onClick={() => setAdding(false)}>Cancel</button><button className="btn btn-primary" disabled={saving || !title.trim() || !description.trim() || (!taskId && !newTaskTitle.trim())} onClick={add}>Save record <LockKeyhole size={14} /></button></div></div></div>}
     {ending && session && <div className="modal-backdrop" role="presentation"><div className="modal-container" role="dialog" aria-modal="true" aria-labelledby="end-day-title"><div className="modal-header"><div><div className="modal-title" id="end-day-title">How did today go?</div><p className="modal-subtitle">One answer per commitment. Carrying a task a third time needs a reason.</p></div><button className="icon-btn" aria-label="Close" onClick={() => setEnding(false)}><X size={18} /></button></div>
-      <div className="modal-body start-work-form">{session.commitments.map((row) => <fieldset key={row.taskId}><legend>{row.task?.title}</legend>
+      <div className="modal-body start-work-form">{error && <div className="workday-error" role="alert"><span>{error}</span></div>}{session.commitments.map((row) => <fieldset key={row.taskId}><legend>{row.task?.title}</legend>
         <select aria-label={`Outcome for ${row.task?.title}`} value={outcomes[row.taskId]?.outcome || 'DONE'} onChange={(event) => setOutcomes((current) => ({ ...current, [row.taskId]: { ...current[row.taskId], outcome: event.target.value as 'DONE' | 'CARRIED' | 'BLOCKED' } }))}><option value="DONE">Done</option><option value="CARRIED">Carry to tomorrow</option><option value="BLOCKED">Blocked</option></select>
         {outcomes[row.taskId]?.outcome !== 'DONE' && <input aria-label={`Reason for ${row.task?.title}`} placeholder={(row.task?.carryForwardCount || 0) >= 2 ? 'Reason (required)' : 'Reason (optional)'} value={outcomes[row.taskId]?.reason || ''} onChange={(event) => setOutcomes((current) => ({ ...current, [row.taskId]: { ...current[row.taskId], reason: event.target.value } }))} />}
       </fieldset>)}</div>
-      <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setEnding(false)}>Cancel</button><button className="btn btn-primary" disabled={saving} onClick={end}>{saving ? 'Ending...' : 'End My Day'} <CheckCircle2 size={15} /></button></div></div></div>}
+      <div className="modal-footer"><button className="btn btn-ghost" onClick={() => setEnding(false)}>Cancel</button><button className="btn btn-primary" disabled={saving || session.commitments.some((row) => outcomes[row.taskId]?.outcome === 'CARRIED' && (row.task?.carryForwardCount || 0) >= 2 && !outcomes[row.taskId]?.reason.trim())} onClick={end}>{saving ? 'Ending...' : 'End My Day'} <CheckCircle2 size={15} /></button></div></div></div>}
   </main>;
 }

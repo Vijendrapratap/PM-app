@@ -131,7 +131,7 @@ export const projectTaskService = {
     return tasks.map((t: any) => ({
       _id: t.id,
       projectId: t.project_id,
-      project: t.project ? { _id: t.project.id, name: t.project.name, department: t.project.department || null } : null,
+      project: t.project ? { _id: t.project.id, name: t.project.name, department: t.project.department || null, stage: t.project.canonical_status || 'DRAFT', kind: t.project.kind || 'DELIVERY' } : null,
       title: t.title,
       dueDate: t.due_date,
       priority: t.priority,
