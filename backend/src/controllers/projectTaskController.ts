@@ -29,7 +29,7 @@ export const createProjectTask = asyncHandler(async (req: Request, res: Response
 });
 
 export const updateProjectTask = asyncHandler(async (req: Request, res: Response) => {
-  const task = await projectTaskService.update(param(req, 'id'), param(req, 'taskId'), req.body, actorOf(req));
+  const task = await projectTaskService.updateFromClient(param(req, 'id'), param(req, 'taskId'), req.body, actorOf(req));
   res.json(task);
 });
 

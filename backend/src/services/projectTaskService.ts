@@ -3,18 +3,23 @@ import { projectRepository } from '../repositories/projectRepository';
 import { notificationService } from './notificationService';
 import { uploadFiles } from '../lib/storage';
 import { mapDocument } from './mappers';
-import { notFound, forbidden } from '../utils/httpError';
+import { notFound, forbidden, badRequest, HttpError } from '../utils/httpError';
 import { isManager, isSuperAdmin } from '../utils/roles';
 import { ProjectTask, ProjectTaskSubtask } from '../types/models';
 import { canManageProject } from '../policies/accessPolicy';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectProgressService } from './projectProgressService';
+import { checkStartTask } from '../policies/workGatePolicy';
+import { workGateRepository, taskStage } from '../repositories/workGateRepository';
+import { supabase } from '../config/supabase';
 
 interface Actor {
   id: string;
   role: string;
 }
+
+type TaskPatch = { title?: string; description?: string; blockerReason?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string; canonicalStatus?: NonNullable<ProjectTask['canonical_status']>; milestoneId?: string | null; deliverableId?: string | null; expectedMinutes?: number };
 
 // Only the Super Admin manages the task list itself (create/edit-details/delete
 // tasks and subtasks) - assigned members work the list, they don't curate it.
@@ -197,10 +202,18 @@ export const projectTaskService = {
     return mapTask(full);
   },
 
+  // PUT from the UI: any stage except DONE. Completion goes through
+  // request-review → approve, or a project manager.
+  async updateFromClient(projectId: string, taskId: string, patch: TaskPatch, actor: Actor) {
+    const toDone = patch.canonicalStatus === 'DONE' || patch.status === 'Completed';
+    if (toDone) await assertCanManageTasks(projectId, actor).catch(() => { throw forbidden('Send the task for review instead of marking it complete'); });
+    return this.update(projectId, taskId, patch, actor);
+  },
+
   async update(
     projectId: string,
     taskId: string,
-    patch: { title?: string; description?: string; blockerReason?: string; dueDate?: string; priority?: string; status?: string; assignedTo?: string; canonicalStatus?: NonNullable<ProjectTask['canonical_status']>; milestoneId?: string | null; deliverableId?: string | null; expectedMinutes?: number },
+    patch: TaskPatch,
     actor: Actor
   ) {
     const existing = await projectTaskRepository.findById(taskId);
@@ -210,6 +223,14 @@ export const projectTaskService = {
       await assertCanSetStatus(projectId, existing.assigned_to, actor);
     } else {
       await assertCanManageTasks(projectId, actor);
+    }
+
+    const nextStage = patch.canonicalStatus ?? ({ Pending: 'BACKLOG', 'In Progress': 'IN_PROGRESS', 'In Review': 'IN_REVIEW', Completed: 'DONE', Blocked: 'IN_PROGRESS' } as Record<string, string>)[patch.status || ''];
+    const assignee = patch.assignedTo !== undefined ? patch.assignedTo : existing.assigned_to;
+    if (nextStage === 'IN_PROGRESS' && taskStage(existing) !== 'IN_PROGRESS' && assignee) {
+      const project = await projectRepository.findById(projectId);
+      const gate = checkStartTask({ inProgressCount: await workGateRepository.inProgressCount(assignee, taskId), limits: await workGateRepository.limits(project.organization_id) });
+      if (!gate.ok) throw new HttpError(gate.status, gate.message);
     }
 
     const wasAssignedTo = existing.assigned_to;
@@ -331,6 +352,8 @@ export const projectTaskService = {
     await assertCanManageTasks(projectId, actor);
     const existing = await projectTaskRepository.findById(taskId);
     if (!existing || existing.project_id !== projectId) throw notFound('Task not found');
+    const { count: logCount } = await supabase.from('work_logs').select('id', { count: 'exact', head: true }).eq('task_id', taskId);
+    if (logCount) throw badRequest('This task has logged work; cancel it instead');
     await projectTaskRepository.remove(taskId);
     await projectProgressService.sync(projectId);
     return { message: 'Task deleted successfully' };
