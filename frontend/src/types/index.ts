@@ -48,6 +48,8 @@ export interface Project {
   category?: string | null;
   department?: string | null;
   status: string;
+  stage?: 'DRAFT' | 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED' | 'CANCELLED';
+  kind?: 'DELIVERY' | 'STANDING';
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   startDate?: string | null;
   estimatedCompletionDate?: string | null;

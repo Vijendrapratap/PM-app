@@ -293,13 +293,13 @@ export const workSessionNoteSchema = z.object({ note: z.string().max(1000) });
 export const dailyWorkStartSchema = z.object({
   commitments: z.array(z.string().uuid()).max(10).optional(),
   newTask: z.object({ title: z.string().trim().min(1).max(180), projectId: z.string().uuid().optional() }).optional(),
-}).refine((body) => Boolean(body.commitments?.length) !== Boolean(body.newTask), { message: 'Pick tasks to commit to, or add one new task' });
+}).refine((body) => Boolean(body.commitments?.length) !== Boolean(body.newTask), { message: 'Pick tasks to commit to, or add one new task', path: ['commitments'] });
 export const dailyWorkLogSchema = z.object({
   taskId: z.string().uuid().optional(),
   newTask: z.object({ title: z.string().trim().min(1).max(180), projectId: z.string().uuid().optional() }).optional(),
   title: z.string().trim().min(1).max(180), description: z.string().trim().min(1).max(3000),
   minutes: z.coerce.number().int().min(1).max(720).optional(),
-}).refine((body) => Boolean(body.taskId) !== Boolean(body.newTask), { message: 'Pick a task or add a new one' });
+}).refine((body) => Boolean(body.taskId) !== Boolean(body.newTask), { message: 'Pick a task or add a new one', path: ['taskId'] });
 export const dailyWorkEndSchema = z.object({
   outcomes: z.array(z.object({ taskId: z.string().uuid(), outcome: z.enum(['DONE', 'CARRIED', 'BLOCKED']), reason: z.string().trim().max(500).optional() })).max(10).default([]),
 });

@@ -3395,3 +3395,12 @@ body { font-weight: 500; }
 .task-first-layout .task-page-header .page-subtitle{max-width:66ch;margin-top:.12rem;font-size:.68rem}
 @media(max-width:620px){.task-first-layout{margin:0 auto}}
 .pulse-summary{flex-wrap:wrap}.pulse-summary small{flex-basis:100%;margin-left:17px;color:#678071;font-size:.54rem;font-weight:700}
+
+.commit-picker { border: 1px solid var(--border, #E5E5E5); border-radius: 12px; padding: 12px; margin: 16px auto; max-width: 520px; text-align: left; display: grid; gap: 8px; }
+.commit-picker legend { font-weight: 600; padding: 0 6px; }
+.commit-picker label { display: flex; gap: 10px; align-items: flex-start; padding: 8px; border-radius: 8px; cursor: pointer; }
+.commit-picker label.is-picked { background: #F5F1E7; outline: 1px solid #D8C27A; }
+.commit-picker small, .commit-list small { display: block; color: var(--text-muted); }
+.commit-list { list-style: none; padding: 0; margin: 0 0 16px; display: grid; gap: 8px; }
+.commit-list li { display: flex; gap: 12px; align-items: center; }
+.commit-list em { font-style: normal; font-size: .75rem; text-transform: capitalize; color: #9B7D35; }

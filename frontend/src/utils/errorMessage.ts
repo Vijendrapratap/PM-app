@@ -1,7 +1,10 @@
 import { AxiosError } from 'axios';
 
 export const getErrorMessage = (error: unknown, fallback = 'Something went wrong. Please try again.'): string => {
-  const axiosError = error as AxiosError<{ message?: string }>;
+  const axiosError = error as AxiosError<{ message?: string; errors?: Record<string, string[] | undefined> }>;
+  const fieldErrors = axiosError?.response?.data?.errors;
+  const firstFieldError = fieldErrors && Object.values(fieldErrors).flat().find((entry): entry is string => Boolean(entry));
+  if (firstFieldError) return firstFieldError;
   const message = axiosError?.response?.data?.message;
   if (message) return message;
   // A real HTTP error always has a `response` (the server ran and replied).
