@@ -204,7 +204,9 @@ Do not re-run the SQL; both files are idempotent anyway.
 
 ## Task-first gate release (0026)
 
-1. Back up production, restore it locally, run `supabase db reset` with the dump, and check that the standing ops projects exist (`select name from projects where kind='STANDING'`).
+1. Rehearse on a copy first. Back up production and restore the dump into a local Postgres/Supabase (do **not** use `supabase db reset`; it wipes the database). Apply the migration to that copy, e.g. `psql "$LOCAL_DB_URL" -f supabase/migrations/0026_task_first_gate.sql`, then check:
+   - stages agree with legacy statuses: `select status, canonical_status, count(*) from projects where kind='DELIVERY' group by 1,2;` (e.g. every `In Progress`/`Review`/`Testing` row is `ACTIVE`, `Completed` is `COMPLETED`, `Cancelled` is `CANCELLED`);
+   - the standing ops projects exist: `select name, department_id from projects where kind='STANDING';` (one per active department plus Founder Office).
 2. Deploy backend and frontend together: the new My Day requires the new API.
 3. After release the Projects list may show more ACTIVE projects than the cap (2 per owner, 6 company-wide). Existing work continues; new activations are blocked until the PM parks projects or the CEO overrides with a reason.
 4. Limits live in `org_settings`; change them with SQL until the Settings screen ships (Plan 2).
