@@ -79,10 +79,13 @@ test('work target: must be your open task in an active or standing project', () 
 });
 
 test('quick-add: standing projects for anyone, active delivery projects for members', () => {
-  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'STANDING', stage: 'ACTIVE' }, isMember: false }), { ok: true });
-  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'DELIVERY', stage: 'ACTIVE' }, isMember: true }), { ok: true });
-  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'DELIVERY', stage: 'ACTIVE' }, isMember: false }), { ok: false, status: 403, message: 'You can only add tasks to projects you are a member of' });
-  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'DELIVERY', stage: 'PLANNING' }, isMember: true }), { ok: false, status: 400, message: 'This project is not active' });
+  const notMember = { ok: false, status: 403, message: 'You can only add tasks to projects you are a member of' };
+  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'STANDING', stage: 'ACTIVE' }, isMember: false, isOwnOps: true }), { ok: true });
+  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'STANDING', stage: 'ACTIVE' }, isMember: true, isOwnOps: false }), { ok: true });
+  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'STANDING', stage: 'ACTIVE' }, isMember: false, isOwnOps: false }), notMember);
+  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'DELIVERY', stage: 'ACTIVE' }, isMember: true, isOwnOps: false }), { ok: true });
+  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'DELIVERY', stage: 'ACTIVE' }, isMember: false, isOwnOps: false }), notMember);
+  assert.deepEqual(checkQuickAddTarget({ project: { kind: 'DELIVERY', stage: 'PLANNING' }, isMember: true, isOwnOps: false }), { ok: false, status: 400, message: 'This project is not active' });
 });
 
 test('WIP limit on starting a task', () => {

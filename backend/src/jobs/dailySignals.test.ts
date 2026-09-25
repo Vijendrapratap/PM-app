@@ -34,3 +34,9 @@ test('stale in-progress task, unassigned open task, repeated carry', () => {
   assert.deepEqual(kinds({ projects: [project], tasks: [{ ...task, stage: 'READY', assignedTo: null }] }), ['UNASSIGNED_READY_TASK:t1']);
   assert.deepEqual(kinds({ projects: [project], tasks: [{ ...task, carryForwardCount: 3 }] }), ['REPEATED_CARRY:t1']);
 });
+
+test('closed tasks and tasks outside loggable projects produce no signals', () => {
+  assert.deepEqual(kinds({ projects: [project], tasks: [{ ...task, stage: 'DONE', carryForwardCount: 3 }] }), []);
+  assert.deepEqual(kinds({ projects: [{ ...project, stage: 'DRAFT' }], tasks: [{ ...task, stage: 'BACKLOG', assignedTo: null }] }), []);
+  assert.deepEqual(kinds({ projects: [], tasks: [{ ...task, stage: 'BACKLOG', assignedTo: null }] }), []);
+});

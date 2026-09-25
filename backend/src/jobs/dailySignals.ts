@@ -1,4 +1,4 @@
-import type { WorkLimits } from '../policies/workGatePolicy';
+import { isLoggableProject, OPEN_TASK_STAGES, type WorkLimits } from '../policies/workGatePolicy';
 import { supabase } from '../config/supabase';
 import { projectStage, taskStage, workGateRepository } from '../repositories/workGateRepository';
 import { notificationService } from '../services/notificationService';
@@ -36,7 +36,9 @@ export const detectSignals = (facts: SignalFacts, limits: WorkLimits, today: str
     if (project.targetDate && project.targetDate < today) signals.push({ kind: 'OVERDUE_PROJECT', subjectType: 'PROJECT', subjectId: project.id, projectId: project.id, notify: project.ownerId, message: `Past its target date (${project.targetDate}).` });
   }
   for (const task of facts.tasks) {
-    const owner = projectById.get(task.projectId)?.ownerId || null;
+    const project = projectById.get(task.projectId);
+    if (!project || !isLoggableProject(project as any) || !OPEN_TASK_STAGES.includes(task.stage as any)) continue;
+    const owner = project.ownerId;
     if (task.stage === 'IN_PROGRESS') {
       const idleDays = workingDaysBetween(task.lastLogDate || task.startedDate || today, today);
       if (idleDays >= limits.staleTaskDays) signals.push({ kind: 'STALE_TASK', subjectType: 'TASK', subjectId: task.id, projectId: task.projectId, notify: task.assignedTo, message: `In progress with no work logged for ${idleDays} working days.` });

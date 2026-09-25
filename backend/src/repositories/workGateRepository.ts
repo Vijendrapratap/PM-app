@@ -48,11 +48,15 @@ export const workGateRepository = {
     if (error) throw error;
     return count || 0;
   },
-  async opsProjectFor(user: { organizationId?: string; departmentId?: string | null }) {
-    if (!user.organizationId || !user.departmentId) return null;
-    const { data, error } = await supabase.from('projects').select('*').eq('organization_id', user.organizationId)
-      .eq('department_id', user.departmentId).eq('kind', 'STANDING').limit(1).maybeSingle();
+  // Department ops project; users without a department (CEOs) fall back to a
+  // department-less standing project they belong to (Founder Office).
+  async opsProjectFor(user: { id: string; organizationId?: string; departmentId?: string | null }) {
+    if (!user.organizationId) return null;
+    const base = supabase.from('projects').select(user.departmentId ? '*' : '*, project_members!inner(user_id)')
+      .eq('organization_id', user.organizationId).eq('kind', 'STANDING').eq('archived', false);
+    const query = user.departmentId ? base.eq('department_id', user.departmentId) : base.is('department_id', null).eq('project_members.user_id', user.id);
+    const { data, error } = await query.limit(1).maybeSingle();
     if (error) throw error;
-    return data;
+    return data as any;
   },
 };

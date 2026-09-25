@@ -50,6 +50,7 @@ export interface AssignedProjectTask {
   dueDate: string | null;
   priority: Priority;
   status: TaskStatus;
+  stage?: string;
   completedAt: string | null;
   estimateMinutes: number;
   remainingEstimateMinutes?: number | null;

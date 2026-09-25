@@ -16,7 +16,7 @@ const duration = (session: DailyWorkSession) => {
   return `${Math.floor(minutes / 60)}h ${String(minutes % 60).padStart(2, '0')}m`;
 };
 const currentMonth = () => new Date().toISOString().slice(0, 7);
-const isWorkable = (task: AssignedProjectTask) => !['Completed', 'In Review', 'Cancelled'].includes(task.status) && (task.project?.kind === 'STANDING' || task.project?.stage === 'ACTIVE');
+const isWorkable = (task: AssignedProjectTask) => (task.stage ? ['BACKLOG', 'READY', 'IN_PROGRESS'].includes(task.stage) : !['Completed', 'In Review', 'Cancelled'].includes(task.status)) && (task.project?.kind === 'STANDING' || task.project?.stage === 'ACTIVE');
 
 export default function DailyWorkday() {
   const { user } = useAuth();
@@ -73,7 +73,7 @@ export default function DailyWorkday() {
 
   const stateLabel = useMemo(() => session?.status === 'ACTIVE' ? 'Working' : session?.status === 'AUTO_COMPLETED' ? 'Auto completed' : 'Completed', [session?.status]);
   const togglePick = (id: string) => setPicked((current) => current.includes(id) ? current.filter((value) => value !== id) : current.length >= 3 ? current : [...current, id]);
-  const start = async () => { try { setSaving(true); setError(''); setSession(await dailyWorkApi.start(picked.length ? { commitments: picked } : { newTask: { title: newTaskTitle } })); setNewTaskTitle(''); } catch (saveError) { setError(getErrorMessage(saveError, 'We could not start your day.')); } finally { setSaving(false); } };
+  const start = async () => { try { setSaving(true); setError(''); setSession(await dailyWorkApi.start(picked.length ? { commitments: picked } : { newTask: { title: newTaskTitle, projectId: newTaskProjectId || undefined } })); setNewTaskTitle(''); } catch (saveError) { setError(getErrorMessage(saveError, 'We could not start your day.')); } finally { setSaving(false); } };
   const openEnd = () => { setOutcomes(Object.fromEntries((session?.commitments || []).map((row) => [row.taskId, { outcome: 'DONE' as const, reason: '' }]))); setEnding(true); };
   const end = async () => {
     try { setSaving(true); setError(''); setSession(await dailyWorkApi.end(Object.entries(outcomes).map(([id, value]) => ({ taskId: id, outcome: value.outcome, reason: value.reason.trim() || undefined })))); setEnding(false); }
@@ -99,6 +99,7 @@ export default function DailyWorkday() {
         {!myTasks.length ? <p className="home-project-empty">No open tasks assigned to you yet. Add one below.</p> :
           myTasks.map((task) => <label key={task._id} className={picked.includes(task._id) ? 'is-picked' : ''}><input type="checkbox" checked={picked.includes(task._id)} disabled={!picked.includes(task._id) && picked.length >= 3} onChange={() => togglePick(task._id)} /><span><strong>{task.title}</strong><small>{task.project?.name || 'Project'}</small></span></label>)}
         {!myTasks.length && <label><span>Or add today's task</span><input value={newTaskTitle} onChange={(event) => setNewTaskTitle(event.target.value)} maxLength={180} placeholder="e.g. Follow up with resort client" /></label>}
+        {!myTasks.length && <label><span>Project</span><select value={newTaskProjectId} onChange={(event) => setNewTaskProjectId(event.target.value)}><option value="">My department ops project</option>{projects.map((project) => <option key={project._id} value={project._id}>{project.name}{project.kind === 'STANDING' ? ' (ops)' : ''}</option>)}</select></label>}
       </fieldset>
       <button className="home-start-button" disabled={saving || (!picked.length && !newTaskTitle.trim())} onClick={start}>Start My Day <Clock3 size={18} /></button></section> : <section className="active-day" id="plan-my-day">
       <div className="active-focus"><div><span className="live-indicator"><i /> {stateLabel}</span><h2>{formatDate(session.date)}</h2><p>Started {formatTime(session.startAt)}{session.endAt ? ` · Ended ${formatTime(session.endAt)}` : ''}</p></div><div className="active-time-card"><Clock3 size={20} /><span><small>Session</small><strong>{duration(session) || 'In progress'}</strong><em>{session.logs.length} work {session.logs.length === 1 ? 'entry' : 'entries'}</em></span></div></div>

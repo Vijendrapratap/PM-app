@@ -136,6 +136,7 @@ export const projectTaskService = {
       dueDate: t.due_date,
       priority: t.priority,
       status: t.status,
+      stage: taskStage(t),
       completedAt: t.completed_at,
       estimateMinutes: t.estimate_minutes || 60,
       remainingEstimateMinutes: t.remaining_estimate_minutes,

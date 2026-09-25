@@ -118,10 +118,10 @@ export const checkWorkTarget = (input: {
   return { ok: true };
 };
 
-export const checkQuickAddTarget = (input: { project: { kind: ProjectKind; stage: ProjectStage }; isMember: boolean }): GateResult => {
-  if (input.project.kind === 'STANDING') return { ok: true };
-  if (input.project.stage !== 'ACTIVE') return fail(400, 'This project is not active');
-  if (!input.isMember) return fail(403, 'You can only add tasks to projects you are a member of');
+// Only the user's own ops project may auto-join them; anything else needs existing membership.
+export const checkQuickAddTarget = (input: { project: { kind: ProjectKind; stage: ProjectStage }; isMember: boolean; isOwnOps: boolean }): GateResult => {
+  if (!isLoggableProject(input.project)) return fail(400, 'This project is not active');
+  if (!input.isMember && !input.isOwnOps) return fail(403, 'You can only add tasks to projects you are a member of');
   return { ok: true };
 };
 

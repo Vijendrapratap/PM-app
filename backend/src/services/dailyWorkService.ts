@@ -94,11 +94,13 @@ export const dailyWorkService = {
     return { ...dto(session), logs: [dto(session, [log]).logs[0]] };
   },
   async quickAdd(input: { title: string; projectId?: string }, actor: Actor) {
-    const project = input.projectId ? await projectRepository.findById(input.projectId) : await workGateRepository.opsProjectFor(actor);
+    const opsProject = await workGateRepository.opsProjectFor(actor);
+    const project = input.projectId ? await projectRepository.findById(input.projectId) : opsProject;
     if (!project) throw badRequest(input.projectId ? 'Project not found' : 'Choose a project for this task');
+    if (project.archived) throw notFound('Project not found');
     if (project.organization_id !== actor.organizationId) throw forbidden('You can only add tasks to your own organization');
     const isMember = project.owner_id === actor.id || await projectRepository.isMemberAssigned(project.id, actor.id);
-    gate(checkQuickAddTarget({ project: { kind: project.kind || 'DELIVERY', stage: projectStage(project) }, isMember }));
+    gate(checkQuickAddTarget({ project: { kind: project.kind || 'DELIVERY', stage: projectStage(project) }, isMember, isOwnOps: project.id === opsProject?.id }));
     if (!isMember) await projectRepository.addMembers(project.id, [actor.id]);
     const task = await projectTaskRepository.create({
       project_id: project.id, organization_id: project.organization_id, title: input.title.trim(), status: 'Pending', canonical_status: 'BACKLOG',
