@@ -14,6 +14,9 @@ export interface UpsertProjectPayload {
   status?: string;
   github?: string;
   demoVideo?: string;
+  objective?: string;
+  successCriteria?: string[];
+  targetDate?: string;
 }
 
 export interface ProjectActivityEvent {

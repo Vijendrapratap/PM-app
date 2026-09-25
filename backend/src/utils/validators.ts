@@ -98,6 +98,9 @@ export const updateProjectSchema = z.object({
   status: z.string().optional(),
   github: z.string().optional(),
   demoVideo: z.string().optional(),
+  objective: z.string().trim().max(2000).optional(),
+  successCriteria: z.array(z.string().trim().min(1).max(500)).max(10).optional(),
+  targetDate: optionalDateString,
 });
 
 export const projectLifecycleSchema = z.object({

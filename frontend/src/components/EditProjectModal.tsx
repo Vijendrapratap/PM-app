@@ -18,6 +18,9 @@ const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; o
     status: project.status,
     github: project.finalLinks?.github ?? '',
     demoVideo: project.finalLinks?.demoVideo ?? '',
+    objective: project.objective ?? '',
+    successCriteria: (project.successCriteria ?? []).join('\n'),
+    targetDate: project.targetDate?.slice(0, 10) ?? '',
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -30,7 +33,7 @@ const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; o
     setLoading(true);
     setError('');
     try {
-      await projectApi.update(project._id, { ...form, budget: form.budget ? Number(form.budget) : undefined });
+      await projectApi.update(project._id, { ...form, budget: form.budget ? Number(form.budget) : undefined, successCriteria: form.successCriteria.split('\n').map((line) => line.trim()).filter(Boolean) });
       onSuccess();
       onClose();
     } catch (err) {
@@ -60,6 +63,18 @@ const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; o
             <div className="form-group">
               <label className="form-label">Description</label>
               <textarea className="form-textarea" rows={3} value={form.description} onChange={set('description')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="project-objective">Objective</label>
+              <textarea id="project-objective" className="form-textarea" rows={2} maxLength={2000} value={form.objective} onChange={set('objective')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="project-success-criteria">Success criteria <span className="form-optional">One per line</span></label>
+              <textarea id="project-success-criteria" className="form-textarea" rows={3} value={form.successCriteria} onChange={set('successCriteria')} />
+            </div>
+            <div className="form-group">
+              <label className="form-label" htmlFor="project-target-date">Target date</label>
+              <input id="project-target-date" type="date" className="form-input" value={form.targetDate} onChange={set('targetDate')} />
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">

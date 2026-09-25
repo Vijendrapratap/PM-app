@@ -51,6 +51,7 @@ export interface Project {
   expected_outcome?: string | null;
   health?: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NOT_SET';
   target_date?: string | null;
+  success_criteria_json?: string[];
   created_by?: string | null;
   archived_at?: string | null;
   health_note?: string | null;

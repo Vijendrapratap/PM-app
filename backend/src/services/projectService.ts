@@ -234,22 +234,14 @@ export const projectService = {
       status: string;
       github: string;
       demoVideo: string;
+      objective: string;
+      successCriteria: string[];
+      targetDate: string;
     }>,
     actor?: { id: string; role: string; organizationId?: string; departmentId?: string | null },
   ) {
     const existing = await projectRepository.findById(id);
     if (!existing) throw notFound('Project not found');
-
-    // The Edit modal re-sends the current legacy status on every save; only a
-    // real change is a lifecycle transition.
-    if (patch.status !== undefined && patch.status !== existing.status) {
-      const target = stageForLegacyStatus(patch.status);
-      if (!target) throw badRequest(patch.status === 'Completed' ? 'Use Finish project to deliver a project' : `Unknown project status ${patch.status}`);
-      if (target !== (existing.canonical_status || 'DRAFT')) {
-        if (!actor) throw badRequest('A signed-in user is required to change the project stage');
-        await projectLifecycleService.transition(id, target, {}, actor);
-      } else await projectRepository.update(id, { status: patch.status as any });
-    }
 
     const updated = await projectRepository.update(id, {
       ...(patch.name !== undefined && { name: patch.name }),
@@ -263,8 +255,23 @@ export const projectService = {
       ...(patch.budget !== undefined && { budget: patch.budget }),
       ...(patch.github !== undefined && { final_github: patch.github || null }),
       ...(patch.demoVideo !== undefined && { final_demo_video: patch.demoVideo || null }),
+      ...(patch.objective !== undefined && { objective: patch.objective || null }),
+      ...(patch.successCriteria !== undefined && { success_criteria_json: patch.successCriteria }),
+      ...(patch.targetDate !== undefined && { target_date: patch.targetDate }),
     });
     if (!updated) throw notFound('Project not found');
+
+    // Brief fields are saved first so one save can fill the brief and move the stage.
+    // The Edit modal re-sends the current legacy status on every save; only a
+    // real change is a lifecycle transition.
+    if (patch.status !== undefined && patch.status !== existing.status) {
+      const target = stageForLegacyStatus(patch.status);
+      if (!target) throw badRequest(patch.status === 'Completed' ? 'Use Finish project to deliver a project' : `Unknown project status ${patch.status}`);
+      if (target !== (existing.canonical_status || 'DRAFT')) {
+        if (!actor) throw badRequest('A signed-in user is required to change the project stage');
+        await projectLifecycleService.transition(id, target, { reason: 'Changed from Edit Project' }, actor);
+      } else await projectRepository.update(id, { status: patch.status as any });
+    }
 
     if (actor?.id) await activityLogRepository.create({
       action: 'Project Updated', user_id: actor.id, project_id: id,

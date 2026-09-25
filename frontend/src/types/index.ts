@@ -50,6 +50,9 @@ export interface Project {
   status: string;
   stage?: 'DRAFT' | 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED' | 'CANCELLED';
   kind?: 'DELIVERY' | 'STANDING';
+  objective?: string | null;
+  successCriteria?: string[];
+  targetDate?: string | null;
   priority: 'Low' | 'Medium' | 'High' | 'Critical';
   startDate?: string | null;
   estimatedCompletionDate?: string | null;
