@@ -62,8 +62,9 @@ export const taskWorkflowService = {
     return update;
   },
   async requestReview(taskId: string, reviewerUserId: string | undefined, actor: Actor) {
-    const { task, project } = await context(taskId, actor);
+    const { task, project, resource } = await context(taskId, actor);
     const reviewer = reviewerUserId || task.reviewer_user_id || project.owner_id;
+    if (reviewer === actor.id && !canManageProject(actor, resource)) throw badRequest('Choose someone else to review your task');
     await projectTaskRepository.update(taskId, { reviewer_user_id: reviewer, review_requested_at: new Date().toISOString() } as any);
     const result = await projectTaskService.update(task.project_id, taskId, { status: 'In Review' }, actor);
     await notificationService.notify(reviewer, 'review_request', 'Review requested', `${task.title} is ready for review.`, { link: `/projects/${task.project_id}`, relatedType: 'project_task', relatedId: taskId });
@@ -82,15 +83,18 @@ export const taskWorkflowService = {
     const { task, project, resource } = await context(taskId, actor, 'view');
     if (task.reviewer_user_id !== actor.id && !canManageProject(actor, resource)) throw forbidden('Only the reviewer or project Manager can reject this task');
     await projectTaskRepository.update(taskId, { review_note: note.trim(), reviewed_at: new Date().toISOString() } as any);
-    const result = await projectTaskService.update(task.project_id, taskId, { status: 'In Progress' }, actor);
+    const result = await projectTaskService.update(task.project_id, taskId, { status: 'In Progress' }, actor, { skipWipCheck: true });
     await activityLogRepository.create({ action: 'Task Review Rejected', user_id: actor.id, project_id: task.project_id, details: `${task.title} needs changes.`, event: { eventType: 'TASK_REVIEW_REJECTED', entityType: 'TASK', entityId: taskId, payload: { note } } });
     if (task.assigned_to) await notificationService.notify(task.assigned_to, 'review_rejected', 'Changes requested', `${task.title}: ${note}`, { link: `/projects/${project.id}`, relatedType: 'project_task', relatedId: taskId });
     return result;
   },
   async complete(taskId: string, input: { completionNote?: string; deliveredOutput?: string; reviewerUserId?: string }, actor: Actor) {
-    const { task } = await context(taskId, actor);
-    const reviewer = input.reviewerUserId || task.reviewer_user_id;
-    await projectTaskRepository.update(taskId, { completion_note: input.completionNote?.trim() || input.deliveredOutput?.trim() || null, reviewer_user_id: reviewer || null } as any);
-    return reviewer ? this.requestReview(taskId, reviewer, actor) : projectTaskService.update(task.project_id, taskId, { status: 'Completed' }, actor);
+    const { task, resource } = await context(taskId, actor);
+    // Only managers may close a task directly; everyone else goes through review (reviewer defaults to the project owner).
+    const reviewer = input.reviewerUserId || task.reviewer_user_id || undefined;
+    await projectTaskRepository.update(taskId, { completion_note: input.completionNote?.trim() || input.deliveredOutput?.trim() || null } as any);
+    return !reviewer && canManageProject(actor, resource)
+      ? projectTaskService.update(task.project_id, taskId, { status: 'Completed' }, actor)
+      : this.requestReview(taskId, reviewer, actor);
   },
 };

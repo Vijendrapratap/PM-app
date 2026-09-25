@@ -217,7 +217,8 @@ export const projectTaskService = {
     projectId: string,
     taskId: string,
     patch: TaskPatch,
-    actor: Actor
+    actor: Actor,
+    options: { skipWipCheck?: boolean } = {}
   ) {
     const existing = await projectTaskRepository.findById(taskId);
     if (!existing || existing.project_id !== projectId) throw notFound('Task not found');
@@ -233,7 +234,8 @@ export const projectTaskService = {
     const assignee = patch.assignedTo !== undefined ? patch.assignedTo : existing.assigned_to;
     const stageEnteringInProgress = nextStage === 'IN_PROGRESS' && taskStage(existing) !== 'IN_PROGRESS';
     const assigneeChanging = assignee !== existing.assigned_to;
-    if (resultingStage === 'IN_PROGRESS' && (stageEnteringInProgress || assigneeChanging) && assignee) {
+    // Blocked and "request changes" land in IN_PROGRESS without the assignee choosing to start new work.
+    if (!options.skipWipCheck && patch.status !== 'Blocked' && resultingStage === 'IN_PROGRESS' && (stageEnteringInProgress || assigneeChanging) && assignee) {
       const project = await projectRepository.findById(projectId);
       const gate = checkStartTask({ inProgressCount: await workGateRepository.inProgressCount(assignee, taskId), limits: await workGateRepository.limits(project.organization_id) });
       if (!gate.ok) throw new HttpError(gate.status, gate.message);
@@ -358,7 +360,8 @@ export const projectTaskService = {
     await assertCanManageTasks(projectId, actor);
     const existing = await projectTaskRepository.findById(taskId);
     if (!existing || existing.project_id !== projectId) throw notFound('Task not found');
-    const { count: logCount } = await supabase.from('work_logs').select('id', { count: 'exact', head: true }).eq('task_id', taskId);
+    const { count: logCount, error } = await supabase.from('work_logs').select('id', { count: 'exact', head: true }).eq('task_id', taskId);
+    if (error) throw error;
     if (logCount) throw badRequest('This task has logged work; cancel it instead');
     await projectTaskRepository.remove(taskId);
     await projectProgressService.sync(projectId);
