@@ -7,15 +7,17 @@ do $$ begin
   alter table projects add constraint projects_kind_check check (kind in ('DELIVERY', 'STANDING'));
 exception when duplicate_object then null; end $$;
 
--- canonical_status was only backfilled once (0012); projects created since
--- then have null. Map them the same way 0012 did.
+-- canonical_status was only backfilled once (0012) and nothing wrote it
+-- afterwards, so it is null or stale. Resync every delivery project from the
+-- legacy status with 0012's mapping. Archived projects keep the mapped stage
+-- (archiving is the separate `archived` flag, not the ARCHIVED stage).
 update projects set canonical_status = case status::text
   when 'Draft' then 'DRAFT' when 'Saved' then 'DRAFT'
   when 'Planning' then 'PLANNING'
   when 'In Progress' then 'ACTIVE' when 'Review' then 'ACTIVE' when 'Testing' then 'ACTIVE'
   when 'Completed' then 'COMPLETED' when 'Cancelled' then 'CANCELLED' when 'On Hold' then 'ON_HOLD'
   else 'DRAFT' end
-where canonical_status is null;
+where kind = 'DELIVERY';
 alter table projects alter column canonical_status set default 'DRAFT';
 
 -- Standing ops projects: one per active department, owned by its lead (or
