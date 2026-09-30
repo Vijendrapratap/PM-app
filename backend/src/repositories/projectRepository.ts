@@ -22,8 +22,8 @@ export const projectRepository = {
     return data;
   },
 
-  async findAll(includeArchived = false) {
-    let query = supabase.from('projects').select(PROJECT_SELECT).order('created_at', { ascending: false });
+  async findAll(organizationId: string, includeArchived = false) {
+    let query = supabase.from('projects').select(PROJECT_SELECT).eq('organization_id', organizationId).order('created_at', { ascending: false });
     if (!includeArchived) query = query.eq('archived', false);
     const { data, error } = await query;
     if (error) throw error;

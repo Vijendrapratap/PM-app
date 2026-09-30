@@ -160,10 +160,11 @@ export const projectService = {
   },
 
   async getProjects(includeArchived = false, actor?: Actor) {
-    const rows = actor && !canViewAllProjects(actor.role)
-      ? await projectRepository.findForUser(actor.id, includeArchived)
-      : await projectRepository.findAll(includeArchived);
-    return rows.map(mapProject);
+    if (actor && !canViewAllProjects(actor.role)) {
+      return (await projectRepository.findForUser(actor.id, includeArchived)).map(mapProject);
+    }
+    if (!actor?.organizationId) throw badRequest('Your account is not assigned to an organization');
+    return (await projectRepository.findAll(actor.organizationId, includeArchived)).map(mapProject);
   },
 
   async getProjectById(id: string) {

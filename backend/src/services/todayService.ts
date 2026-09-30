@@ -62,7 +62,7 @@ export const todayService = {
       workdayService.getCarryover(actor),
       projectTaskRepository.findAssignedToUser(actor.id),
       notificationRepository.findForUser(actor.id, 10),
-      isSuperAdmin(actor.role) ? projectRepository.findAll() : projectRepository.findForUser(actor.id),
+      isSuperAdmin(actor.role) ? projectRepository.findAll(actor.organizationId!) : projectRepository.findForUser(actor.id),
     ]);
 
     const assigned = assignedRows.map(mapTask);

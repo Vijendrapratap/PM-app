@@ -4,10 +4,12 @@ import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { workdayRepository } from '../repositories/workdayRepository';
 import { workDateForTimezone } from '../utils/workDate';
 import { canViewAllProjects, isManager } from '../utils/roles';
+import { badRequest } from '../utils/httpError';
 interface Actor { id: string; role: string; organizationId?: string; departmentId?: string | null; timezone?: string }
 export const reportService = {
   async overview(actor: Actor) {
-    const projects: any[] = canViewAllProjects(actor.role) ? await projectRepository.findAll() : await projectRepository.findForUser(actor.id);
+    if (canViewAllProjects(actor.role) && !actor.organizationId) throw badRequest('Your account is not assigned to an organization');
+    const projects: any[] = canViewAllProjects(actor.role) ? await projectRepository.findAll(actor.organizationId!) : await projectRepository.findForUser(actor.id);
     const taskGroups = await Promise.all(projects.map(async (project) => ({ project, tasks: await projectTaskRepository.findForProject(project.id) })));
     const tasks = taskGroups.flatMap((group) => group.tasks.map((task: any) => ({ ...task, projectName: group.project.name })));
     const active = projects.filter((project) => !['Completed', 'COMPLETED', 'Archived', 'ARCHIVED', 'Cancelled', 'CANCELLED'].includes(project.status));
