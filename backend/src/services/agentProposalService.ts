@@ -5,6 +5,7 @@ import { projectRepository } from '../repositories/projectRepository';
 import { agentWorkflowService } from './agentWorkflowService';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { canApproveAgentWork, canViewAllProjects } from '../utils/roles';
+import { canManageProject, toPolicyResource } from '../policies/accessPolicy';
 import { validateAgentProposalActions } from '../utils/agentProposalValidation';
 interface Actor { id: string; role: string }
 const assertProposalAccess = async (proposal: any, actor: Actor, approve = false) => {
@@ -17,12 +18,15 @@ export const agentProposalService = {
   async get(id: string, actor: Actor) { const proposal = await agentProposalRepository.findById(id); if (!proposal) throw notFound('Agent proposal not found'); await assertProposalAccess(proposal, actor); return proposal; },
   async apply(id: string, actor: Actor) {
     const proposal = await agentProposalRepository.findById(id); if (!proposal) throw notFound('Agent proposal not found'); await assertProposalAccess(proposal, actor, true);
+    if (!proposal.project_id) throw badRequest('Proposal is not linked to a project');
+    const project = await projectRepository.findById(proposal.project_id);
+    if (!project) throw notFound('Project not found');
+    if (!canManageProject(actor, toPolicyResource(project))) throw forbidden('Only the CEO, the vertical head, or a manager of this project can apply this proposal');
     if (proposal.status === 'APPLIED') return proposal;
     const actions = Array.isArray(proposal.actions_json) ? proposal.actions_json : [];
     if (!validateAgentProposalActions(actions)) throw badRequest('Proposal contains an action outside the application-service allowlist');
     const publish = actions.find((action: any) => action.type === 'PUBLISH_PLAN');
     const approveDocument = actions.find((action: any) => action.type === 'APPROVE_DOCUMENT');
-    if (!proposal.project_id) throw badRequest('Proposal is not linked to a project');
     if (publish?.planId) await agentWorkflowService.approvePlan(proposal.project_id, String(publish.planId), actor);
     else if (approveDocument?.versionId) await agentWorkflowService.approveDocumentVersion(proposal.project_id, String(approveDocument.versionId), actor);
     else throw badRequest('Proposal contains no supported structural actions');

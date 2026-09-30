@@ -1,4 +1,4 @@
-import { canManageProject, canViewProject, toPolicyResource } from '../policies/accessPolicy';
+import { canManageProject, toPolicyResource } from '../policies/accessPolicy';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectRepository } from '../repositories/projectRepository';
@@ -15,20 +15,13 @@ const assertManage = async (projectId: string, actor: Actor) => {
   return project;
 };
 
-const assertContribute = async (projectId: string, actor: Actor) => {
-  const project = await projectRepository.findById(projectId);
-  if (!project) throw notFound('Project not found');
-  if (!canViewProject(actor, toPolicyResource(project))) throw forbidden('Only assigned project members can add milestones');
-  if (project.is_locked || project.status === 'Completed') throw badRequest('Completed projects are read-only');
-  return project;
-};
-
 export const hierarchyService = {
   async list(projectId: string) {
     return hierarchyRepository.listMilestones(projectId);
   },
   async createMilestone(projectId: string, input: any, actor: Actor) {
-    await assertContribute(projectId, actor);
+    // Milestone creation is a structural write, same gate as update/archive.
+    await assertManage(projectId, actor);
     const milestone = await hierarchyRepository.createMilestone({
       project_id: projectId, name: input.name.trim(), description: input.description?.trim() || null,
       sequence: input.sequence || 0, owner_user_id: input.ownerUserId || null,

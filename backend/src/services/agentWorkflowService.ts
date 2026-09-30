@@ -6,6 +6,7 @@ import { notificationService } from './notificationService';
 import { getAgentDraftProvider, getAgentDraftProviderStatus } from './openAIAgentDraftProvider';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { canApproveAgentWork, canViewAllProjects, isLead } from '../utils/roles';
+import { canManageProject, toPolicyResource } from '../policies/accessPolicy';
 import { ProjectPlanContent } from '../types/models';
 import { agentProposalRepository } from '../repositories/agentProposalRepository';
 import { logger } from '../config/logger';
@@ -122,12 +123,18 @@ const assertProjectView = async (projectId: string, actor: Actor) => {
   return project;
 };
 
-const assertDraftEdit = async (projectId: string, actor: Actor) => {
+// Editing, approving, publishing or regenerating agent drafts is a structural
+// write on the project: CEO, the vertical head, or a manager of this project.
+// Pure reads (getWorkspace/listDocuments/getDocument) stay on assertProjectView.
+const assertProjectManage = async (projectId: string, actor: Actor) => {
   const project = await assertProjectView(projectId, actor);
-  if (canApproveAgentWork(actor.role)) return project;
-  if (isLead(actor.role) && await projectRepository.isMemberAssigned(projectId, actor.id)) return project;
-  throw forbidden('Only a Project Manager, Super Admin, or assigned Lead can edit agent drafts');
+  if (!canManageProject(actor, toPolicyResource(project))) {
+    throw forbidden('Only the CEO, the vertical head, or a manager of this project can change its agent work');
+  }
+  return project;
 };
+
+const assertDraftEdit = assertProjectManage;
 
 const assertApproval = (actor: Actor) => {
   if (!canApproveAgentWork(actor.role)) throw forbidden('Only a Project Manager or Super Admin can approve agent work');
@@ -270,7 +277,7 @@ export const agentWorkflowService = {
 
   async approvePlan(projectId: string, planId: string, actor: Actor) {
     assertApproval(actor);
-    const project = await assertProjectView(projectId, actor);
+    const project = await assertProjectManage(projectId, actor);
     const plan = await agentWorkflowRepository.findPlanById(planId);
     if (!plan || plan.project_id !== projectId) throw notFound('Plan version not found');
     const content = plan.content as ProjectPlanContent;
@@ -375,7 +382,7 @@ export const agentWorkflowService = {
 
   async approveDocumentVersion(projectId: string, versionId: string, actor: Actor) {
     assertApproval(actor);
-    const project = await assertProjectView(projectId, actor);
+    const project = await assertProjectManage(projectId, actor);
     const version = await agentWorkflowRepository.findDocumentVersionById(versionId);
     if (!version || version.document?.project_id !== projectId) throw notFound('Document version not found');
     let proposal = version.agent_run_id ? await agentProposalRepository.findForRun(version.agent_run_id) : null;
