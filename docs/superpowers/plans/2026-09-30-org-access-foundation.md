@@ -322,12 +322,12 @@ const call = async (token: string, method: string, path: string, body?: unknown)
   return { status: response.status, body: await response.json().catch(() => null) };
 };
 
-let ceo: Awaited<ReturnType<typeof login>>, satyam: typeof ceo, govind: typeof ceo, disha: typeof ceo;
+let ceo: Awaited<ReturnType<typeof login>>, satyam: typeof ceo, govind: typeof ceo, anush: typeof ceo, disha: typeof ceo;
 let verticals: any[];
-let aptusProjectId: string, frontdeskProjectId: string;
+let aptusProjectId: string, frontdeskProjectId: string, smartHomesProjectId: string;
 
 before(async () => {
-  [ceo, satyam, govind, disha] = await Promise.all(['vijendra', 'satyam', 'govind', 'disha'].map((name) => login(`${name}@pratap.local`)));
+  [ceo, satyam, govind, anush, disha] = await Promise.all(['vijendra', 'satyam', 'govind', 'anush', 'disha'].map((name) => login(`${name}@pratap.local`)));
   verticals = (await call(ceo.token, 'GET', '/verticals')).body;
   const byCode = (code: string) => verticals.find((v) => v.code === code)._id;
   const { data: org } = await supabase.from('users').select('organization_id').eq('id', ceo.id).single();
@@ -335,8 +335,9 @@ before(async () => {
   const { data: rows } = await supabase.from('projects').insert([
     { name: `IT vert aptus ${stamp}`, organization_id: org!.organization_id, owner_id: ceo.id, created_by: ceo.id, vertical_id: byCode('APTUSHIRE'), status: 'Draft', canonical_status: 'DRAFT' },
     { name: `IT vert frontdesk ${stamp}`, organization_id: org!.organization_id, owner_id: ceo.id, created_by: ceo.id, vertical_id: byCode('FRONTDESK'), status: 'Draft', canonical_status: 'DRAFT' },
+    { name: `IT vert smarthomes ${stamp}`, organization_id: org!.organization_id, owner_id: ceo.id, created_by: ceo.id, vertical_id: byCode('SMARTHOMES'), status: 'Draft', canonical_status: 'DRAFT' },
   ]).select('id');
-  [aptusProjectId, frontdeskProjectId] = rows!.map((row) => row.id);
+  [aptusProjectId, frontdeskProjectId, smartHomesProjectId] = rows!.map((row) => row.id);
 });
 
 test('verticals list the five brands with their heads', () => {
@@ -350,6 +351,17 @@ test('a head sees every project but edits only their own vertical', async () => 
   assert.equal((await call(satyam.token, 'PUT', `/projects/${aptusProjectId}`, { description: 'head edit' })).status, 200);
   assert.equal((await call(satyam.token, 'PUT', `/projects/${frontdeskProjectId}`, { description: 'not mine' })).status, 403);
   assert.equal((await call(govind.token, 'PUT', `/projects/${frontdeskProjectId}`, { description: 'mine' })).status, 200);
+});
+
+test('a Lead-titled head (Anush) manages SmartHomes and nothing else', async () => {
+  assert.equal((await call(anush.token, 'PUT', `/projects/${smartHomesProjectId}`, { description: 'head edit' })).status, 200);
+  assert.equal((await call(anush.token, 'PUT', `/projects/${frontdeskProjectId}`, { description: 'not mine' })).status, 403);
+});
+
+test('an intern (Disha) cannot edit any vertical project', async () => {
+  for (const id of [aptusProjectId, frontdeskProjectId, smartHomesProjectId]) {
+    assert.equal((await call(disha.token, 'PUT', `/projects/${id}`, { description: 'intern edit' })).status, 403);
+  }
 });
 
 test('only the CEO or the target vertical head can move a project into a vertical', async () => {
@@ -561,7 +573,7 @@ lsof -ti:5000 -sTCP:LISTEN | xargs -r kill; (cd backend && nohup npx tsx src/ser
 cd backend && npm test 2>&1 | grep -E "^ℹ (pass|fail)" && npx tsc --noEmit -p . && npm run test:integration 2>&1 | grep -E "✖|^ℹ (pass|fail)"
 ```
 
-Expected: unit tests all pass, and integration shows `fail 0` with the 4 new vertical tests passing.
+Expected: unit tests all pass, and integration shows `fail 0` with the 6 new vertical tests passing.
 
 - [ ] **Step 9: Commit**
 
