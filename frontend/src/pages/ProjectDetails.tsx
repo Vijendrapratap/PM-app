@@ -83,7 +83,7 @@ const ProjectDetails = () => {
     <header className="project-hero-header">
       <div className="project-hero-main">
         <div className="project-hero-copy">
-          <span className="project-hero-eyebrow">{project.department || 'General'} · {project.category || 'Delivery project'}</span>
+          <span className="project-hero-eyebrow">{project.vertical?.name || 'No vertical'} · {project.department || 'General'} · {project.category || 'Delivery project'}</span>
           <div className="project-title-line">
             <h1>{project.name}</h1>
             <span className={`badge ${getStatusBadge(project.status)}`}>{project.status}</span>

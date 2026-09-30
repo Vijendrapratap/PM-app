@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, FolderKanban, Calendar, Users, Pencil, Archive, ArchiveRestore, Trash2, SlidersHorizontal, ArrowUpDown, MoreHorizontal, Flag } from 'lucide-react';
 import CreateProjectModal from '../components/CreateProjectModal';
@@ -8,9 +8,9 @@ import { useProjects } from '../hooks/useProjects';
 import { useAuth } from '../context/AuthContext';
 import { canApproveAgentWork } from '../utils/roles';
 import { projectApi } from '../api/projectApi';
+import { verticalApi, type Vertical } from '../api/verticalApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { Project } from '../types';
-import { getProjectPortfolio, PROJECT_PORTFOLIOS } from '../utils/projectTaxonomy';
 import { projectProgressLabel, projectProgressTone } from '../utils/projectProgress';
 
 const getProjectDeadline = (project: Project) => {
@@ -49,7 +49,9 @@ const Projects = () => {
   const [statusFilter, setStatusFilter] = useState('All');
   const [deadlineFilter, setDeadlineFilter] = useState('All');
   const [priorityFilter, setPriorityFilter] = useState('All');
-  const portfolioFilter = searchParams.get('portfolio') || 'All';
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
+  useEffect(() => { verticalApi.list().then(setVerticals).catch(() => setVerticals([])); }, []);
+  const verticalFilter = searchParams.get('vertical') || 'All';
   const [sortBy, setSortBy] = useState('recent');
 
   const projects = allProjects.filter((p) => p.status !== 'Completed' && (showArchived || !p.archived));
@@ -71,7 +73,7 @@ const Projects = () => {
         && (statusFilter === 'All' || project.status === statusFilter)
         && (priorityFilter === 'All' || project.priority === priorityFilter)
         && matchesDeadline
-        && (portfolioFilter === 'All' || getProjectPortfolio(project) === portfolioFilter);
+        && (verticalFilter === 'All' || (verticalFilter === 'NONE' ? !project.vertical : project.vertical?._id === verticalFilter));
     })
     .sort((a, b) => {
       if (sortBy === 'deadline') {
@@ -149,7 +151,7 @@ const Projects = () => {
     navigate(`/projects/${project._id}`);
   };
 
-  const hasActiveFilters = Boolean(search.trim()) || statusFilter !== 'All' || priorityFilter !== 'All' || deadlineFilter !== 'All' || portfolioFilter !== 'All';
+  const hasActiveFilters = Boolean(search.trim()) || statusFilter !== 'All' || priorityFilter !== 'All' || deadlineFilter !== 'All' || verticalFilter !== 'All';
   const clearFilters = () => {
     setSearch('');
     setStatusFilter('All');
@@ -187,16 +189,17 @@ const Projects = () => {
         </div>
       )}
 
-      {/* Compact portfolio controls: search, filter and sort without changing navigation. */}
+      {/* Compact toolbar: search, filter and sort without changing navigation. */}
       <div className="project-toolbar">
         <label className="project-search">
           <Search size={16} />
           <input type="search" placeholder="Search name, category or department" value={search} onChange={e => setSearch(e.target.value)} />
         </label>
-        <label className="project-select"><FolderKanban size={14} /><span>Domain</span>
-          <select value={portfolioFilter} onChange={(e) => setSearchParams(e.target.value === 'All' ? {} : { portfolio: e.target.value })}>
-            <option value="All">All portfolios</option>
-            {PROJECT_PORTFOLIOS.map((portfolio) => <option key={portfolio} value={portfolio}>{portfolio}</option>)}
+        <label className="project-select"><FolderKanban size={14} /><span>Vertical</span>
+          <select value={verticalFilter} onChange={(e) => setSearchParams(e.target.value === 'All' ? {} : { vertical: e.target.value })}>
+            <option value="All">All verticals</option>
+            {verticals.map((vertical) => <option key={vertical._id} value={vertical._id}>{vertical.name}</option>)}
+            <option value="NONE">No vertical</option>
           </select>
         </label>
         <label className="project-select"><SlidersHorizontal size={14} /><span>Status</span>
@@ -233,11 +236,11 @@ const Projects = () => {
         </label>
       </div>
 
-      <div className="project-domain-strip" aria-label="Project portfolios">
-        <button className={portfolioFilter === 'All' ? 'active' : ''} onClick={() => setSearchParams({})}><span>All work</span><strong>{projects.length}</strong></button>
-        {PROJECT_PORTFOLIOS.map((portfolio) => {
-          const count = projects.filter((project) => getProjectPortfolio(project) === portfolio).length;
-          return <button key={portfolio} className={portfolioFilter === portfolio ? 'active' : ''} onClick={() => setSearchParams({ portfolio })}><span>{portfolio}</span><strong>{count}</strong></button>;
+      <div className="project-domain-strip" aria-label="Project verticals">
+        <button className={verticalFilter === 'All' ? 'active' : ''} onClick={() => setSearchParams({})}><span>All work</span><strong>{projects.length}</strong></button>
+        {verticals.map((vertical) => {
+          const count = projects.filter((project) => project.vertical?._id === vertical._id).length;
+          return <button key={vertical._id} className={verticalFilter === vertical._id ? 'active' : ''} onClick={() => setSearchParams({ vertical: vertical._id })}><span>{vertical.name}</span><strong>{count}</strong></button>;
         })}
       </div>
 
@@ -254,7 +257,7 @@ const Projects = () => {
             <div className="empty-state-icon"><FolderKanban size={28} /></div>
             <div className="empty-state-title">{hasActiveFilters ? 'No projects match these filters' : 'No Active Projects'}</div>
             <div className="empty-state-desc">
-              {hasActiveFilters ? 'Adjust the deadline, priority, status, or portfolio filters.' : 'Create your first project to get started.'}
+              {hasActiveFilters ? 'Adjust the deadline, priority, status, or vertical filters.' : 'Create your first project to get started.'}
             </div>
             {hasActiveFilters ? (
               <button className="btn btn-secondary" onClick={clearFilters}>Clear filters</button>
@@ -288,7 +291,7 @@ const Projects = () => {
 
                 <div className="project-row-identity">
                   <div className="project-card-title">{project.name}</div>
-                  <div className="project-card-context">{getProjectPortfolio(project)}{project.category ? ` · ${project.category}` : ''}</div>
+                  <div className="project-card-context">{project.vertical?.name || 'No vertical'}{project.category ? ` · ${project.category}` : ''}</div>
                   <p className="project-card-desc">{project.description || 'No description provided.'}</p>
                 </div>
 

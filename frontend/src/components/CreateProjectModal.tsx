@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import { X, UploadCloud, Paperclip, Search, Users, Bot, PenLine, ArrowLeft, ArrowRight, Check } from 'lucide-react';
 import { userApi } from '../api/userApi';
 import { projectApi } from '../api/projectApi';
+import { verticalApi, type Vertical } from '../api/verticalApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { User } from '../types';
 import type { Project } from '../types';
@@ -15,12 +16,14 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
     description: '',
     category: '',
     department: '',
+    verticalId: '',
     priority: 'Medium',
     startDate: '',
     estimatedCompletionDate: '',
     budget: '',
     tags: '',
   });
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
   const [teamMembers, setTeamMembers] = useState<User[]>([]);
   const [memberSearch, setMemberSearch] = useState('');
   const [selectedMembers, setSelectedMembers] = useState<string[]>([]);
@@ -44,6 +47,7 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
     };
 
     fetchMembers();
+    verticalApi.list().then(setVerticals).catch(() => setVerticals([]));
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -150,6 +154,15 @@ const CreateProjectModal = ({ onClose, onSuccess }: { onClose: () => void; onSuc
                 <label className="form-label">Department</label>
                 <input type="text" className="form-input" placeholder="e.g. Design, Backend" value={form.department} onChange={set('department')} />
               </div>
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Vertical
+                <select className="form-select" value={form.verticalId} onChange={set('verticalId')}>
+                  <option value="">No vertical</option>
+                  {verticals.filter((vertical) => vertical.active).map((vertical) => <option key={vertical._id} value={vertical._id}>{vertical.name}{vertical.head ? ` · ${vertical.head.name}${vertical.head.active ? '' : ' (head inactive)'}` : ' · no head'}</option>)}
+                </select>
+              </label>
             </div>
 
             {/* Row 4 */}

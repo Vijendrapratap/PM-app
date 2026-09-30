@@ -1,15 +1,19 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { X, Pencil } from 'lucide-react';
 import { projectApi } from '../api/projectApi';
+import { verticalApi, type Vertical } from '../api/verticalApi';
 import { getErrorMessage } from '../utils/errorMessage';
 import type { Project } from '../types';
 
 const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; onClose: () => void; onSuccess: () => void }) => {
+  const [verticals, setVerticals] = useState<Vertical[]>([]);
+  useEffect(() => { verticalApi.list().then(setVerticals).catch(() => setVerticals([])); }, []);
   const [form, setForm] = useState({
     name: project.name,
     description: project.description ?? '',
     category: project.category ?? '',
     department: project.department ?? '',
+    verticalId: project.vertical?._id ?? '',
     priority: project.priority,
     startDate: project.startDate?.slice(0, 10) ?? '',
     estimatedCompletionDate: project.estimatedCompletionDate?.slice(0, 10) ?? '',
@@ -101,6 +105,14 @@ const EditProjectModal = ({ project, onClose, onSuccess }: { project: Project; o
                 <label className="form-label">Department</label>
                 <input type="text" className="form-input" value={form.department} onChange={set('department')} />
               </div>
+            </div>
+            <div className="form-group">
+              <label className="form-label">Vertical
+                <select className="form-select" value={form.verticalId} onChange={set('verticalId')}>
+                  <option value="">No vertical</option>
+                  {verticals.filter((vertical) => vertical.active).map((vertical) => <option key={vertical._id} value={vertical._id}>{vertical.name}{vertical.head ? ` · ${vertical.head.name}${vertical.head.active ? '' : ' (head inactive)'}` : ' · no head'}</option>)}
+                </select>
+              </label>
             </div>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
               <div className="form-group">

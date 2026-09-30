@@ -6,6 +6,7 @@ export interface UpsertProjectPayload {
   description?: string;
   category?: string;
   department?: string;
+  verticalId?: string;
   priority?: string;
   startDate?: string;
   estimatedCompletionDate?: string;

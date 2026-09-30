@@ -47,6 +47,7 @@ export interface Project {
   description?: string | null;
   category?: string | null;
   department?: string | null;
+  vertical?: { _id: string; name: string; code: string } | null;
   status: string;
   stage?: 'DRAFT' | 'PLANNING' | 'ACTIVE' | 'ON_HOLD' | 'COMPLETED' | 'ARCHIVED' | 'CANCELLED';
   kind?: 'DELIVERY' | 'STANDING';
