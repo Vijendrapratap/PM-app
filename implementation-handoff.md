@@ -8,7 +8,7 @@
 - Plan approval triggers the Business Analyst Agent, which creates a versioned BRD draft. Approval is explicit and version-bound.
 - Project Plan and Documents tabs, document history, agent status, review actions, notifications, activity entries, and the dashboard approval queue are implemented.
 - The daily Workday flow supports check-in commitments, progress/blockers, closeout, manager team pulse, and a closeout reminder on sign-out.
-- Draft generation uses the local structured provider by default. A backend-only `OPENROUTER_API_KEY` switches it to OpenRouter (`deepseek/deepseek-v4-flash` by default); direct OpenAI remains supported as a secondary hosted option.
+- Draft generation uses the local structured provider by default. A backend-only `OPENROUTER_API_KEY` switches it to OpenRouter (`deepseek/deepseek-v4.1-flash` by default); direct OpenAI remains supported as a secondary hosted option.
 
 ### Activation
 
