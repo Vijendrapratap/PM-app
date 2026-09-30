@@ -1,4 +1,4 @@
-import { canManageProject, canUpdateTask, canViewProject } from '../policies/accessPolicy';
+import { canManageProject, canUpdateTask, canViewProject, toPolicyResource } from '../policies/accessPolicy';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { projectRepository } from '../repositories/projectRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
@@ -9,17 +9,12 @@ import { projectTaskService } from './projectTaskService';
 
 interface Actor { id: string; role: string; organizationId?: string; departmentId?: string | null }
 
-const resourceFor = (project: any) => ({
-  organizationId: project.organization_id, departmentId: project.department_id, ownerUserId: project.owner_id,
-  members: (project.project_members || []).map((membership: any) => ({ userId: membership.user?.id, projectRole: membership.project_role, permissions: membership.permissions_json })),
-});
-
 const context = async (taskId: string, actor: Actor, mode: 'view' | 'update' | 'manage' = 'update') => {
   const task = await projectTaskRepository.findById(taskId);
   if (!task) throw notFound('Task not found');
   const project = await projectRepository.findById(task.project_id);
   if (!project) throw notFound('Project not found');
-  const resource = resourceFor(project);
+  const resource = toPolicyResource(project);
   const allowed = mode === 'manage' ? canManageProject(actor, resource) : mode === 'view' ? canViewProject(actor, resource) : canUpdateTask(actor, resource, task.assigned_to);
   if (!allowed) throw forbidden('You do not have permission to perform this task action');
   if (project.is_locked || project.status === 'Completed') throw badRequest('Completed projects are read-only');

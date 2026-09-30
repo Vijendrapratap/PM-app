@@ -1,4 +1,4 @@
-import { canManageProject, canViewProject } from '../policies/accessPolicy';
+import { canManageProject, canViewProject, toPolicyResource } from '../policies/accessPolicy';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectRepository } from '../repositories/projectRepository';
@@ -7,17 +7,10 @@ import { notificationService } from './notificationService';
 
 interface Actor { id: string; role: string; organizationId?: string; departmentId?: string | null }
 
-const projectResource = (project: any) => ({
-  organizationId: project.organization_id,
-  departmentId: project.department_id,
-  ownerUserId: project.owner_id,
-  members: (project.project_members || []).map((membership: any) => ({ userId: membership.user?.id, projectRole: membership.project_role, permissions: membership.permissions_json })),
-});
-
 const assertManage = async (projectId: string, actor: Actor) => {
   const project = await projectRepository.findById(projectId);
   if (!project) throw notFound('Project not found');
-  if (!canManageProject(actor, projectResource(project))) throw forbidden('Only a Manager in this project can change its structure');
+  if (!canManageProject(actor, toPolicyResource(project))) throw forbidden('Only a Manager in this project can change its structure');
   if (project.is_locked || project.status === 'Completed') throw badRequest('Completed projects are read-only');
   return project;
 };
@@ -25,7 +18,7 @@ const assertManage = async (projectId: string, actor: Actor) => {
 const assertContribute = async (projectId: string, actor: Actor) => {
   const project = await projectRepository.findById(projectId);
   if (!project) throw notFound('Project not found');
-  if (!canViewProject(actor, projectResource(project))) throw forbidden('Only assigned project members can add milestones');
+  if (!canViewProject(actor, toPolicyResource(project))) throw forbidden('Only assigned project members can add milestones');
   if (project.is_locked || project.status === 'Completed') throw badRequest('Completed projects are read-only');
   return project;
 };

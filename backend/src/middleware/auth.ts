@@ -4,7 +4,7 @@ import { canApproveAgentWork, isSuperAdmin, toPlatformRole } from '../utils/role
 import { projectRepository } from '../repositories/projectRepository';
 import { userRepository } from '../repositories/userRepository';
 import { param } from '../utils/params';
-import { canViewProject } from '../policies/accessPolicy';
+import { canManageProject, canViewProject, toPolicyResource } from '../policies/accessPolicy';
 
 // Re-checks the user's current status on every request (not just at login) so
 // that deactivating/deleting a user revokes access immediately instead of
@@ -97,16 +97,7 @@ export const requireProjectAccess = async (req: Request, res: Response, next: Ne
       res.status(404).json({ message: 'Project not found' });
       return;
     }
-    const resource = {
-      organizationId: project.organization_id,
-      departmentId: project.department_id,
-      ownerUserId: project.owner_id,
-      members: (project.project_members || []).map((membership: any) => ({
-        userId: membership.user?.id,
-        projectRole: membership.project_role,
-        permissions: membership.permissions_json,
-      })),
-    };
+    const resource = toPolicyResource(project);
     if (canViewProject(req.user, resource)) {
       next();
       return;
@@ -115,6 +106,18 @@ export const requireProjectAccess = async (req: Request, res: Response, next: Ne
   } catch (error) {
     next(error);
   }
+};
+
+// Write routes: CEO, or a manager who can manage this project (owner, vertical head, manager member).
+export const requireProjectManage = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+  if (!req.user) { res.status(401).json({ message: 'Not authorized' }); return; }
+  if (isSuperAdmin(req.user.platformRole)) { next(); return; }
+  try {
+    const project = await projectRepository.findById(param(req, 'id'));
+    if (!project) { res.status(404).json({ message: 'Project not found' }); return; }
+    if (canManageProject(req.user, toPolicyResource(project))) { next(); return; }
+    res.status(403).json({ message: 'Only the CEO, the vertical head or a manager of this project can change it' });
+  } catch (error) { next(error); }
 };
 
 export const requireCEO = requireSuperAdmin;

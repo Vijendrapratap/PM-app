@@ -11,7 +11,7 @@ import { badRequest, forbidden, notFound } from '../utils/httpError';
 import { canApproveAgentWork, canViewAllProjects, isSuperAdmin } from '../utils/roles';
 import { agentWorkflowService } from './agentWorkflowService';
 import { logger } from '../config/logger';
-import { canManageProject, canViewProject } from '../policies/accessPolicy';
+import { canManageProject, canViewProject, toPolicyResource } from '../policies/accessPolicy';
 import { blockerRepository } from '../repositories/blockerRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
@@ -66,32 +66,14 @@ export const projectService = {
   async assertProjectEditAccess(projectId: string, actor: Actor) {
     const project = await projectRepository.findById(projectId);
     if (!project) throw notFound('Project not found');
-    if (canManageProject(actor, {
-      organizationId: project.organization_id,
-      departmentId: project.department_id,
-      ownerUserId: project.owner_id,
-      members: (project.project_members || []).map((membership: any) => ({
-        userId: membership.user?.id,
-        projectRole: membership.project_role,
-        permissions: membership.permissions_json,
-      })),
-    })) return;
+    if (canManageProject(actor, toPolicyResource(project))) return;
     throw forbidden('Only the project owner or an assigned Manager can edit this project');
   },
 
   async assertProjectContributionAccess(projectId: string, actor: Actor) {
     const project = await projectRepository.findById(projectId);
     if (!project) throw notFound('Project not found');
-    if (canViewProject(actor, {
-      organizationId: project.organization_id,
-      departmentId: project.department_id,
-      ownerUserId: project.owner_id,
-      members: (project.project_members || []).map((membership: any) => ({
-        userId: membership.user?.id,
-        projectRole: membership.project_role,
-        permissions: membership.permissions_json,
-      })),
-    })) return;
+    if (canViewProject(actor, toPolicyResource(project))) return;
     throw forbidden('Only assigned project members can post to this work log');
   },
 

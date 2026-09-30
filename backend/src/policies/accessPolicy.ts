@@ -17,6 +17,7 @@ export interface ProjectPolicyResource {
   organizationId?: string;
   departmentId?: string | null;
   ownerUserId: string;
+  verticalOwnerUserId?: string | null;
   members: ProjectMembershipPolicy[];
 }
 
@@ -26,11 +27,24 @@ const isSameOrganization = (actor: PolicyActor, resource: ProjectPolicyResource)
 const membershipFor = (actor: PolicyActor, resource: ProjectPolicyResource) =>
   resource.members.find((member) => member.userId === actor.id);
 
+// The one place a project row becomes a policy resource. PROJECT_SELECT joins `vertical`.
+export const toPolicyResource = (project: any): ProjectPolicyResource => ({
+  organizationId: project.organization_id,
+  departmentId: project.department_id,
+  ownerUserId: project.owner_id,
+  verticalOwnerUserId: project.vertical?.owner_user_id ?? null,
+  members: (project.project_members || []).map((membership: any) => ({
+    userId: membership.user?.id,
+    projectRole: membership.project_role,
+    permissions: membership.permissions_json,
+  })),
+});
+
 export const canInviteUsers = (actor: PolicyActor) => isSuperAdmin(actor.role);
 
 export const canViewProject = (actor: PolicyActor, resource: ProjectPolicyResource) => {
   if (!isSameOrganization(actor, resource)) return false;
-  if (isSuperAdmin(actor.role)) return true;
+  if (isSuperAdmin(actor.role) || isManager(actor.role)) return true;
   return resource.ownerUserId === actor.id || Boolean(membershipFor(actor, resource));
 };
 
@@ -39,6 +53,7 @@ export const canManageProject = (actor: PolicyActor, resource: ProjectPolicyReso
   if (isSuperAdmin(actor.role)) return true;
   if (!isManager(actor.role)) return false;
   if (resource.ownerUserId === actor.id) return true;
+  if (resource.verticalOwnerUserId && resource.verticalOwnerUserId === actor.id) return true;
   const membership = membershipFor(actor, resource);
   return Boolean(
     membership && (

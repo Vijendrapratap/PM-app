@@ -4,6 +4,7 @@ import { Project } from '../types/models';
 const PROJECT_SELECT = `
   *,
   owner:owner_id(id, name),
+  vertical:vertical_id(id, name, code, owner_user_id),
   project_members(project_role, permissions_json, joined_at, user:user_id(id, name, email, role, platform_role, designation, phone, department, department_id, status, photo)),
   project_initial_documents(id, name, storage_path, uploaded_at)
 `;

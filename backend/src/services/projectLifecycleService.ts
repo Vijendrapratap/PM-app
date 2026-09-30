@@ -1,4 +1,4 @@
-import { canManageProject } from '../policies/accessPolicy';
+import { canManageProject, toPolicyResource } from '../policies/accessPolicy';
 import { checkProjectTransition, type ProjectStage } from '../policies/workGatePolicy';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { projectRepository } from '../repositories/projectRepository';
@@ -9,11 +9,6 @@ import { mapProject } from './mappers';
 import { STAGE_TO_LEGACY } from './projectLifecycleStages';
 
 interface Actor { id: string; role: string; organizationId?: string; departmentId?: string | null }
-
-const resourceFor = (project: any) => ({
-  organizationId: project.organization_id, departmentId: project.department_id, ownerUserId: project.owner_id,
-  members: (project.project_members || []).map((membership: any) => ({ userId: membership.user?.id, projectRole: membership.project_role, permissions: membership.permissions_json })),
-});
 
 export const projectLifecycleService = {
   async transition(projectId: string, to: ProjectStage, options: { reason?: string; override?: boolean }, actor: Actor) {
@@ -27,7 +22,7 @@ export const projectLifecycleService = {
     ]);
     const result = checkProjectTransition({
       from, to, kind: project.kind || 'DELIVERY', isOwner: project.owner_id === actor.id,
-      canManage: canManageProject(actor, resourceFor(project)), isCeo: isSuperAdmin(actor.role),
+      canManage: canManageProject(actor, toPolicyResource(project)), isCeo: isSuperAdmin(actor.role),
       reason: options.reason, override: options.override, brief, activeCounts, limits,
     });
     if (!result.ok) throw new HttpError(result.status, result.message);

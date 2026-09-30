@@ -2,22 +2,11 @@ import { activityLogRepository } from '../repositories/activityLogRepository';
 import { blockerRepository } from '../repositories/blockerRepository';
 import { projectRepository } from '../repositories/projectRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
-import { canManageProject, canUpdateTask } from '../policies/accessPolicy';
+import { canManageProject, canUpdateTask, toPolicyResource } from '../policies/accessPolicy';
 import { notificationService } from './notificationService';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
 
 interface Actor { id: string; role: string; organizationId?: string; departmentId?: string | null }
-
-const resourceFor = (project: any) => ({
-  organizationId: project.organization_id,
-  departmentId: project.department_id,
-  ownerUserId: project.owner_id,
-  members: (project.project_members || []).map((membership: any) => ({
-    userId: membership.user?.id,
-    projectRole: membership.project_role,
-    permissions: membership.permissions_json,
-  })),
-});
 
 const toDto = (row: any) => ({
   _id: row.id,
@@ -52,7 +41,7 @@ export const blockerService = {
     if (!task) throw notFound('Task not found');
     const project = await projectRepository.findById(task.project_id);
     if (!project) throw notFound('Project not found');
-    if (!canUpdateTask(actor, resourceFor(project), task.assigned_to)) throw forbidden('You cannot report a blocker for this task');
+    if (!canUpdateTask(actor, toPolicyResource(project), task.assigned_to)) throw forbidden('You cannot report a blocker for this task');
     if (await blockerRepository.findOpenForTask(taskId)) throw badRequest('This task already has an active blocker');
 
     const blocker = await blockerRepository.create({
@@ -97,7 +86,7 @@ export const blockerService = {
     if (!project) throw notFound('Project not found');
     const blocker = await blockerRepository.findOpenForTask(taskId);
     if (!blocker) throw notFound('Active blocker not found');
-    if (blocker.reported_by !== actor.id && !canManageProject(actor, resourceFor(project))) throw forbidden('Only the reporter or a project Manager can resolve this blocker');
+    if (blocker.reported_by !== actor.id && !canManageProject(actor, toPolicyResource(project))) throw forbidden('Only the reporter or a project Manager can resolve this blocker');
     const resolvedAt = new Date().toISOString();
     const updated = await blockerRepository.update(blocker.id, {
       status: 'RESOLVED', resolution_note: input.resolutionNote.trim(), resolved_at: resolvedAt,

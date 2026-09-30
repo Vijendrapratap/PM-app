@@ -30,9 +30,8 @@ export const isLead = (role: string | undefined): boolean => role === 'Lead';
 export const isManager = (role: string | undefined): boolean => toPlatformRole(role) === 'MANAGER';
 export const canApproveAgentWork = (role: string | undefined): boolean =>
   ['CEO', 'MANAGER'].includes(toPlatformRole(role));
-// Kept for existing call sites. New project reads use scoped policy checks;
-// this helper only represents authority level, not access to every project.
-export const canViewAllProjects = (role: string | undefined): boolean => isSuperAdmin(role);
+// Heads see everything; what they may change is decided per project by canManageProject.
+export const canViewAllProjects = (role: string | undefined): boolean => ['CEO', 'MANAGER'].includes(toPlatformRole(role));
 export const isValidRole = (role: string): role is Role => (ROLES as readonly string[]).includes(role);
 export const isValidPlatformRole = (role: string): role is PlatformRole =>
   (PLATFORM_ROLES as readonly string[]).includes(role);

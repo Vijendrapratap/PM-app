@@ -6,7 +6,7 @@ import { mapDocument } from './mappers';
 import { notFound, forbidden, badRequest, HttpError } from '../utils/httpError';
 import { isManager, isSuperAdmin } from '../utils/roles';
 import { ProjectTask, ProjectTaskSubtask } from '../types/models';
-import { canManageProject } from '../policies/accessPolicy';
+import { canManageProject, toPolicyResource } from '../policies/accessPolicy';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectProgressService } from './projectProgressService';
@@ -25,16 +25,7 @@ type TaskPatch = { title?: string; description?: string; blockerReason?: string;
 // tasks and subtasks) - assigned members work the list, they don't curate it.
 const assertCanManageTasks = async (projectId: string, actor: Actor) => {
   const project = await projectRepository.findById(projectId);
-  if (project && canManageProject(actor, {
-    organizationId: project.organization_id,
-    departmentId: project.department_id,
-    ownerUserId: project.owner_id,
-    members: (project.project_members || []).map((membership: any) => ({
-      userId: membership.user?.id,
-      projectRole: membership.project_role,
-      permissions: membership.permissions_json,
-    })),
-  })) return;
+  if (project && canManageProject(actor, toPolicyResource(project))) return;
   throw forbidden('Only the CEO or a Manager in this project can add or edit tasks.');
 };
 
@@ -44,16 +35,7 @@ const assertCanSetStatus = async (projectId: string, assignedTo: string | null, 
   if (isSuperAdmin(actor.role)) return;
   if (isManager(actor.role)) {
     const project = await projectRepository.findById(projectId);
-    if (project && canManageProject(actor, {
-      organizationId: project.organization_id,
-      departmentId: project.department_id,
-      ownerUserId: project.owner_id,
-      members: (project.project_members || []).map((membership: any) => ({
-        userId: membership.user?.id,
-        projectRole: membership.project_role,
-        permissions: membership.permissions_json,
-      })),
-    })) return;
+    if (project && canManageProject(actor, toPolicyResource(project))) return;
   }
   if (assignedTo && assignedTo === actor.id) return;
   throw forbidden('Only the assigned member can update this task\'s status.');

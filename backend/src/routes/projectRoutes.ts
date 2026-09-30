@@ -22,7 +22,7 @@ import {
   transitionProject,
 } from '../controllers/projectController';
 import { upload } from '../middleware/upload';
-import { protect, requireManager, requireProjectAccess, requireSuperAdmin } from '../middleware/auth';
+import { protect, requireManager, requireProjectAccess, requireProjectManage, requireSuperAdmin } from '../middleware/auth';
 import { validateBody } from '../middleware/validate';
 import {
   createProjectSchema,
@@ -67,11 +67,11 @@ router.use('/:id', requireProjectAccess);
 
 router.route('/:id')
   .get(getProjectById)
-  .put(requireManager, validateBody(updateProjectSchema), updateProject)
+  .put(requireProjectManage, validateBody(updateProjectSchema), updateProject)
   .delete(requireSuperAdmin, deleteProject);
 
-router.post('/:id/archive', requireManager, archiveProject);
-router.post('/:id/restore', requireManager, restoreProject);
+router.post('/:id/archive', requireProjectManage, archiveProject);
+router.post('/:id/restore', requireProjectManage, restoreProject);
 router.post('/:id/lifecycle', validateBody(projectLifecycleSchema), transitionProject);
 
 // Updates/daily-reports/finish are gated per-request inside the controller
@@ -95,8 +95,8 @@ router.route('/:id/finish')
 
 // Assigning/removing members on an *existing* project (as opposed to at
 // creation time via CreateProjectModal) is part of Super Admin team management.
-router.post('/:id/members', requireManager, validateBody(addProjectMemberSchema), addProjectMember);
-router.delete('/:id/members/:userId', requireManager, removeProjectMember);
+router.post('/:id/members', requireProjectManage, validateBody(addProjectMemberSchema), addProjectMember);
+router.delete('/:id/members/:userId', requireProjectManage, removeProjectMember);
 router.get('/:id/milestones', listMilestones);
 router.post('/:id/milestones', validateBody(createMilestoneSchema), createMilestone);
 router.get('/:id/overview', getProjectOverview);
