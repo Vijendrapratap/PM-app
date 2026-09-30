@@ -16,12 +16,17 @@ alter table projects add column if not exists vertical_id uuid references vertic
 create index if not exists idx_projects_vertical on projects(vertical_id);
 
 -- Heads are matched by first name: emails differ between local and production.
+-- Only assign a head when exactly one active CEO/MANAGER matches the first
+-- name; an ambiguous or absent match leaves the vertical unassigned.
 insert into verticals (organization_id, name, code, kind, owner_user_id)
 select org.id, seed.name, seed.code, seed.kind,
-  (select u.id from users u
+  (select matched.id from (
+    select u.id, count(*) over () as match_count
+    from users u
     where u.organization_id = org.id and u.status = 'Active'
+      and u.platform_role in ('CEO', 'MANAGER')
       and lower(split_part(trim(u.name), ' ', 1)) = seed.head
-    order by u.created_at limit 1)
+  ) matched where matched.match_count = 1)
 from organizations org
 cross join (values
   ('AptusHire', 'APTUSHIRE', 'PRODUCT', 'satyam'),
@@ -46,12 +51,15 @@ from (values
 join verticals v on v.code = map.code
 where p.name = map.project_name and p.organization_id = v.organization_id and p.vertical_id is null;
 
--- Henry heads Sales (null until his account exists).
+-- Henry heads Sales (null until his account exists, or if the name is ambiguous).
 update departments d
-set lead_user_id = (select u.id from users u
+set lead_user_id = (select matched.id from (
+    select u.id, count(*) over () as match_count
+    from users u
     where u.organization_id = d.organization_id and u.status = 'Active'
+      and u.platform_role in ('CEO', 'MANAGER')
       and lower(split_part(trim(u.name), ' ', 1)) = 'henry'
-    order by u.created_at limit 1)
+  ) matched where matched.match_count = 1)
 where d.code = 'SALES' and d.lead_user_id is null;
 
 notify pgrst, 'reload schema';
