@@ -1,6 +1,6 @@
 # Org & Access Foundation (Verticals) — Design
 
-Status: awaiting review · Date: 2026-09-30 · Sub-project 1 of 5
+Status: approved 2026-09-30 · Date: 2026-09-30 · Sub-project 1 of 5
 
 ## 1. Why
 
@@ -25,7 +25,7 @@ Pratap AI runs internal product brands (verticals) and client work side by side.
 
 ### Defaults to confirm at review
 
-- New accounts: `sankalp@pratap.local`, `henry@pratap.local`. Replace with real emails.
+- New accounts: Sankalp — `sankalp@pratap.ai`, Henry — `vincent@pratap.ai`.
 - Satyam's designation becomes "Head of AptusHire"; his department stays whatever the CEO sets.
 - Project → vertical backfill:
 
@@ -110,6 +110,8 @@ The same steps are applied to the local database for testing.
 - Deactivating a vertical's head leaves `owner_user_id` in place. The vertical shows "Head inactive" until the CEO reassigns it.
 
 ## 7. Testing
+
+After implementation, a role-by-role pass drives every page in the browser as CEO (Vijendra), vertical head with display role Project Manager (Satyam), vertical head with display role Lead (Anush) and team member (Disha). It checks each feature is visible and works for the roles that should have it, and is hidden and refused for the rest. It also checks the company-wide views (projects, reports, team history) show all verticals to the CEO and heads.
 
 - `accessPolicy.test.ts`: the rule table (CEO / head of this vertical / head of another vertical / project owner / member / team member) × (view / manage).
 - One integration test: Satyam lists all projects, can edit an AptusHire project, and gets 403 editing a FrontDesk project. Govind can edit it.
