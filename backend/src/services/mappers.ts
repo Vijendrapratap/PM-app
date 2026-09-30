@@ -34,6 +34,7 @@ export const mapProject = (row: any) => ({
   status: row.status,
   stage: row.canonical_status || 'DRAFT',
   kind: row.kind || 'DELIVERY',
+  vertical: row.vertical ? { _id: row.vertical.id, name: row.vertical.name, code: row.vertical.code } : null,
   objective: row.objective ?? null,
   successCriteria: Array.isArray(row.success_criteria_json) ? row.success_criteria_json : [],
   targetDate: row.target_date ?? null,

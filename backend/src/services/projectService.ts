@@ -12,6 +12,7 @@ import { canApproveAgentWork, canViewAllProjects, isSuperAdmin } from '../utils/
 import { agentWorkflowService } from './agentWorkflowService';
 import { logger } from '../config/logger';
 import { canManageProject, canViewProject, toPolicyResource } from '../policies/accessPolicy';
+import { verticalService } from './verticalService';
 import { blockerRepository } from '../repositories/blockerRepository';
 import { hierarchyRepository } from '../repositories/hierarchyRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
@@ -56,6 +57,7 @@ interface CreateProjectInput {
   organizationId?: string;
   sourceIdeaId?: string;
   useAiPlanning?: boolean | string;
+  verticalId?: string | null;
   files: Express.Multer.File[];
 }
 
@@ -88,6 +90,8 @@ export const projectService = {
 
     const ownerId = input.actorId || (await getSystemUserId());
 
+    if (input.verticalId) await verticalService.assertCanAssign(input.verticalId, { id: ownerId, role: input.actorRole || '', organizationId: input.organizationId });
+
     const project = await projectRepository.create({
       name: input.name,
       description: input.description,
@@ -107,6 +111,7 @@ export const projectService = {
       source_idea_id: input.sourceIdeaId,
       created_by: ownerId,
       objective: input.description || input.name,
+      vertical_id: input.verticalId || null,
     });
 
     await projectRepository.addMembers(
@@ -219,11 +224,17 @@ export const projectService = {
       objective: string;
       successCriteria: string[];
       targetDate: string;
+      verticalId: string | null;
     }>,
     actor?: { id: string; role: string; organizationId?: string; departmentId?: string | null },
   ) {
     const existing = await projectRepository.findById(id);
     if (!existing) throw notFound('Project not found');
+
+    if (patch.verticalId !== undefined && patch.verticalId !== (existing.vertical_id ?? null)) {
+      if (!actor) throw badRequest('A signed-in user is required to change the vertical');
+      await verticalService.assertCanAssign(patch.verticalId, actor);
+    }
 
     const updated = await projectRepository.update(id, {
       ...(patch.name !== undefined && { name: patch.name }),
@@ -240,6 +251,7 @@ export const projectService = {
       ...(patch.objective !== undefined && { objective: patch.objective || null }),
       ...(patch.successCriteria !== undefined && { success_criteria_json: patch.successCriteria }),
       ...(patch.targetDate !== undefined && { target_date: patch.targetDate }),
+      ...(patch.verticalId !== undefined && { vertical_id: patch.verticalId }),
     });
     if (!updated) throw notFound('Project not found');
 

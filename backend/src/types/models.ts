@@ -47,6 +47,7 @@ export interface Project {
   source_idea_id?: string | null;
   organization_id?: string;
   department_id?: string | null;
+  vertical_id?: string | null;
   objective?: string | null;
   expected_outcome?: string | null;
   health?: 'ON_TRACK' | 'AT_RISK' | 'OFF_TRACK' | 'NOT_SET';

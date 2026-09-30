@@ -75,6 +75,7 @@ export const createProjectSchema = z.object({
   tags: z.union([z.array(z.string()), z.string()]).optional(),
   status: z.string().optional(),
   useAiPlanning: z.union([z.boolean(), z.enum(['true', 'false'])]).optional(),
+  verticalId: z.union([z.string().uuid(), z.literal(''), z.null()]).optional().transform((value) => value === '' ? null : value),
 });
 
 // Postgres `date` columns reject '' outright ("invalid input syntax for type
@@ -102,6 +103,7 @@ export const updateProjectSchema = z.object({
   objective: z.string().trim().max(2000).optional(),
   successCriteria: z.array(z.string().trim().min(1).max(500)).max(10).optional(),
   targetDate: optionalDateString,
+  verticalId: z.union([z.string().uuid(), z.literal(''), z.null()]).optional().transform((value) => value === '' ? null : value),
 });
 
 export const projectLifecycleSchema = z.object({
@@ -395,3 +397,9 @@ export const runAgentSchema = z.object({
 });
 export const updateKnowledgeDocumentSchema = z.object({ content: z.string().trim().min(20).max(100000) });
 export const updateAgentDefinitionSchema = z.object({ systemPrompt: z.string().trim().min(80).max(30000), changeNote: z.string().trim().max(500).optional() });
+
+export const updateVerticalSchema = z.object({
+  name: z.string().trim().min(1).max(80).optional(),
+  ownerUserId: z.string().uuid().nullable().optional(),
+  active: z.boolean().optional(),
+});
