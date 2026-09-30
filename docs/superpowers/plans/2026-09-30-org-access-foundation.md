@@ -24,6 +24,7 @@
   - MarketingHarness / `MARKETINGHARNESS` (PRODUCT)
   - SmartHomes / `SMARTHOMES` (PRODUCT)
   - Client Projects / `CLIENT_PROJECTS` (CLIENT_SERVICES)
+- Disha (intern) works under Govind on FrontDesk as a project member only.
 - Heads: SmartHomes — Anush, AptusHire — Satyam, FrontDesk — Govind, MarketingHarness — Sankalp, Client Projects — Priyanshu. Sales department lead: Henry.
 - New accounts: Sankalp `sankalp@pratap.ai`, Henry `vincent@pratap.ai`. Deactivate Devesh, Saransh and Sunny. Satyam's designation: "Head of AptusHire".
 - Heads are matched by **first name** among active users of the same organization. Emails differ between local (`@pratap.local`) and production.
@@ -715,6 +716,7 @@ Use the local password `Demo@123`. Then:
 - `POST /api/users/:id/deactivate` for Devesh, Saransh and Sunny.
 - Update Satyam's designation to "Head of AptusHire" through the user update endpoint used by the Team page.
 - `PUT /api/verticals/<MarketingHarness id> { ownerUserId: <Sankalp id> }`.
+- Disha works under Govind (FrontDesk). No new rule: Govind adds her as a member of FrontDesk projects. For the browser pass, add her to the FrontDesk project created by the integration test, then verify she sees it, can update only her own assigned tasks there, and cannot edit the project.
 - Re-run the Sales-lead update from the migration (it is idempotent) so Henry becomes the Sales department lead:
 
 ```bash
