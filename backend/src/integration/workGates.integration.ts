@@ -152,6 +152,12 @@ test('CEO can read team work logs', async () => {
   assert.equal((await call(ceo.token, 'GET', '/daily-work/admin')).status, 200);
 });
 
+test('a head (MANAGER) can read the team pulse, same as the CEO; a team member cannot', async () => {
+  assert.equal((await call(pm.token, 'GET', '/workdays/team')).status, 200);
+  assert.equal((await call(ceo.token, 'GET', '/workdays/team')).status, 200);
+  assert.equal((await call(dev.token, 'GET', '/workdays/team')).status, 403);
+});
+
 const activeProject = async (name: string) => {
   const { data } = await supabase.from('projects').insert({ name: `${name} ${Date.now()}`, status: 'In Progress', canonical_status: 'ACTIVE', kind: 'DELIVERY', owner_id: pm.id, created_by: pm.id, organization_id: orgId, priority: 'Medium' }).select('id').single();
   await supabase.from('project_members').insert({ project_id: data!.id, user_id: dev.id });

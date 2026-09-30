@@ -13,7 +13,7 @@ const orgOf = (actor: Actor) => {
 
 const toDto = (row: any) => ({
   _id: row.id, name: row.name, code: row.code, kind: row.kind, active: row.active,
-  head: row.head ? { _id: row.head.id, name: row.head.name, email: row.head.email, active: row.head.account_status === 'ACTIVE' } : null,
+  head: row.head ? { _id: row.head.id, name: row.head.name, email: row.head.email, active: row.head.status === 'Active' } : null,
 });
 
 export const verticalService = {
@@ -30,7 +30,7 @@ export const verticalService = {
       const platformRole = toPlatformRole(head?.platform_role || head?.role);
       const isEligible = head
         && head.organization_id === orgOf(actor)
-        && head.account_status === 'ACTIVE'
+        && head.status === 'Active'
         && (platformRole === 'CEO' || platformRole === 'MANAGER');
       if (!isEligible) throw badRequest('A vertical head must be an active manager in your organization');
     }

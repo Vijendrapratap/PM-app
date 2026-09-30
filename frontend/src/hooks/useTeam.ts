@@ -4,14 +4,18 @@ import type { User } from '../types';
 import { useAuth } from '../context/AuthContext';
 
 export const useTeam = () => {
-  const { isDemo } = useAuth();
+  const { isDemo, user } = useAuth();
+  // GET /team requires CEO or MANAGER (requireManager on the backend); a
+  // team member always gets a 403 here, so skip the call instead of
+  // logging a console error on every page that lists assignable members.
+  const canListTeam = user?.platformRole === 'CEO' || user?.platformRole === 'MANAGER';
   const [members, setMembers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   const refetch = useCallback(async () => {
     // Demo mode has no real backend session (see AuthContext.startDemo) -
     // fetching here would 401 and force-logout the demo user.
-    if (isDemo) {
+    if (isDemo || !canListTeam) {
       setMembers([]);
       setLoading(false);
       return;
@@ -24,7 +28,7 @@ export const useTeam = () => {
     } finally {
       setLoading(false);
     }
-  }, [isDemo]);
+  }, [isDemo, canListTeam]);
 
   useEffect(() => {
     refetch();

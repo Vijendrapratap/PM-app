@@ -3,7 +3,7 @@ import { projectRepository } from '../repositories/projectRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { workdayRepository } from '../repositories/workdayRepository';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
-import { isSuperAdmin } from '../utils/roles';
+import { canViewAllProjects, isSuperAdmin } from '../utils/roles';
 import { projectTaskService } from './projectTaskService';
 import { WorkdayItemStatus } from '../types/models';
 import { workDateForTimezone } from '../utils/workDate';
@@ -437,7 +437,7 @@ export const workdayService = {
   },
 
   async getTeam(date: string, actor: Actor) {
-    if (!isSuperAdmin(actor.role)) throw forbidden('Only Founder or Super Admin can view employee daily work');
+    if (!canViewAllProjects(actor.role)) throw forbidden('Only a manager or CEO can view employee daily work');
     if (!actor.organizationId) throw badRequest('Your account is not assigned to an organization');
     const { users, workdays } = await workdayRepository.findTeamForDate(date || actorWorkDate(actor), actor.organizationId);
     const workdayByUser = new Map(workdays.map((workday: any) => [workday.user_id, workday]));

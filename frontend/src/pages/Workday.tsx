@@ -27,7 +27,8 @@ const dateKey = () => {
   const day = String(date.getDate()).padStart(2, '0');
   return `${date.getFullYear()}-${month}-${day}`;
 };
-const canSeeTeam = (role?: string) => isSuperAdmin(role);
+// Heads (MANAGER) see team history too, not just the CEO - matches canViewAllProjects on the backend.
+const canSeeTeam = (platformRole?: string) => platformRole === 'CEO' || platformRole === 'MANAGER';
 const statusClass = (status: string) => status.toLowerCase().replace(/\s+/g, '-');
 const formatWorkedTime = (minutes: number) => {
   const hours = Math.floor(minutes / 60);
@@ -38,7 +39,7 @@ const formatWorkedTime = (minutes: number) => {
 const Workday = () => {
   const { user } = useAuth();
   const [searchParams, setSearchParams] = useSearchParams();
-  const [view, setView] = useState<View>((searchParams.get('view') === 'team' || isSuperAdmin(user?.platformRole || user?.role)) && canSeeTeam(user?.role) ? 'team' : 'my-day');
+  const [view, setView] = useState<View>((searchParams.get('view') === 'team' || isSuperAdmin(user?.platformRole || user?.role)) && canSeeTeam(user?.platformRole) ? 'team' : 'my-day');
   const [workday, setWorkday] = useState<WorkdayRecord | null>(null);
   const [tasks, setTasks] = useState<AssignedProjectTask[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
@@ -72,7 +73,7 @@ const Workday = () => {
   }, []);
 
   useEffect(() => {
-    setView((searchParams.get('view') === 'team' || isSuperAdmin(user?.platformRole || user?.role)) && canSeeTeam(user?.role) ? 'team' : 'my-day');
+    setView((searchParams.get('view') === 'team' || isSuperAdmin(user?.platformRole || user?.role)) && canSeeTeam(user?.platformRole) ? 'team' : 'my-day');
   }, [searchParams, user?.platformRole, user?.role]);
 
   useEffect(() => {
@@ -174,7 +175,7 @@ const Workday = () => {
   }, [refreshTimeSummary, timeSummary?.activeSession, workday?._id]);
 
   useEffect(() => {
-    if (view !== 'team' || !canSeeTeam(user?.role)) return;
+    if (view !== 'team' || !canSeeTeam(user?.platformRole)) return;
     setTeamLoading(true);
     workdayApi.team(teamDate)
       .then(setTeam)
@@ -361,7 +362,7 @@ const Workday = () => {
         <div className="workday-date"><CalendarDays size={16} /><span>{new Date(`${teamDate}T12:00:00`).toLocaleDateString('en-US', { weekday: 'short', month: 'long', day: 'numeric' })}</span></div>
       </header>
 
-      {canSeeTeam(user?.role) && <div className="workday-tabs" role="tablist">
+      {canSeeTeam(user?.platformRole) && <div className="workday-tabs" role="tablist">
         {!isSuperAdmin(user?.platformRole || user?.role) && <button role="tab" aria-selected={view === 'my-day'} className={view === 'my-day' ? 'active' : ''} onClick={() => changeView('my-day')}><Target size={15} /> My day</button>}
         <button role="tab" aria-selected={view === 'team'} className={view === 'team' ? 'active' : ''} onClick={() => changeView('team')}><Users size={15} /> Team pulse</button>
       </div>}

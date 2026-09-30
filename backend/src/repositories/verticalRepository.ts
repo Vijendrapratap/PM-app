@@ -1,6 +1,6 @@
 import { supabase } from '../config/supabase';
 
-const SELECT = '*, head:owner_user_id(id, name, email, account_status)';
+const SELECT = '*, head:owner_user_id(id, name, email, status)';
 
 export const verticalRepository = {
   async list(organizationId: string) {

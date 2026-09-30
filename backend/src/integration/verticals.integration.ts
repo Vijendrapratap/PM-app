@@ -78,6 +78,48 @@ test('a vertical head must be an active manager in the organization', async () =
   assert.equal((await call(ceo.token, 'PUT', `/verticals/${frontdesk}`, { ownerUserId: govind.id })).status, 200);
 });
 
+test('a freshly registered manager (not yet onboarded) is eligible as vertical head', async () => {
+  const frontdesk = verticals.find((v) => v.code === 'FRONTDESK')._id;
+  const stamp = Date.now();
+  const registered = await call(ceo.token, 'POST', '/auth/register', {
+    name: `IT vert manager ${stamp}`,
+    email: `it-vert-manager-${stamp}@pratap.local`,
+    password: 'Demo@123',
+    role: 'MANAGER',
+  });
+  assert.equal(registered.status, 201);
+  const newManagerId = registered.body._id;
+  try {
+    const assigned = await call(ceo.token, 'PUT', `/verticals/${frontdesk}`, { ownerUserId: newManagerId });
+    assert.equal(assigned.status, 200);
+    assert.equal(assigned.body.head._id, newManagerId);
+    assert.equal(assigned.body.head.active, true);
+  } finally {
+    await call(ceo.token, 'PUT', `/verticals/${frontdesk}`, { ownerUserId: govind.id });
+    await supabase.from('users').delete().eq('id', newManagerId);
+  }
+});
+
+test('a deactivated manager is not eligible as vertical head', async () => {
+  const frontdesk = verticals.find((v) => v.code === 'FRONTDESK')._id;
+  const stamp = Date.now();
+  const registered = await call(ceo.token, 'POST', '/auth/register', {
+    name: `IT vert deactivated ${stamp}`,
+    email: `it-vert-deactivated-${stamp}@pratap.local`,
+    password: 'Demo@123',
+    role: 'MANAGER',
+  });
+  const newManagerId = registered.body._id;
+  try {
+    assert.equal((await call(ceo.token, 'POST', `/users/${newManagerId}/deactivate`)).status, 200);
+    const rejected = await call(ceo.token, 'PUT', `/verticals/${frontdesk}`, { ownerUserId: newManagerId });
+    assert.equal(rejected.status, 400);
+    assert.equal(rejected.body.message, 'A vertical head must be an active manager in your organization');
+  } finally {
+    await supabase.from('users').delete().eq('id', newManagerId);
+  }
+});
+
 test('team members cannot manage verticals or see unassigned projects', async () => {
   assert.equal((await call(disha.token, 'PUT', `/verticals/${verticals[0]._id}`, { name: 'x' })).status, 403);
   const list = (await call(disha.token, 'GET', '/projects')).body;

@@ -19,7 +19,7 @@ create index if not exists idx_projects_vertical on projects(vertical_id);
 insert into verticals (organization_id, name, code, kind, owner_user_id)
 select org.id, seed.name, seed.code, seed.kind,
   (select u.id from users u
-    where u.organization_id = org.id and u.account_status = 'ACTIVE'
+    where u.organization_id = org.id and u.status = 'Active'
       and lower(split_part(trim(u.name), ' ', 1)) = seed.head
     order by u.created_at limit 1)
 from organizations org
@@ -49,7 +49,7 @@ where p.name = map.project_name and p.organization_id = v.organization_id and p.
 -- Henry heads Sales (null until his account exists).
 update departments d
 set lead_user_id = (select u.id from users u
-    where u.organization_id = d.organization_id and u.account_status = 'ACTIVE'
+    where u.organization_id = d.organization_id and u.status = 'Active'
       and lower(split_part(trim(u.name), ' ', 1)) = 'henry'
     order by u.created_at limit 1)
 where d.code = 'SALES' and d.lead_user_id is null;

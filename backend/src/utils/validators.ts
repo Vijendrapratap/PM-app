@@ -31,6 +31,7 @@ export const updateUserSchema = z.object({
   name: z.string().optional(),
   email: emailSchema.optional(),
   role: z.string().optional(),
+  designation: z.string().max(120).optional(),
   department: z.string().optional(),
   phone: z.string().optional(),
   status: z.enum(['Active', 'Inactive']).optional(),
