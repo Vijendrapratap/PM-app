@@ -13,10 +13,14 @@ import { workdayHours } from '../utils/duration';
 interface Actor { id: string; role: string; timezone?: string; organizationId?: string; departmentId?: string | null }
 const timezoneOf = (actor: Actor) => actor.timezone || 'Asia/Dubai';
 const dateOf = (actor: Actor) => workDateForTimezone(timezoneOf(actor));
+const lastActivityAt = (logs: any[]) => logs.reduce((latest: string | null, log: any) => (!latest || log.created_at > latest ? log.created_at : latest), null);
 const dto = (session: any, logs: any[] = [], commitments: any[] = []) => ({
   _id: session.id, userId: session.user_id, user: session.user, date: session.work_date, timezone: session.timezone,
   startAt: session.start_at, endAt: session.end_at, status: session.status,
-  hours: workdayHours({ startAt: session.start_at, endAt: session.end_at, capacityMinutes: session.user?.daily_capacity_minutes }), logs: logs.map((log: any) => ({
+  hours: workdayHours({
+    startAt: session.start_at, endAt: session.end_at, capacityMinutes: session.user?.daily_capacity_minutes,
+    autoClosed: session.status === 'AUTO_COMPLETED', lastActivityAt: lastActivityAt(logs),
+  }), logs: logs.map((log: any) => ({
     _id: log.id, sessionId: log.session_id, userId: log.user_id, projectId: log.project_id, project: log.project,
     taskId: log.task_id, task: log.task, title: log.title, description: log.description, minutes: log.minutes ?? null, createdAt: log.created_at,
   })),
