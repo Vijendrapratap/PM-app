@@ -1,7 +1,8 @@
 import { verticalRepository } from '../repositories/verticalRepository';
+import { userRepository } from '../repositories/userRepository';
 import { activityLogRepository } from '../repositories/activityLogRepository';
 import { badRequest, forbidden, notFound } from '../utils/httpError';
-import { isSuperAdmin } from '../utils/roles';
+import { isSuperAdmin, toPlatformRole } from '../utils/roles';
 
 interface Actor { id: string; role: string; organizationId?: string }
 
@@ -24,6 +25,15 @@ export const verticalService = {
     if (!isSuperAdmin(actor.role)) throw forbidden('Only the CEO can manage verticals');
     const existing = await verticalRepository.findById(id);
     if (!existing || existing.organization_id !== orgOf(actor)) throw notFound('Vertical not found');
+    if (patch.ownerUserId) {
+      const head = await userRepository.findById(patch.ownerUserId);
+      const platformRole = toPlatformRole(head?.platform_role || head?.role);
+      const isEligible = head
+        && head.organization_id === orgOf(actor)
+        && head.account_status === 'ACTIVE'
+        && (platformRole === 'CEO' || platformRole === 'MANAGER');
+      if (!isEligible) throw badRequest('A vertical head must be an active manager in your organization');
+    }
     const updated = await verticalRepository.update(id, {
       ...(patch.name !== undefined && { name: patch.name }),
       ...(patch.ownerUserId !== undefined && { owner_user_id: patch.ownerUserId }),

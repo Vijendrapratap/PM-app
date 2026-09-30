@@ -70,6 +70,14 @@ test('only the CEO or the target vertical head can move a project into a vertica
   assert.equal(cleared.vertical, null);
 });
 
+test('a vertical head must be an active manager in the organization', async () => {
+  const frontdesk = verticals.find((v) => v.code === 'FRONTDESK')._id;
+  const rejected = await call(ceo.token, 'PUT', `/verticals/${frontdesk}`, { ownerUserId: disha.id });
+  assert.equal(rejected.status, 400);
+  assert.equal(rejected.body.message, 'A vertical head must be an active manager in your organization');
+  assert.equal((await call(ceo.token, 'PUT', `/verticals/${frontdesk}`, { ownerUserId: govind.id })).status, 200);
+});
+
 test('team members cannot manage verticals or see unassigned projects', async () => {
   assert.equal((await call(disha.token, 'PUT', `/verticals/${verticals[0]._id}`, { name: 'x' })).status, 403);
   const list = (await call(disha.token, 'GET', '/projects')).body;
