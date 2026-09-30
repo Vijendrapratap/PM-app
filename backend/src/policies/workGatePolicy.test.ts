@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   DEFAULT_LIMITS, briefGaps, checkCommitments, checkProjectTransition, checkQuickAddTarget,
-  checkStartTask, checkWorkTarget, isLoggableProject, type BriefFacts,
+  checkDayClose, checkStartTask, checkWorkTarget, isLoggableProject, type BriefFacts,
 } from './workGatePolicy';
 
 const completeBrief: BriefFacts = {
@@ -91,4 +91,21 @@ test('quick-add: standing projects for anyone, active delivery projects for memb
 test('WIP limit on starting a task', () => {
   assert.deepEqual(checkStartTask({ inProgressCount: 1, limits: DEFAULT_LIMITS }), { ok: true });
   assert.deepEqual(checkStartTask({ inProgressCount: 2, limits: DEFAULT_LIMITS }), { ok: false, status: 409, message: 'You already have 2 tasks in progress (limit 2). Finish, pause or send one for review first.' });
+});
+
+test('closing the day needs an answer per task, and a reason when delayed or blocked', () => {
+  const tasks = [{ id: 'a', title: 'API', carryForwardCount: 0 }, { id: 'b', title: 'Logged later', carryForwardCount: 2 }];
+  assert.deepEqual(checkDayClose({ tasks, outcomes: [{ taskId: 'a', outcome: 'DONE' }] }), { ok: false, status: 400, message: 'Tell us how today went for: Logged later' });
+  assert.equal(checkDayClose({ tasks, outcomes: [{ taskId: 'a', outcome: 'DELAYED' }, { taskId: 'b', outcome: 'DONE' }] }).ok, false);
+  assert.equal(checkDayClose({ tasks, outcomes: [{ taskId: 'a', outcome: 'BLOCKED' }, { taskId: 'b', outcome: 'DONE' }] }).ok, false);
+  assert.equal(checkDayClose({ tasks, outcomes: [{ taskId: 'a', outcome: 'DELAYED', reasonCode: 'OTHER' }, { taskId: 'b', outcome: 'DONE' }] }).ok, false);
+  assert.equal(checkDayClose({ tasks, outcomes: [{ taskId: 'a', outcome: 'DONE' }, { taskId: 'b', outcome: 'CARRIED' }] }).ok, false);
+  assert.deepEqual(checkDayClose({ tasks, outcomes: [
+    { taskId: 'a', outcome: 'DELAYED', reasonCode: 'OTHER_TASK' },
+    { taskId: 'b', outcome: 'CARRIED', reason: 'Client changed scope' },
+  ] }), { ok: true });
+  assert.deepEqual(checkDayClose({ tasks, outcomes: [
+    { taskId: 'a', outcome: 'BLOCKED', reasonCode: 'OTHER', reason: 'Server down' },
+    { taskId: 'b', outcome: 'DONE' },
+  ] }), { ok: true });
 });

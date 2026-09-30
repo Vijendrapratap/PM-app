@@ -1,7 +1,7 @@
 import { supabase } from '../config/supabase';
 import type { DailyWorkSession, WorkLog } from '../types/models';
 
-const SESSION_SELECT = '*, user:user_id(id, name, email, role, department, photo)';
+const SESSION_SELECT = '*, user:user_id(id, name, email, role, department, photo, daily_capacity_minutes)';
 const LOG_SELECT = '*, project:project_id(id, name), task:task_id(id, title)';
 
 export const dailyWorkRepository = {
@@ -68,8 +68,8 @@ export const dailyWorkRepository = {
     const { error } = await supabase.from('daily_work_commitments').insert(rows);
     if (error) throw error;
   },
-  async setOutcome(sessionId: string, taskId: string, outcome: string, carryReason: string | null) {
-    const { error } = await supabase.from('daily_work_commitments').update({ outcome, carry_reason: carryReason }).eq('session_id', sessionId).eq('task_id', taskId);
+  async setOutcome(sessionId: string, taskId: string, outcome: string, reasonCode: string | null, carryReason: string | null) {
+    const { error } = await supabase.from('daily_work_commitments').update({ outcome, reason_code: reasonCode, carry_reason: carryReason }).eq('session_id', sessionId).eq('task_id', taskId);
     if (error) throw error;
   },
   async markUnresolvedCarried(sessionId: string) {

@@ -93,11 +93,18 @@ test('logging on a closed task fails with a clear message', async () => {
   assert.equal(response.body.message, 'This task is closed');
 });
 
-test('end requires an outcome per commitment and still accepts a cancelled commitment', async () => {
-  assert.equal((await call(dev.token, 'POST', '/daily-work/end', { outcomes: [{ taskId: taskIds[0], outcome: 'DONE' }] })).status, 400);
-  const ended = await call(dev.token, 'POST', '/daily-work/end', { outcomes: [{ taskId: taskIds[0], outcome: 'DONE' }, { taskId: taskIds[1], outcome: 'CARRIED' }] });
+test('end asks about every task touched today, needs a reason when delayed, and reports hours', async () => {
+  const current = await call(dev.token, 'GET', '/daily-work/current');
+  const titles = current.body.commitments.map((row: any) => row.task.title);
+  assert.ok(titles.includes('IT quick-add'), 'a task logged mid-day joins the list');
+  assert.equal(current.body.hours.expectedMinutes > 0, true);
+  const others = current.body.commitments.filter((row: any) => ![taskIds[0], taskIds[1]].includes(row.taskId)).map((row: any) => ({ taskId: row.taskId, outcome: 'DONE' }));
+  assert.equal((await call(dev.token, 'POST', '/daily-work/end', { outcomes: [{ taskId: taskIds[0], outcome: 'DONE' }, { taskId: taskIds[1], outcome: 'CARRIED' }] })).status, 400);
+  assert.equal((await call(dev.token, 'POST', '/daily-work/end', { outcomes: [{ taskId: taskIds[0], outcome: 'DONE' }, { taskId: taskIds[1], outcome: 'DELAYED' }, ...others] })).status, 400);
+  const ended = await call(dev.token, 'POST', '/daily-work/end', { outcomes: [{ taskId: taskIds[0], outcome: 'DONE' }, { taskId: taskIds[1], outcome: 'DELAYED', reasonCode: 'OTHER_TASK' }, ...others] });
   assert.equal(ended.status, 200);
   assert.equal(ended.body.status, 'COMPLETED');
+  assert.equal(ended.body.commitments.find((row: any) => row.taskId === taskIds[1]).reasonCode, 'OTHER_TASK');
 });
 
 test('team member cannot PUT a task to DONE; WIP limit blocks a third start', async () => {

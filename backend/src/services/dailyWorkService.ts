@@ -4,23 +4,24 @@ import { projectRepository } from '../repositories/projectRepository';
 import { badRequest, forbidden, notFound, HttpError } from '../utils/httpError';
 import { canApproveAgentWork } from '../utils/roles';
 import { workDateForTimezone } from '../utils/workDate';
-import { checkCommitments, checkQuickAddTarget, checkWorkTarget } from '../policies/workGatePolicy';
+import { checkCommitments, checkDayClose, checkQuickAddTarget, checkWorkTarget, type DayCloseAnswer } from '../policies/workGatePolicy';
 import { projectStage, taskStage, workGateRepository } from '../repositories/workGateRepository';
 import { projectTaskRepository } from '../repositories/projectTaskRepository';
 import { activityLogRepository } from '../repositories/activityLogRepository';
-import { requiresCarryoverReason } from '../utils/dailyPlanRules';
+import { workdayHours } from '../utils/duration';
 
 interface Actor { id: string; role: string; timezone?: string; organizationId?: string; departmentId?: string | null }
 const timezoneOf = (actor: Actor) => actor.timezone || 'Asia/Dubai';
 const dateOf = (actor: Actor) => workDateForTimezone(timezoneOf(actor));
 const dto = (session: any, logs: any[] = [], commitments: any[] = []) => ({
   _id: session.id, userId: session.user_id, user: session.user, date: session.work_date, timezone: session.timezone,
-  startAt: session.start_at, endAt: session.end_at, status: session.status, logs: logs.map((log: any) => ({
+  startAt: session.start_at, endAt: session.end_at, status: session.status,
+  hours: workdayHours({ startAt: session.start_at, endAt: session.end_at, capacityMinutes: session.user?.daily_capacity_minutes }), logs: logs.map((log: any) => ({
     _id: log.id, sessionId: log.session_id, userId: log.user_id, projectId: log.project_id, project: log.project,
     taskId: log.task_id, task: log.task, title: log.title, description: log.description, minutes: log.minutes ?? null, createdAt: log.created_at,
   })),
   commitments: commitments.map((row: any) => ({
-    taskId: row.task_id, position: row.position, outcome: row.outcome, carryReason: row.carry_reason,
+    taskId: row.task_id, position: row.position, outcome: row.outcome, reasonCode: row.reason_code, carryReason: row.carry_reason,
     task: row.task ? { _id: row.task.id, title: row.task.title, projectId: row.task.project_id, projectName: row.task.project?.name || null, stage: taskStage(row.task), carryForwardCount: row.task.carry_forward_count || 0 } : null,
   })),
 });
@@ -65,23 +66,21 @@ export const dailyWorkService = {
     }));
     return { task, project };
   },
-  async end(outcomes: { taskId: string; outcome: 'DONE' | 'CARRIED' | 'BLOCKED'; reason?: string }[], actor: Actor) {
+  async end(outcomes: DayCloseAnswer[], actor: Actor) {
     const session = await dailyWorkRepository.current(actor.id, dateOf(actor));
     if (!session) throw notFound('Start your day before ending it');
     if (session.status !== 'ACTIVE') throw badRequest('SESSION ALREADY COMPLETED');
     const commitments = await dailyWorkRepository.commitments(session.id);
+    gate(checkDayClose({
+      tasks: commitments.map((row: any) => ({ id: row.task_id, title: row.task?.title || 'a task from today', carryForwardCount: row.task?.carry_forward_count || 0 })),
+      outcomes,
+    }));
     const byTask = new Map(outcomes.map((item) => [item.taskId, item]));
-    const missing = commitments.filter((row: any) => !byTask.has(row.task_id));
-    if (missing.length) throw badRequest(`Tell us how today went for: ${missing.map((row: any) => row.task?.title || 'a committed task').join(', ')}`);
     for (const row of commitments) {
       const item = byTask.get(row.task_id)!;
-      if (item.outcome === 'CARRIED' && requiresCarryoverReason(row.task?.carry_forward_count || 0) && !item.reason?.trim()) throw badRequest(`"${row.task?.title}" has been carried over ${row.task?.carry_forward_count} times. Say why before carrying it again.`);
+      await dailyWorkRepository.setOutcome(session.id, row.task_id, item.outcome, item.outcome === 'DONE' ? null : item.reasonCode || null, item.reason?.trim() || null);
     }
-    for (const row of commitments) {
-      const item = byTask.get(row.task_id)!;
-      await dailyWorkRepository.setOutcome(session.id, row.task_id, item.outcome, item.reason?.trim() || null);
-    }
-    await dailyWorkRepository.incrementCarry(commitments.filter((row: any) => byTask.get(row.task_id)!.outcome === 'CARRIED').map((row: any) => row.task_id));
+    await dailyWorkRepository.incrementCarry(commitments.filter((row: any) => ['CARRIED', 'DELAYED'].includes(byTask.get(row.task_id)!.outcome)).map((row: any) => row.task_id));
     return full(await dailyWorkRepository.complete(session.id, 'COMPLETED', new Date().toISOString()));
   },
   async addLog(input: { taskId?: string; newTask?: { title: string; projectId?: string }; title: string; description: string; minutes?: number }, actor: Actor) {
@@ -91,6 +90,12 @@ export const dailyWorkService = {
     const { task } = await this.assertWorkTarget(taskId, actor);
     const log = await dailyWorkRepository.addLog({ session_id: session.id, organization_id: session.organization_id, user_id: actor.id, project_id: task.project_id, task_id: taskId, title: input.title.trim(), description: input.description.trim(), minutes: input.minutes ?? null });
     if (input.minutes) await dailyWorkRepository.addActualMinutes(taskId, input.minutes);
+    // Logged work joins today's list so End My Day asks about it.
+    const commitments = await dailyWorkRepository.commitments(session.id);
+    // ponytail: position = max + 1 read-then-write; two logs on new tasks in the same instant hit unique(session_id, position). Move to an RPC if that ever shows up.
+    if (!commitments.some((row: any) => row.task_id === taskId)) {
+      await dailyWorkRepository.addCommitments([{ session_id: session.id, task_id: taskId, position: Math.max(0, ...commitments.map((row: any) => row.position)) + 1 }]);
+    }
     return { ...dto(session), logs: [dto(session, [log]).logs[0]] };
   },
   async quickAdd(input: { title: string; projectId?: string }, actor: Actor) {

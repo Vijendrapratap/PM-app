@@ -129,3 +129,22 @@ export const checkStartTask = ({ inProgressCount, limits }: { inProgressCount: n
   inProgressCount >= limits.maxInProgressPerPerson
     ? fail(409, `You already have ${inProgressCount} tasks in progress (limit ${limits.maxInProgressPerPerson}). Finish, pause or send one for review first.`)
     : { ok: true };
+
+export type DayOutcome = 'DONE' | 'CARRIED' | 'DELAYED' | 'BLOCKED';
+export const DELAY_REASONS = ['OTHER_TASK', 'URGENT_REQUEST', 'WAITING_ON_SOMEONE', 'MEETINGS', 'UNCLEAR_REQUIREMENTS', 'LEAVE', 'OTHER'] as const;
+export type DelayReason = (typeof DELAY_REASONS)[number];
+export interface DayCloseAnswer { taskId: string; outcome: DayOutcome; reasonCode?: DelayReason; reason?: string }
+
+// Every task touched today (committed or logged) needs an explicit answer.
+export const checkDayClose = ({ tasks, outcomes }: { tasks: { id: string; title: string; carryForwardCount: number }[]; outcomes: DayCloseAnswer[] }): GateResult => {
+  const byTask = new Map(outcomes.map((item) => [item.taskId, item]));
+  const missing = tasks.filter((task) => !byTask.has(task.id));
+  if (missing.length) return fail(400, `Tell us how today went for: ${missing.map((task) => task.title).join(', ')}`);
+  for (const task of tasks) {
+    const answer = byTask.get(task.id)!;
+    if ((answer.outcome === 'DELAYED' || answer.outcome === 'BLOCKED') && !answer.reasonCode) return fail(400, `Pick a reason why "${task.title}" was ${answer.outcome.toLowerCase()}`);
+    if (answer.reasonCode === 'OTHER' && !hasText(answer.reason)) return fail(400, `Add a note for "${task.title}"`);
+    if (answer.outcome === 'CARRIED' && task.carryForwardCount >= 2 && !hasText(answer.reason)) return fail(400, `"${task.title}" has been carried over ${task.carryForwardCount} times. Say why before carrying it again.`);
+  }
+  return { ok: true };
+};

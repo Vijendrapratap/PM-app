@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { DELAY_REASONS } from '../policies/workGatePolicy';
 
 const emailSchema = z
   .string()
@@ -304,7 +305,10 @@ export const dailyWorkLogSchema = z.object({
   minutes: z.coerce.number().int().min(1).max(720).optional(),
 }).refine((body) => Boolean(body.taskId) !== Boolean(body.newTask), { message: 'Pick a task or add a new one', path: ['taskId'] });
 export const dailyWorkEndSchema = z.object({
-  outcomes: z.array(z.object({ taskId: z.string().uuid(), outcome: z.enum(['DONE', 'CARRIED', 'BLOCKED']), reason: z.string().trim().max(500).optional() })).max(10).default([]),
+  outcomes: z.array(z.object({
+    taskId: z.string().uuid(), outcome: z.enum(['DONE', 'CARRIED', 'DELAYED', 'BLOCKED']),
+    reasonCode: z.enum(DELAY_REASONS).optional(), reason: z.string().trim().max(500).optional(),
+  })).max(50).default([]),
 });
 
 export const reportBlockerSchema = z.object({
